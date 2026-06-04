@@ -144,77 +144,52 @@ def parse_nws(j, capture):
 
 
 # ---------------------------------------------------------------- actuals + health
-def _first(obj, keys):
-    for k in keys:
-        if isinstance(obj, dict) and obj.get(k) is not None:
-            return obj.get(k)
-    return None
+# Device obs_st positional array indices (raw values are METRIC). WeatherFlow obs_st schema.
+OBS_AIRTEMP_C, OBS_BATTERY = 7, 16
+OBS_RAIN_DAY_MM, OBS_RAIN_DAY_FINAL_MM = 18, 20  # raw vs RainCheck-corrected daily accum
 
-def parse_actuals(j):
-    """Tempest station obs (daily bucket) for one prior day -> {(date,var): value}.
-    Keeps it simple for occurrence scoring; CoCoRaHS will arbitrate precip amounts later."""
+def _cell(row, i):
+    return row[i] if isinstance(row, (list, tuple)) and len(row) > i else None
+
+def c_to_f(c):
+    return c * 9.0 / 5.0 + 32.0
+
+def parse_actuals(device_json):
+    """Yesterday's per-minute device obs (obs_st arrays) -> {(date,var): value}.
+    Temperature truth = max/min of air_temperature (C->F); precip = corrected daily
+    total if present, else raw (mm->in). The Tempest station is the methodology's truth
+    source; CoCoRaHS will refine precip amounts later (README open item)."""
     out = {}
-    if not j:
+    if not device_json:
         return out
-    target = j.get("for_date")
-    obs = ((j.get("data") or {}).get("obs")) or []
+    target = device_json.get("for_date")
+    obs = ((device_json.get("data") or {}).get("obs")) or []
     if not target or not obs:
         return out
-    o = obs[-1] if isinstance(obs, list) else obs
-    if not isinstance(o, dict):
-        return out
-    hi = _first(o, ["air_temp_high", "air_temperature_high", "air_temp_high_24h"])
-    lo = _first(o, ["air_temp_low", "air_temperature_low", "air_temp_low_24h"])
-    # raw haptic and rain-check/NC-corrected are both in the dumped obs; either works
-    # for the 0.01" wet/dry test. Prefer the corrected 'final' if present.
-    pr = _first(o, ["precip_accum_local_day_final", "precip_accum_local_day",
-                    "precip_total_1h", "precipitation_total", "precip"])
-    for var, val in (("high", hi), ("low", lo), ("precip_amt", pr)):
-        if val is not None:
-            try:
-                out[(target, var)] = float(val)
-            except (TypeError, ValueError):
-                pass
+    temps = [_cell(r, OBS_AIRTEMP_C) for r in obs]
+    temps = [t for t in temps if isinstance(t, (int, float))]
+    if temps:
+        out[(target, "high")] = round(c_to_f(max(temps)), 1)
+        out[(target, "low")] = round(c_to_f(min(temps)), 1)
+    rain_final = [x for x in (_cell(r, OBS_RAIN_DAY_FINAL_MM) for r in obs) if isinstance(x, (int, float))]
+    rain_raw = [x for x in (_cell(r, OBS_RAIN_DAY_MM) for r in obs) if isinstance(x, (int, float))]
+    series = rain_final or rain_raw   # prefer RainCheck-corrected; either is a daily accumulator
+    if series:
+        out[(target, "precip_amt")] = round(max(series) / 25.4, 3)  # mm -> in
     return out
 
-def _find_number(obj, name_substrs, lo=1.0, hi=5.0):
-    """Best-effort recursive search for a plausible numeric value whose key contains
-    any of name_substrs (used for battery voltage; tolerant of unknown schema)."""
-    found = []
-    def walk(o):
-        if isinstance(o, dict):
-            for k, v in o.items():
-                if isinstance(v, (int, float)) and any(s in k.lower() for s in name_substrs):
-                    if lo <= v <= hi:
-                        found.append(v)
-                walk(v)
-        elif isinstance(o, list):
-            for v in o:
-                walk(v)
-    walk(obj)
-    return found[0] if found else None
-
-def parse_diagnostics(j):
-    """Best-effort: battery voltage + any sensor fault flags. Schema-tolerant."""
+def parse_device_health(device_json):
+    """Battery voltage from the most recent obs_st row (index 16). Sensor-fault flags
+    aren't exposed on personal-token endpoints, so the list stays empty for now."""
     out = {"battery_volts": None, "sensor_faults": []}
-    if not j:
+    if not device_json:
         return out
-    data = j.get("data") or j
-    out["battery_volts"] = _find_number(data, ["battery", "voltage", "volt"], 1.0, 5.0)
-    # collect any boolean-ish fault/status flags that read as "not ok"
-    faults = []
-    def walk(o, path=""):
-        if isinstance(o, dict):
-            for k, v in o.items():
-                kl = k.lower()
-                if ("fault" in kl or "fail" in kl) and v not in (None, 0, False, "", "0", "ok", "OK"):
-                    faults.append(k)
-                walk(v, k)
-        elif isinstance(o, list):
-            for v in o:
-                walk(v, path)
-    walk(data)
-    out["sensor_faults"] = sorted(set(faults))
+    obs = ((device_json.get("data") or {}).get("obs")) or []
+    for r in reversed(obs):
+        b = _cell(r, OBS_BATTERY)
+        if isinstance(b, (int, float)):
+            out["battery_volts"] = round(float(b), 3)
+            break
     return out
 
 
@@ -342,7 +317,7 @@ def build(records, actuals):
     return standings, verdict, trend_rows, busts, n_days
 
 
-def data_health(day_dirs, latest_diag):
+def data_health(day_dirs, latest_device):
     capture_days = len(day_dirs)
     # total days missing the irreplaceable Tempest snapshot
     misses = sum(1 for dd in day_dirs if not os.path.exists(os.path.join(dd, "tempest.json")))
@@ -369,7 +344,7 @@ def data_health(day_dirs, latest_diag):
         except Exception:
             last_hours = None
 
-    diag = parse_diagnostics(latest_diag)
+    diag = parse_device_health(latest_device)
     return {
         "capture_days": capture_days,
         "capture_misses": misses,
@@ -400,23 +375,23 @@ def empty_scores(note=""):
 
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
-    records, actuals, latest_diag = [], {}, None
+    records, actuals, latest_device = [], {}, None
     for dd in day_dirs:
         capture = os.path.basename(dd)
         records += parse_tempest(load(os.path.join(dd, "tempest.json")), capture)
         records += parse_openmeteo(load(os.path.join(dd, "openmeteo.json")), capture)
         records += parse_nws(load(os.path.join(dd, "nws.json")), capture)
-        actuals.update(parse_actuals(load(os.path.join(dd, "tempest_obs_yesterday.json"))))
-        diag = load(os.path.join(dd, "diagnostics.json"))
-        if diag:
-            latest_diag = diag
+        dev = load(os.path.join(dd, "tempest_device_yesterday.json"))
+        actuals.update(parse_actuals(dev))
+        if dev:
+            latest_device = dev
 
     standings, verdict, trend, busts, n_days = build(records, actuals)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
-        "data_health": data_health(day_dirs, latest_diag),
+        "data_health": data_health(day_dirs, latest_device),
     }
     with open(OUT, "w") as f:
         json.dump(scores, f, indent=2)

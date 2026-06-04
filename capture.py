@@ -68,8 +68,9 @@ def main():
     warnings = []   # soft issues -> logged, but the run still succeeds
 
     token, station = os.environ.get("TEMPEST_TOKEN"), os.environ.get("TEMPEST_STATION_ID")
+    device_id = None
 
-    # 0. Discover device_id (recorded alongside station_id for device-history endpoints later)
+    # 0. Discover device_id (REQUIRED for device-history endpoints; station_id 404s/401s there)
     if token and station:
         device_id, station_name = discover_device_id(station, token)
         meta["station_id"] = station
@@ -116,31 +117,37 @@ def main():
     except Exception as e:
         failures.append(f"openmeteo: {e}")
 
-    # 4. Yesterday's actuals from the Tempest station (temp/wind truth + rain occurrence).
-    #    Full raw obs is dumped, preserving BOTH raw-haptic and RainCheck-corrected precip.
+    # 4. Current station observation. Carries current conditions AND yesterday's precip
+    #    totals in BOTH forms: precip_accum_local_yesterday (raw haptic) and
+    #    precip_accum_local_yesterday_final (RainCheck/NC-corrected). We keep both.
     if token and station:
+        try:
+            sobs = get(f"https://swd.weatherflow.com/swd/rest/observations/station/{station}", {
+                "token": token, "units_temp": "f", "units_wind": "mph",
+                "units_precip": "in", "units_pressure": "inhg"})
+            write(outdir, "tempest_station_obs.json", {"meta": meta, "data": sobs})
+            print("[ok] tempest_station_obs.json")
+        except Exception as e:
+            failures.append(f"tempest_station_obs: {e}")
+
+    # 5. Yesterday's per-minute device observations -> the temperature TRUTH (daily
+    #    high/low computed by extract.py) plus battery voltage + raw/corrected rain.
+    #    NOTE: this endpoint returns positional obs_st arrays in METRIC (air_temperature
+    #    in C at index 7, rain in mm); extract.py converts. /diagnostics 401s for personal
+    #    tokens, so battery comes from obs_st index 16. SOFT (never blocks the run).
+    if token and device_id:
         try:
             y = now_local.date() - dt.timedelta(days=1)
             t0 = int(dt.datetime.combine(y, dt.time.min, ZoneInfo("America/New_York")).timestamp())
             t1 = int(dt.datetime.combine(y, dt.time.max, ZoneInfo("America/New_York")).timestamp())
-            obs = get(f"https://swd.weatherflow.com/swd/rest/observations/station/{station}", {
-                "token": token, "time_start": t0, "time_end": t1, "bucket": "a",
-                "units_temp": "f", "units_wind": "mph", "units_precip": "in"})
-            write(outdir, "tempest_obs_yesterday.json", {"meta": meta, "for_date": y.isoformat(), "data": obs})
-            print("[ok] tempest_obs_yesterday.json")
+            dobs = get("https://swd.weatherflow.com/swd/rest/observations/device/%s" % device_id, {
+                "token": token, "time_start": t0, "time_end": t1})
+            write(outdir, "tempest_device_yesterday.json",
+                  {"meta": meta, "for_date": y.isoformat(), "data": dobs})
+            nobs = len(dobs.get("obs", [])) if isinstance(dobs, dict) else 0
+            print(f"[ok] tempest_device_yesterday.json ({nobs} obs)")
         except Exception as e:
-            failures.append(f"tempest_obs: {e}")
-
-    # 5. Station diagnostics (hub online, RSSI, battery voltage, sensor faults).
-    #    Battery matters: at <=2.355 V the rain sensor silently disables, which would
-    #    threaten the guarantee's continuous-reporting requirement. SOFT (never blocks run).
-    if token and station:
-        try:
-            diag = get(f"https://swd.weatherflow.com/swd/rest/diagnostics/{station}", {"token": token})
-            write(outdir, "diagnostics.json", {"meta": meta, "data": diag})
-            print("[ok] diagnostics.json")
-        except Exception as e:
-            warnings.append(f"diagnostics: {e} (non-fatal)")
+            warnings.append(f"tempest_device_yesterday: {e} (non-fatal)")
 
     write(outdir, "_capture_log.json", {"meta": meta, "failures": failures, "warnings": warnings})
     if warnings:
