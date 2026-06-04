@@ -415,6 +415,12 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .hbadge.warn { border-color: color-mix(in oklch, var(--hl-warn) 45%, transparent); background: oklch(0.70 0.14 75 / 0.07); }
 .hbadge.fail { border-color: color-mix(in oklch, var(--hl-fail) 45%, transparent); background: var(--tint-behind); }
 .dot.ok { background: var(--hl-ok); } .dot.warn { background: var(--hl-warn); } .dot.fail { background: var(--hl-fail); }
+.health .alert { margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 600; line-height: 1.45; }
+.health .alert.lvl-fail { background: var(--tint-behind); border: 1px solid color-mix(in oklch, var(--hl-fail) 45%, transparent); color: var(--st-behind); }
+.health .alert.lvl-warn { background: oklch(0.70 0.14 75 / 0.10); border: 1px solid color-mix(in oklch, var(--hl-warn) 45%, transparent); color: oklch(0.45 0.10 80); }
+[data-theme="dark"] .health .alert.lvl-warn, :root:not([data-theme="light"]) .health .alert.lvl-warn { color: var(--hl-warn); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .health .alert.lvl-warn { color: var(--hl-warn); } }
+.health .alert ul { margin: var(--s-1) 0 0; padding-left: 1.2em; }
 
 .pagefoot { text-align: center; font-size: var(--fs-sm); color: var(--text-3); padding-top: var(--s-2); }
 .pagefoot .num { color: var(--text-2); }
@@ -542,8 +548,8 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   ],
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
-    "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
-    "battery_volts": 2.71, "rain_sensor_ok": true, "sensor_faults": []
+    "hub_online": true, "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
+    "battery_volts": 2.71, "battery_warn": false, "rain_sensor_ok": true, "sensor_faults": null
   }
 }
 </script>
@@ -921,12 +927,29 @@ function renderHealth(d) {
   const snapWarn = h.last_snapshot_hours_ago > 48;
   const capWarn = h.capture_misses > 3;
   const batt = h.battery_volts;
-  const battState = batt == null ? "ok" : batt <= 2.355 ? "fail" : batt <= 2.5 ? "warn" : "ok";
-  const faults = h.sensor_faults || [];
-  const faultState = faults.length ? "fail" : "ok";
+  const battState = batt == null ? "ok" : batt <= 2.355 ? "fail" : batt <= 2.40 ? "warn" : "ok";
+  const hubOffline = h.hub_online === false;
+  const hubState = hubOffline ? "fail" : "ok";
+  // sensor_faults: null = not monitored (WebSocket-only) -> neutral n/a; [] = none; [..] = fail
+  const faults = h.sensor_faults;
+  const faultState = (faults == null) ? "ok" : (faults.length ? "fail" : "ok");
+  const faultVal = (faults == null) ? "n/a" : (faults.length ? `${faults.length}<small> flagged</small>` : "None");
   const cocoState = h.cocorahs_ok == null ? "ok" : h.cocorahs_ok ? "ok" : "fail";
   const cocoVal = h.cocorahs_ok == null ? "n/a" : h.cocorahs_ok ? "OK" : "DOWN";
-  const needsAttention = snapWarn || capWarn || battState !== "ok" || faultState !== "ok";
+
+  // station-health alerts (the RMA / continuous-reporting insurance)
+  const alerts = [];
+  if (hubOffline) alerts.push({ sev: "fail", t: "Station/hub is offline — capture will gap until it reconnects." });
+  if (battState === "fail") alerts.push({ sev: "fail", t: `Battery ${f2(batt)} V — at/below 2.355 V the rain sensor silently disables. Charge or service now.` });
+  else if (battState === "warn") alerts.push({ sev: "warn", t: `Battery ${f2(batt)} V — trending low. Act before the 2.355 V rain-sensor cutoff.` });
+  if (snapWarn) alerts.push({ sev: "fail", t: `No fresh snapshot in ${h.last_snapshot_hours_ago} h — the daily capture may have stalled.` });
+  if (faults && faults.length) alerts.push({ sev: "fail", t: `Sensor fault flagged: ${faults.join(", ")}.` });
+  const needsAttention = alerts.length > 0 || capWarn;
+  const alertLvl = alerts.some(a => a.sev === "fail") ? "fail" : "warn";
+  const alertHTML = alerts.length
+    ? `<div class="alert lvl-${alertLvl}" role="alert">${alerts.length === 1 ? alerts[0].t : "<ul>" + alerts.map(a => `<li>${esc(a.t)}</li>`).join("") + "</ul>"}</div>`
+    : "";
+
   const badge = (label, valHTML, state) => `
     <div class="hbadge ${state === "warn" ? "warn" : state === "fail" ? "fail" : ""}">
       <span class="hl"><span class="dot ${state}"></span>${label}</span>
@@ -938,12 +961,13 @@ function renderHealth(d) {
       <h2 id="health-h">Data health</h2>
       <span class="meta">${needsAttention ? "needs attention" : "all systems nominal"}</span>
     </div>
+    ${alertHTML}
     <div class="grid">
       ${badge("Capture streak", `${h.capture_days - h.capture_misses}<small> / ${h.capture_days}d</small>`, capWarn ? "warn" : "ok")}
-      ${badge("Station online", `${h.station_online_streak}<small>d streak</small>`, "ok")}
+      ${badge("Station online", hubOffline ? "OFFLINE" : `${h.station_online_streak}<small>d streak</small>`, hubState)}
       ${badge("Last snapshot", `${h.last_snapshot_hours_ago}<small>h ago</small>`, snapWarn ? "fail" : "ok")}
       ${badge("Battery", batt == null ? "n/a" : `${f2(batt)}<small>V</small>`, battState)}
-      ${badge("Sensor faults", faults.length ? `${faults.length}<small> flagged</small>` : "None", faultState)}
+      ${badge("Sensor faults", faultVal, faultState)}
       ${badge("CoCoRaHS feed", cocoVal, cocoState)}
     </div>`;
 }

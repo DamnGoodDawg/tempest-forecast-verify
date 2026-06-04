@@ -34,6 +34,7 @@ LEADS = [1, 2, 3]
 MIN_VERDICT_N = 30          # README: DM verdicts once cumulative n >= 30 (definitive at 90)
 WET = 0.01                  # inches; matches NWS PoP definition
 RAIN_SENSOR_MIN_V = 2.355   # at/below this, the haptic rain sensor silently disables
+BATTERY_WARN_V = 2.40       # early-warning threshold (act before the 2.355 V cutoff)
 SOURCES = ["Tempest", "NBM", "NWS", "ECMWF", "GFS"]
 OM_MODELS = {"gfs_seamless": "GFS", "ecmwf_ifs025": "ECMWF", "ncep_nbm_conus": "NBM"}
 
@@ -343,7 +344,7 @@ def build(records, actuals):
     return standings, verdict, trend_rows, busts, n_days
 
 
-def data_health(day_dirs, latest_device, cocorahs_ok):
+def data_health(day_dirs, latest_device, cocorahs_ok, hub_online):
     capture_days = len(day_dirs)
     # total days missing the irreplaceable Tempest snapshot
     misses = sum(1 for dd in day_dirs if not os.path.exists(os.path.join(dd, "tempest.json")))
@@ -371,15 +372,20 @@ def data_health(day_dirs, latest_device, cocorahs_ok):
             last_hours = None
 
     diag = parse_device_health(latest_device)
+    batt = diag["battery_volts"]
     return {
         "capture_days": capture_days,
         "capture_misses": misses,
         "station_online_streak": streak,
+        "hub_online": hub_online,       # latest is_station_online from better_forecast (None if unknown)
         "cocorahs_ok": cocorahs_ok,     # True=feed fresh, False=feed seen but stale/empty, None=never captured
         "last_snapshot_hours_ago": last_hours if last_hours is not None else 0,
-        "battery_volts": diag["battery_volts"],
-        "rain_sensor_ok": (diag["battery_volts"] is None) or (diag["battery_volts"] > RAIN_SENSOR_MIN_V),
-        "sensor_faults": diag["sensor_faults"],
+        "battery_volts": batt,
+        "battery_warn": batt is not None and batt <= BATTERY_WARN_V,   # early warning before 2.355 cutoff
+        "rain_sensor_ok": (batt is None) or (batt > RAIN_SENSOR_MIN_V),
+        # Sensor fault flags (wind/rain failed) + RSSI live only in the WebSocket
+        # device_status stream, not REST -> None means "not monitored" (see receipt).
+        "sensor_faults": None,
     }
 
 
@@ -394,18 +400,24 @@ def empty_scores(note=""):
         "standings": {"lead1": [], "lead2": [], "lead3": [], "blend": []},
         "trend": [], "busts": [],
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
-                        "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
-                        "battery_volts": None, "rain_sensor_ok": True, "sensor_faults": []},
+                        "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
+                        "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
+                        "sensor_faults": None},
     }
 
 
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
     records, actuals, latest_device = [], {}, None
-    cocorahs, cocorahs_seen = {}, False
+    cocorahs, cocorahs_seen, hub_online = {}, False, None
     for dd in day_dirs:
         capture = os.path.basename(dd)
-        records += parse_tempest(load(os.path.join(dd, "tempest.json")), capture)
+        tj = load(os.path.join(dd, "tempest.json"))
+        records += parse_tempest(tj, capture)
+        if tj:
+            online = ((tj.get("data") or {}).get("station") or {}).get("is_station_online")
+            if online is not None:
+                hub_online = bool(online)
         records += parse_openmeteo(load(os.path.join(dd, "openmeteo.json")), capture)
         records += parse_nws(load(os.path.join(dd, "nws.json")), capture)
         dev = load(os.path.join(dd, "tempest_device_yesterday.json"))
@@ -436,7 +448,7 @@ def main():
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
-        "data_health": data_health(day_dirs, latest_device, cocorahs_ok),
+        "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online),
     }
     with open(OUT, "w") as f:
         json.dump(scores, f, indent=2)

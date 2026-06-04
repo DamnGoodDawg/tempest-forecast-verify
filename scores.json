@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-04T19:02:03Z",
+  "generated_at": "2026-06-04T19:15:25Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -25,10 +25,12 @@
     "capture_days": 1,
     "capture_misses": 0,
     "station_online_streak": 1,
+    "hub_online": true,
     "cocorahs_ok": true,
     "last_snapshot_hours_ago": 0,
     "battery_volts": 2.65,
+    "battery_warn": false,
     "rain_sensor_ok": true,
-    "sensor_faults": []
+    "sensor_faults": null
   }
 }
