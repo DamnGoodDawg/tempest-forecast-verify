@@ -1,0 +1,89 @@
+{
+  "device_id": 1225973,
+  "listened_seconds": 75,
+  "types_seen": [
+    "ack",
+    "connection_opened",
+    "obs_st",
+    "rapid_wind"
+  ],
+  "counts": {
+    "connection_opened": 1,
+    "ack": 2,
+    "obs_st": 2,
+    "rapid_wind": 24
+  },
+  "samples": {
+    "connection_opened": {
+      "type": "connection_opened"
+    },
+    "ack": {
+      "type": "ack",
+      "id": "listen_start"
+    },
+    "obs_st": {
+      "status": {
+        "status_code": 0,
+        "status_message": "SUCCESS"
+      },
+      "device_id": 1225973,
+      "type": "obs_st",
+      "summary": {
+        "pressure_trend": "falling",
+        "strike_count_1h": 0,
+        "strike_count_3h": 0,
+        "precip_total_1h": 0.0,
+        "precip_accum_local_yesterday": 0.0,
+        "precip_accum_local_yesterday_final": 0.0,
+        "precip_analysis_type_yesterday": 0,
+        "feels_like": 27.9,
+        "heat_index": 27.9,
+        "wind_chill": 27.9,
+        "dew_point": 10.6,
+        "wet_bulb_temperature": 17.3,
+        "wet_bulb_globe_temperature": 24.4,
+        "air_density": 1.14593,
+        "delta_t": 10.6,
+        "precip_minutes_local_day": 0,
+        "precip_minutes_local_yesterday": 0
+      },
+      "obs": [
+        [
+          1780602252,
+          0.1,
+          0.7,
+          1.6,
+          24,
+          3,
+          990.3,
+          27.9,
+          34,
+          95973,
+          7.77,
+          799,
+          0.0,
+          0,
+          0,
+          0,
+          2.78,
+          1,
+          0.0,
+          0.0,
+          0.0,
+          0
+        ]
+      ]
+    },
+    "rapid_wind": {
+      "device_id": 1225973,
+      "serial_number": "ST-00210306",
+      "hub_sn": "HB-00218226",
+      "type": "rapid_wind",
+      "ob": [
+        1780602302,
+        1.51,
+        34.0
+      ]
+    }
+  }
+}
