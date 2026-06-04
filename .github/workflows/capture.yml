@@ -1,0 +1,38 @@
+# .github/workflows/capture.yml — daily forecast capture + scoring
+# Repo secrets required: TEMPEST_TOKEN, TEMPEST_STATION_ID
+name: daily-forecast-capture
+on:
+  schedule:
+    - cron: "0 11 * * *"   # 11:00 UTC = 07:00 EDT / 06:00 EST
+  workflow_dispatch: {}     # manual trigger for testing
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      # Core capture. Fails LOUD (exit 1) if the irreplaceable Tempest snapshot is missed,
+      # but the commit step below still runs so whatever WAS captured is never lost.
+      - name: Capture forecasts
+        env:
+          TEMPEST_TOKEN: ${{ secrets.TEMPEST_TOKEN }}
+          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
+        run: python capture.py
+
+      # Re-score from all snapshots into scores.json. Runs even if capture failed, so the
+      # dashboard reflects the latest scorable data. extract.py never crashes the run.
+      - name: Extract scores
+        if: always()
+        run: python extract.py
+
+      - name: Commit snapshots + scores
+        if: always()
+        run: |
+          git config user.name "forecast-capture-bot"
+          git config user.email "actions@github.com"
+          git add data/ scores.json
+          git commit -m "capture $(date -u +%F)" || echo "nothing to commit"
+          git push

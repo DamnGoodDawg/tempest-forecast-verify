@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-06-04T17:48:48Z",
+  "install_date": "2026-05-31",
+  "milestones": {
+    "window_opens": "2026-08-01",
+    "five_month": "2026-10-31",
+    "claim_deadline": "2027-01-25"
+  },
+  "verdict": {
+    "status": "TOO EARLY",
+    "headline": "Only 0 scored days so far \u2014 need ~30 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
+    "n_days": 0,
+    "dm_p_value": null,
+    "best_public": null
+  },
+  "standings": {
+    "lead1": [],
+    "lead2": [],
+    "lead3": [],
+    "blend": []
+  },
+  "trend": [],
+  "busts": [],
+  "data_health": {
+    "capture_days": 0,
+    "capture_misses": 0,
+    "station_online_streak": 0,
+    "cocorahs_ok": null,
+    "last_snapshot_hours_ago": 0,
+    "battery_volts": null,
+    "rain_sensor_ok": true,
+    "sensor_faults": []
+  }
+}

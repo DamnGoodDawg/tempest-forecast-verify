@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tempest Guarantee Scoreboard</title>
+<style>
+/* ============================================================================
+   TEMPEST PROJECT DESIGN SYSTEM  ·  v1
+   Reusable token + component layer for the WeatherFlow Tempest dashboards.
+   (Guarantee Scoreboard is page 1 of 3; current-conditions & history follow.)
+   Everything here is token-driven so future pages inherit it verbatim.
+   ============================================================================ */
+:root {
+  color-scheme: light dark;
+
+  /* --- Provider identity ------------------------------------------------- */
+  /* Tempest is the hero (teal). Competitors are spaced around the hue wheel,
+     all at matched chroma/lightness so none reads "louder" than another.     */
+  --p-tempest: oklch(0.62 0.13 205);
+  --p-nbm:     oklch(0.58 0.13 262);
+  --p-nws:     oklch(0.55 0.14 305);
+  --p-ecmwf:   oklch(0.66 0.13 75);
+  --p-gfs:     oklch(0.62 0.15 25);
+
+  /* --- Status (verdict + cells) ----------------------------------------- */
+  --st-ahead:     oklch(0.60 0.14 150);   /* Tempest beating public        */
+  --st-tied:      oklch(0.70 0.13 85);    /* statistical dead heat         */
+  --st-behind:    oklch(0.60 0.18 25);    /* public beating Tempest        */
+  --st-tooearly:  oklch(0.56 0.04 250);   /* not enough data yet           */
+
+  /* --- Data health ------------------------------------------------------- */
+  --hl-ok:   oklch(0.60 0.14 150);
+  --hl-warn: oklch(0.70 0.14 75);
+  --hl-fail: oklch(0.60 0.18 25);
+
+  /* tint helpers (low-alpha fills derived from the same hues) */
+  --tint-ahead:    oklch(0.60 0.14 150 / 0.12);
+  --tint-tied:     oklch(0.70 0.13 85 / 0.16);
+  --tint-behind:   oklch(0.60 0.18 25 / 0.12);
+  --tint-tooearly: oklch(0.56 0.04 250 / 0.12);
+  --tint-tempest:  oklch(0.62 0.13 205 / 0.10);
+
+  /* --- Neutrals / surfaces (cool off-white, AA-safe text) --------------- */
+  --bg:        oklch(0.975 0.004 240);
+  --surface:   oklch(1 0 0);
+  --surface-2: oklch(0.965 0.005 240);
+  --surface-3: oklch(0.945 0.006 240);
+  --border:    oklch(0.905 0.006 240);
+  --border-2:  oklch(0.855 0.008 240);
+  --text:      oklch(0.24 0.012 255);
+  --text-2:    oklch(0.46 0.010 255);
+  --text-3:    oklch(0.60 0.008 255);
+
+  /* --- Type ------------------------------------------------------------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-micro: 0.6875rem;   /* 11px  labels/eyebrows         */
+  --fs-sm:    0.8125rem;   /* 13px  secondary               */
+  --fs-base:  0.9375rem;   /* 15px  body                    */
+  --fs-md:    1.0625rem;   /* 17px  card titles             */
+  --fs-lg:    1.375rem;    /* 22px  section figures         */
+  --fs-xl:    2rem;        /* 32px  hero numbers            */
+  --fs-2xl:   2.75rem;     /* 44px  verdict figure          */
+
+  /* --- Space scale (4px base) ------------------------------------------- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px; --s-9: 56px;
+
+  /* --- Radius / shadow / motion ----------------------------------------- */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+  --shadow-card: 0 1px 2px oklch(0.2 0.02 255 / 0.05), 0 2px 8px oklch(0.2 0.02 255 / 0.04);
+  --ring: 0 0 0 3px oklch(0.62 0.13 205 / 0.25);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --maxw: 720px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        oklch(0.17 0.012 255);
+    --surface:   oklch(0.215 0.013 255);
+    --surface-2: oklch(0.255 0.014 255);
+    --surface-3: oklch(0.295 0.015 255);
+    --border:    oklch(0.32 0.014 255);
+    --border-2:  oklch(0.40 0.016 255);
+    --text:      oklch(0.95 0.006 255);
+    --text-2:    oklch(0.74 0.010 255);
+    --text-3:    oklch(0.60 0.010 255);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 2px 10px oklch(0 0 0 / 0.3);
+    /* lift provider/status lightness a touch for contrast on dark surfaces */
+    --p-tempest: oklch(0.70 0.13 205);
+    --p-nbm:     oklch(0.68 0.12 262);
+    --p-nws:     oklch(0.66 0.13 305);
+    --p-ecmwf:   oklch(0.76 0.12 75);
+    --p-gfs:     oklch(0.70 0.15 25);
+    --st-ahead:  oklch(0.72 0.14 150);
+    --st-tied:   oklch(0.80 0.13 85);
+    --st-behind: oklch(0.70 0.17 25);
+    --st-tooearly: oklch(0.68 0.04 250);
+  }
+}
+[data-theme="dark"] {
+  --bg:        oklch(0.17 0.012 255);
+  --surface:   oklch(0.215 0.013 255);
+  --surface-2: oklch(0.255 0.014 255);
+  --surface-3: oklch(0.295 0.015 255);
+  --border:    oklch(0.32 0.014 255);
+  --border-2:  oklch(0.40 0.016 255);
+  --text:      oklch(0.95 0.006 255);
+  --text-2:    oklch(0.74 0.010 255);
+  --text-3:    oklch(0.60 0.010 255);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 2px 10px oklch(0 0 0 / 0.3);
+  --p-tempest: oklch(0.70 0.13 205);
+  --p-nbm:     oklch(0.68 0.12 262);
+  --p-nws:     oklch(0.66 0.13 305);
+  --p-ecmwf:   oklch(0.76 0.12 75);
+  --p-gfs:     oklch(0.70 0.15 25);
+  --st-ahead:  oklch(0.72 0.14 150);
+  --st-tied:   oklch(0.80 0.13 85);
+  --st-behind: oklch(0.70 0.17 25);
+  --st-tooearly: oklch(0.68 0.04 250);
+}
+
+/* ============================================================================
+   BASE
+   ============================================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  padding: env(safe-area-inset-top) 0 0;
+}
+.wrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-4) var(--s-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+@media (min-width: 600px) { .wrap { padding: var(--s-6) var(--s-6) var(--s-9); gap: var(--s-5); } }
+
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.eyebrow {
+  font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+/* ============================================================================
+   COMPONENT — masthead
+   ============================================================================ */
+.masthead {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding-bottom: var(--s-1);
+}
+.mark {
+  width: 34px; height: 34px; border-radius: var(--r-sm); flex: none;
+  display: grid; place-items: center;
+  background: var(--tint-tempest);
+  border: 1px solid color-mix(in oklch, var(--p-tempest) 35%, transparent);
+}
+.mark svg { width: 20px; height: 20px; }
+.masthead h1 { font-size: var(--fs-base); font-weight: 650; letter-spacing: -0.01em; line-height: 1.15; }
+.masthead .sub { font-size: var(--fs-sm); color: var(--text-2); }
+.masthead .spacer { flex: 1; }
+.theme-toggle {
+  appearance: none; border: 1px solid var(--border-2); background: var(--surface);
+  color: var(--text-2); width: 44px; height: 44px; border-radius: var(--r-sm);
+  display: grid; place-items: center; cursor: pointer; flex: none;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--text); }
+.theme-toggle svg { width: 18px; height: 18px; }
+.theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ============================================================================
+   COMPONENT — card
+   ============================================================================ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--s-5);
+}
+.card-head {
+  display: flex; align-items: baseline; gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.card-head h2 { font-size: var(--fs-md); font-weight: 640; letter-spacing: -0.01em; }
+.card-head .meta { margin-left: auto; font-size: var(--fs-sm); color: var(--text-3); }
+
+/* ============================================================================
+   COMPONENT — status chip / badge
+   ============================================================================ */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  font-weight: 650; font-size: var(--fs-sm); letter-spacing: 0.02em;
+  padding: 5px 11px 5px 9px; border-radius: var(--r-pill);
+  border: 1px solid transparent; white-space: nowrap;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.chip--ahead    { color: var(--st-ahead);    background: var(--tint-ahead);    border-color: color-mix(in oklch, var(--st-ahead) 28%, transparent); }
+.chip--tied     { color: oklch(0.45 0.10 80); background: var(--tint-tied);     border-color: color-mix(in oklch, var(--st-tied) 45%, transparent); }
+.chip--behind   { color: var(--st-behind);   background: var(--tint-behind);   border-color: color-mix(in oklch, var(--st-behind) 28%, transparent); }
+.chip--tooearly { color: var(--st-tooearly); background: var(--tint-tooearly); border-color: color-mix(in oklch, var(--st-tooearly) 28%, transparent); }
+[data-theme="dark"] .chip--tied, :root:not([data-theme="light"]) .chip--tied { color: var(--st-tied); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip--tied { color: var(--st-tied); } }
+
+/* ============================================================================
+   COMPONENT — verdict banner
+   ============================================================================ */
+.verdict { position: relative; overflow: hidden; }
+.verdict::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
+  background: var(--accent, var(--st-tooearly));
+}
+.verdict { border-left: none; padding-left: calc(var(--s-5) + 4px); }
+.verdict .top { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-4); flex-wrap: wrap; }
+.verdict .headline {
+  font-size: var(--fs-lg); font-weight: 600; line-height: 1.32; letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+.verdict .headline b { font-weight: 720; }
+.verdict .stats {
+  display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin-top: var(--s-4);
+  font-size: var(--fs-sm); color: var(--text-2);
+}
+.verdict .stats .k { color: var(--text-3); }
+.verdict .stats .sig { display: inline-flex; align-items: center; gap: 6px; }
+.verdict .stats .sig .pill {
+  font-size: var(--fs-micro); font-weight: 600; padding: 2px 7px; border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border);
+}
+
+/* ============================================================================
+   COMPONENT — guarantee clock (timeline / progress)
+   ============================================================================ */
+.clock .track-wrap { padding: var(--s-6) 0 var(--s-2); }
+.clock .track {
+  position: relative; height: 8px; border-radius: var(--r-pill);
+  background: var(--surface-3); border: 1px solid var(--border);
+}
+.clock .fill {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--p-tempest), color-mix(in oklch, var(--p-tempest) 60%, var(--st-ahead)));
+}
+.clock .stage {
+  position: absolute; top: -4px; transform: translateX(-50%);
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--border-2);
+}
+.clock .stage.done { background: var(--p-tempest); border-color: var(--p-tempest); }
+.clock .stage.next { border-color: var(--p-tempest); }
+.clock .today {
+  position: absolute; top: -13px; bottom: -13px; width: 2px; transform: translateX(-50%);
+  background: var(--text-2);
+}
+.clock .today::after {
+  content: "TODAY"; position: absolute; top: -19px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em;
+  color: var(--text-2); white-space: nowrap;
+}
+.clock .labels { position: relative; height: 42px; margin-top: var(--s-3); }
+.clock .mile {
+  position: absolute; transform: translateX(-50%); text-align: center; width: 72px;
+}
+.clock .mile .name { font-size: var(--fs-micro); font-weight: 600; color: var(--text); line-height: 1.2; }
+.clock .mile .date { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); }
+.clock .mile.edge-l { transform: translateX(0); text-align: left; }
+.clock .mile.edge-r { transform: translateX(-100%); text-align: right; }
+.clock .summary { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-2); }
+.clock .summary b { color: var(--text); font-weight: 650; }
+
+/* ============================================================================
+   COMPONENT — segmented toggle
+   ============================================================================ */
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-3);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.seg button {
+  appearance: none; border: none; background: transparent; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 600; color: var(--text-2);
+  padding: 6px 11px; min-height: 44px; border-radius: 7px; line-height: 1; white-space: nowrap;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 1px 2px oklch(0.2 0.02 255 / 0.08);
+}
+.seg button:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ============================================================================
+   COMPONENT — data table (standings)
+   ============================================================================ */
+.standings .card-head { flex-wrap: wrap; gap: var(--s-3); }
+.tbl-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--s-5)); padding: 0 var(--s-5); }
+table.standings-tbl { width: 100%; border-collapse: collapse; min-width: 420px; }
+.standings-tbl thead th {
+  font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-3); text-align: right; padding: 0 0 var(--s-3); white-space: nowrap;
+}
+.standings-tbl thead th:first-child { text-align: left; }
+.standings-tbl thead th .u { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.standings-tbl tbody td {
+  padding: var(--s-3) 0; border-top: 1px solid var(--border); text-align: right; vertical-align: middle;
+}
+.standings-tbl tbody td:first-child { text-align: left; }
+.standings-tbl tbody tr:first-child td { border-top: none; }
+.rank { display: inline-flex; align-items: center; gap: var(--s-3); }
+.rank .pos {
+  font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 700; color: var(--text-3);
+  width: 16px; text-align: center; flex: none;
+}
+.rank .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.rank .name { font-weight: 600; }
+.rank .you {
+  font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; color: var(--p-tempest);
+  border: 1px solid color-mix(in oklch, var(--p-tempest) 40%, transparent);
+  padding: 1px 5px; border-radius: var(--r-pill); margin-left: 2px;
+}
+.row-tempest td { background: var(--tint-tempest); }
+.row-tempest td:first-child { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
+.row-tempest td:last-child { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
+.row-leader .pos { color: var(--st-ahead); }
+.mae-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.mae-cell .v { font-weight: 650; }
+.mae-bar { width: 64px; height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.mae-bar > i { display: block; height: 100%; border-radius: var(--r-pill); }
+.muted { color: var(--text-3); }
+.standings .foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-4); display: flex; gap: 6px; align-items: baseline; }
+.standings .foot b { color: var(--text); font-weight: 650; }
+
+/* ============================================================================
+   COMPONENT — sparkline / trend chart
+   ============================================================================ */
+.trend svg { display: block; width: 100%; height: auto; }
+.trend .legend {
+  display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); margin-top: var(--s-4);
+}
+.trend .legend button {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px; min-height: 44px; border-radius: var(--r-sm);
+  font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 600; color: var(--text-2);
+}
+.trend .legend button .ln { width: 16px; height: 3px; border-radius: var(--r-pill); flex: none; }
+.trend .legend button[aria-pressed="false"] { opacity: 0.4; }
+.trend .legend button:focus-visible { outline: none; box-shadow: var(--ring); }
+.trend .legend .name.is-tempest { color: var(--text); font-weight: 700; }
+.trend .gap-note { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); }
+.trend .gap-note b { color: var(--text); }
+
+/* ============================================================================
+   COMPONENT — collapsible details
+   ============================================================================ */
+details.collapsible { padding: 0; }
+details.collapsible > summary {
+  list-style: none; cursor: pointer; padding: var(--s-5);
+  display: flex; align-items: center; gap: var(--s-3);
+}
+details.collapsible > summary::-webkit-details-marker { display: none; }
+details.collapsible > summary h2 { font-size: var(--fs-md); font-weight: 640; letter-spacing: -0.01em; }
+details.collapsible > summary .meta { margin-left: auto; font-size: var(--fs-sm); color: var(--text-3); }
+details.collapsible > summary .caret { transition: transform .2s var(--ease); color: var(--text-3); display: grid; place-items: center; }
+details.collapsible[open] > summary .caret { transform: rotate(90deg); }
+details.collapsible > summary:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-lg); }
+.collapsible .body { padding: 0 var(--s-5) var(--s-5); }
+.sub-block + .sub-block { margin-top: var(--s-6); }
+.sub-block h3 { font-size: var(--fs-sm); font-weight: 650; margin-bottom: var(--s-3); }
+
+.bust { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--border); }
+.bust:first-of-type { border-top: none; padding-top: 0; }
+.bust .date { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-3); flex: none; width: 52px; padding-top: 1px; }
+.bust .who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bust .who .badge {
+  font-size: var(--fs-micro); font-weight: 650; padding: 2px 7px; border-radius: var(--r-pill);
+  color: #fff;
+}
+.bust .desc { font-size: var(--fs-sm); color: var(--text-2); }
+.bust .desc .miss { color: var(--st-behind); font-weight: 650; font-family: var(--font-mono); }
+.bust .desc .arrow { color: var(--text-3); margin: 0 4px; }
+
+table.brier-tbl { width: 100%; border-collapse: collapse; }
+.brier-tbl th, .brier-tbl td { padding: var(--s-2) 0; text-align: right; font-size: var(--fs-sm); }
+.brier-tbl th:first-child, .brier-tbl td:first-child { text-align: left; }
+.brier-tbl thead th { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); font-weight: 600; }
+.brier-tbl tbody td { border-top: 1px solid var(--border); }
+.brier-tbl .best { color: var(--st-ahead); font-weight: 650; }
+
+/* ============================================================================
+   COMPONENT — data health footer
+   ============================================================================ */
+.health { background: var(--surface-2); }
+.health .grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-2);
+}
+@media (min-width: 520px) { .health .grid { grid-template-columns: repeat(4, 1fr); } }
+.hbadge {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: var(--s-3); border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.hbadge .hl { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); }
+.hbadge .hl .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hbadge .hv { font-family: var(--font-mono); font-size: var(--fs-md); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.hbadge .hv small { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
+.hbadge.warn { border-color: color-mix(in oklch, var(--hl-warn) 45%, transparent); background: oklch(0.70 0.14 75 / 0.07); }
+.hbadge.fail { border-color: color-mix(in oklch, var(--hl-fail) 45%, transparent); background: var(--tint-behind); }
+.dot.ok { background: var(--hl-ok); } .dot.warn { background: var(--hl-warn); } .dot.fail { background: var(--hl-fail); }
+
+.pagefoot { text-align: center; font-size: var(--fs-sm); color: var(--text-3); padding-top: var(--s-2); }
+.pagefoot .num { color: var(--text-2); }
+
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* ============================================================================
+   COMPONENT — sample-data banner (shown only when live scores.json failed to load)
+   ============================================================================ */
+.sample-banner {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-3) var(--s-4); border-radius: var(--r-md);
+  background: var(--tint-tied); border: 1px solid color-mix(in oklch, var(--st-tied) 45%, transparent);
+  color: oklch(0.40 0.09 80); font-size: var(--fs-sm); font-weight: 600;
+}
+[data-theme="dark"] .sample-banner, :root:not([data-theme="light"]) .sample-banner { color: var(--st-tied); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sample-banner { color: var(--st-tied); } }
+.sample-banner svg { width: 18px; height: 18px; flex: none; }
+.sample-banner .b-sub { font-weight: 500; color: var(--text-2); }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <!-- masthead -->
+  <header class="masthead">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--p-tempest)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 14a4 4 0 0 1 .9-7.9 5.5 5.5 0 0 1 10.6-1.4A4.2 4.2 0 1 1 16 14H3Z"></path>
+        <path d="M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2"></path>
+      </svg>
+    </div>
+    <div>
+      <h1>Guarantee Scoreboard</h1>
+      <div class="sub">Tempest · Statham, GA</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </button>
+  </header>
+
+  <!-- sample-data banner: only shown when live scores.json could not be fetched -->
+  <div class="sample-banner" id="sampleBanner" role="status" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path>
+    </svg>
+    <span>Showing sample data — live scores didn't load. <span class="b-sub">Numbers below are illustrative, not your station's results.</span></span>
+  </div>
+
+  <!-- 1 · verdict banner -->
+  <section class="card verdict" id="verdict" aria-labelledby="verdict-h"></section>
+
+  <!-- 2 · guarantee clock -->
+  <section class="card clock" id="clock" aria-labelledby="clock-h"></section>
+
+  <!-- 3 · standings -->
+  <section class="card standings" id="standings" aria-labelledby="standings-h"></section>
+
+  <!-- 4 · trend -->
+  <section class="card trend" id="trend" aria-labelledby="trend-h"></section>
+
+  <!-- 5 · details -->
+  <details class="card collapsible" id="details"></details>
+
+  <!-- 6 · data health -->
+  <section class="card health" id="health" aria-labelledby="health-h"></section>
+
+  <p class="pagefoot" id="pagefoot"></p>
+</div>
+
+<!-- baked-in sample data: prototype renders standalone if ./scores.json is absent -->
+<script type="application/json" id="fallback-data">
+{
+  "generated_at": "2026-08-17T11:42:00Z",
+  "install_date": "2026-05-31",
+  "milestones": { "window_opens": "2026-08-01", "five_month": "2026-10-31", "claim_deadline": "2027-01-25" },
+  "verdict": {
+    "status": "TIED",
+    "headline": "Tempest is within 3°F on 81% of days vs NBM's 79% — statistically tied so far.",
+    "n_days": 75, "dm_p_value": 0.21, "best_public": "NBM"
+  },
+  "standings": {
+    "lead1": [
+      { "source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083 },
+      { "source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091 },
+      { "source": "ECMWF",   "mae": 1.98, "pct_within_3f": 77, "csi": 0.72, "brier": 0.088 },
+      { "source": "NWS",     "mae": 2.10, "pct_within_3f": 74, "csi": 0.70, "brier": 0.095 },
+      { "source": "GFS",     "mae": 2.41, "pct_within_3f": 68, "csi": 0.62, "brier": 0.112 }
+    ],
+    "lead2": [
+      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.101 },
+      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.106 },
+      { "source": "Tempest", "mae": 2.44, "pct_within_3f": 73, "csi": 0.64, "brier": 0.110 },
+      { "source": "NWS",     "mae": 2.58, "pct_within_3f": 68, "csi": 0.63, "brier": 0.115 },
+      { "source": "GFS",     "mae": 2.95, "pct_within_3f": 61, "csi": 0.55, "brier": 0.134 }
+    ],
+    "lead3": [
+      { "source": "NBM",     "mae": 2.78, "pct_within_3f": 66, "csi": 0.61, "brier": 0.122 },
+      { "source": "ECMWF",   "mae": 2.85, "pct_within_3f": 64, "csi": 0.60, "brier": 0.126 },
+      { "source": "Tempest", "mae": 3.05, "pct_within_3f": 64, "csi": 0.57, "brier": 0.135 },
+      { "source": "NWS",     "mae": 3.12, "pct_within_3f": 61, "csi": 0.57, "brier": 0.139 },
+      { "source": "GFS",     "mae": 3.58, "pct_within_3f": 54, "csi": 0.48, "brier": 0.161 }
+    ],
+    "blend": [
+      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.102 },
+      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.107 },
+      { "source": "Tempest", "mae": 2.47, "pct_within_3f": 73, "csi": 0.64, "brier": 0.112 },
+      { "source": "NWS",     "mae": 2.60, "pct_within_3f": 67, "csi": 0.62, "brier": 0.116 },
+      { "source": "GFS",     "mae": 2.99, "pct_within_3f": 60, "csi": 0.55, "brier": 0.135 }
+    ]
+  },
+  "trend": [
+    { "week": "2026-07-06", "Tempest": 2.21, "NBM": 1.95, "ECMWF": 2.02, "NWS": 2.18, "GFS": 2.55 },
+    { "week": "2026-07-13", "Tempest": 2.05, "NBM": 1.90, "ECMWF": 2.05, "NWS": 2.12, "GFS": 2.48 },
+    { "week": "2026-07-20", "Tempest": 1.98, "NBM": 1.88, "ECMWF": 1.99, "NWS": 2.09, "GFS": 2.40 },
+    { "week": "2026-07-27", "Tempest": 1.95, "NBM": 1.86, "ECMWF": 2.01, "NWS": 2.11, "GFS": 2.43 },
+    { "week": "2026-08-03", "Tempest": 1.90, "NBM": 1.84, "ECMWF": 1.97, "NWS": 2.08, "GFS": 2.39 },
+    { "week": "2026-08-10", "Tempest": 1.92, "NBM": 1.85, "ECMWF": 1.98, "NWS": 2.10, "GFS": 2.41 }
+  ],
+  "busts": [
+    { "date": "2026-08-12", "source": "Tempest", "var": "high", "forecast": 84, "actual": 91 },
+    { "date": "2026-08-14", "source": "ALL_EXCEPT:NBM", "var": "precip", "note": "everyone missed the pop-up storm but NBM" }
+  ],
+  "data_health": {
+    "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
+    "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
+    "battery_volts": 2.71, "rain_sensor_ok": true, "sensor_faults": []
+  }
+}
+</script>
+
+<script>
+"use strict";
+/* ============================================================================
+   TEMPEST GUARANTEE SCOREBOARD — render layer (vanilla, no deps)
+   ============================================================================ */
+
+const PROVIDERS = {
+  Tempest: { var: "--p-tempest", label: "Tempest" },
+  NBM:     { var: "--p-nbm",     label: "NBM" },
+  NWS:     { var: "--p-nws",     label: "NWS" },
+  ECMWF:   { var: "--p-ecmwf",   label: "ECMWF" },
+  GFS:     { var: "--p-gfs",     label: "GFS" }
+};
+const ORDER = ["Tempest", "NBM", "ECMWF", "NWS", "GFS"];
+const cvar = (name) => `var(${name})`;
+const pcolor = (src) => cvar((PROVIDERS[src] || PROVIDERS.GFS).var);
+
+const STATUS = {
+  TOO_EARLY:     { cls: "tooearly", accent: "--st-tooearly", label: "TOO EARLY" },
+  "TOO EARLY":   { cls: "tooearly", accent: "--st-tooearly", label: "TOO EARLY" },
+  TIED:          { cls: "tied",     accent: "--st-tied",     label: "TIED" },
+  TEMPEST_AHEAD: { cls: "ahead",    accent: "--st-ahead",    label: "TEMPEST AHEAD" },
+  "TEMPEST AHEAD":{cls: "ahead",    accent: "--st-ahead",    label: "TEMPEST AHEAD" },
+  AHEAD:         { cls: "ahead",    accent: "--st-ahead",    label: "TEMPEST AHEAD" },
+  TEMPEST_BEHIND:{ cls: "behind",   accent: "--st-behind",   label: "TEMPEST BEHIND" },
+  "TEMPEST BEHIND":{cls:"behind",   accent: "--st-behind",   label: "TEMPEST BEHIND" },
+  BEHIND:        { cls: "behind",   accent: "--st-behind",   label: "TEMPEST BEHIND" }
+};
+const statusOf = (s) => STATUS[s] || STATUS[String(s).toUpperCase()] || STATUS.TOO_EARLY;
+
+const LEAD_LABELS = { lead1: "1-day", lead2: "2-day", lead3: "3-day", blend: "1–3 blend" };
+
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+const f1 = (n) => Number(n).toFixed(1);
+const f2 = (n) => Number(n).toFixed(2);
+const f3 = (n) => Number(n).toFixed(3);
+const parseDate = (s) => new Date(s + (s.length === 10 ? "T00:00:00Z" : ""));
+const fmtDate = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fmtMD = (s) => { const d = parseDate(s); return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"}); };
+
+/* ---------------------------------------------------------------- 1 · VERDICT */
+function renderVerdict(d) {
+  const v = d.verdict, st = statusOf(v.status);
+  const p = v.dm_p_value;
+  const sig = (p != null && p < 0.05) ? "significant" : "not yet significant";
+  const el = document.getElementById("verdict");
+  el.style.setProperty("--accent", cvar(st.accent));
+  const stats = [`<span><span class="k">Sample</span> <b class="num">n=${v.n_days}</b> days</span>`];
+  if (v.best_public) stats.push(`<span><span class="k">Best public</span> <b>${esc(v.best_public)}</b></span>`);
+  if (v.dm_p_value != null) stats.push(
+    `<span class="sig"><span class="k">Significance</span>
+       <span class="pill"><span class="num">p=${f2(v.dm_p_value)}</span> · ${sig}</span>
+     </span>`);
+  el.innerHTML = `
+    <div class="top">
+      <span class="chip chip--${st.cls}"><span class="dot"></span>${st.label}</span>
+      <span class="eyebrow">Forecast guarantee · ${esc(d.location || "Statham, GA")}</span>
+    </div>
+    <p class="headline" id="verdict-h">${formatHeadline(v.headline)}</p>
+    <div class="stats">${stats.join("")}</div>`;
+}
+function formatHeadline(h) {
+  // bold any "NN%" and "N°F" figures for glanceability
+  return esc(h)
+    .replace(/(\d+%)/g, "<b>$1</b>")
+    .replace(/(\d+°F)/g, "<b>$1</b>");
+}
+
+/* ------------------------------------------------------------- 2 · CLOCK */
+function renderClock(d) {
+  const install = parseDate(d.install_date);
+  const m = d.milestones;
+  const now = parseDate(d.generated_at);
+  const stages = [
+    { name: "Install", date: install, key: "install" },
+    { name: "Scoring opens", date: parseDate(m.window_opens), key: "window_opens" },
+    { name: "5-month", date: parseDate(m.five_month), key: "five_month" },
+    { name: "Claim deadline", date: parseDate(m.claim_deadline), key: "claim_deadline" }
+  ];
+  const start = stages[0].date.getTime();
+  const end = stages[stages.length - 1].date.getTime();
+  const span = end - start;
+  const pct = (t) => Math.max(0, Math.min(100, ((t - start) / span) * 100));
+  const todayPct = pct(now.getTime());
+
+  const stageHTML = stages.map((s, i) => {
+    const p = pct(s.date.getTime());
+    const done = now.getTime() >= s.date.getTime();
+    const nextIdx = stages.findIndex(x => now.getTime() < x.date.getTime());
+    const isNext = i === nextIdx;
+    return `<span class="stage ${done ? "done" : ""} ${isNext ? "next" : ""}" style="left:${p}%"></span>`;
+  }).join("");
+
+  const labelHTML = stages.map((s, i) => {
+    const p = pct(s.date.getTime());
+    const edge = i === 0 ? "edge-l" : (i === stages.length - 1 ? "edge-r" : "");
+    return `<div class="mile ${edge}" style="left:${p}%">
+      <div class="name">${esc(s.name)}</div>
+      <div class="date">${fmtDate(s.date)}</div>
+    </div>`;
+  }).join("");
+
+  // days until next milestone + window status
+  const nextStage = stages.find(s => now.getTime() < s.date.getTime());
+  const daysTo = nextStage ? Math.round((nextStage.date.getTime() - now.getTime()) / 86400000) : 0;
+  const windowOpen = now.getTime() >= parseDate(m.window_opens).getTime();
+  const summary = nextStage
+    ? `Scoring window is <b>${windowOpen ? "open" : "not open yet"}</b>. Next: <b>${esc(nextStage.name)}</b> in <b class="num">${daysTo}</b> days.`
+    : `Guarantee window <b>complete</b>.`;
+
+  document.getElementById("clock").innerHTML = `
+    <div class="card-head">
+      <h2 id="clock-h">Guarantee clock</h2>
+      <span class="meta num">${Math.round(todayPct)}% elapsed</span>
+    </div>
+    <div class="track-wrap">
+      <div class="track">
+        <div class="fill" style="width:${todayPct}%"></div>
+        ${stageHTML}
+        <div class="today" style="left:${todayPct}%"></div>
+      </div>
+      <div class="labels">${labelHTML}</div>
+    </div>
+    <p class="summary">${summary}</p>`;
+}
+
+/* --------------------------------------------------------- 3 · STANDINGS */
+let currentLead = "lead1";
+function renderStandings(d) {
+  const leads = Object.keys(LEAD_LABELS).filter(k => (d.standings[k] || []).length);
+  if (leads.length === 0) {
+    document.getElementById("standings").innerHTML = `
+      <div class="card-head"><h2 id="standings-h">Standings</h2></div>
+      <p class="muted" style="font-size:var(--fs-sm)">Provider standings appear once forecasts have been scored against observed actuals — expect the first rows within a day or two of capture starting.</p>`;
+    return;
+  }
+  if (!leads.includes(currentLead)) currentLead = leads[0];
+  const rows = (d.standings[currentLead] || []).slice().sort((a, b) => a.mae - b.mae);
+  const maxMae = Math.max(...rows.map(r => r.mae));
+  const minMae = Math.min(...rows.map(r => r.mae));
+
+  const segHTML = leads.map(k =>
+    `<button type="button" data-lead="${k}" aria-pressed="${k === currentLead}">${LEAD_LABELS[k].replace("-day","d")}</button>`
+  ).join("");
+
+  const body = rows.map((r, i) => {
+    const isTempest = r.source === "Tempest";
+    const isLeader = i === 0;
+    const barPct = 30 + ((r.mae - minMae) / (maxMae - minMae || 1)) * 70; // longer bar = worse
+    return `<tr class="${isTempest ? "row-tempest" : ""} ${isLeader ? "row-leader" : ""}">
+      <td>
+        <span class="rank">
+          <span class="pos">${i + 1}</span>
+          <span class="swatch" style="background:${pcolor(r.source)}"></span>
+          <span class="name">${esc(PROVIDERS[r.source] ? PROVIDERS[r.source].label : r.source)}</span>
+          ${isTempest ? '<span class="you">YOU</span>' : ""}
+        </span>
+      </td>
+      <td>
+        <span class="mae-cell">
+          <span class="v num">${f2(r.mae)}</span>
+          <span class="mae-bar"><i style="width:${barPct}%;background:${pcolor(r.source)}"></i></span>
+        </span>
+      </td>
+      <td class="num" style="font-weight:600">${r.pct_within_3f}%</td>
+      <td class="num muted">${f2(r.csi)}</td>
+    </tr>`;
+  }).join("");
+
+  const tempestRow = rows.find(r => r.source === "Tempest");
+  const tempestRank = rows.findIndex(r => r.source === "Tempest") + 1;
+  const ordinal = ["", "1st", "2nd", "3rd", "4th", "5th"][tempestRank] || tempestRank + "th";
+
+  document.getElementById("standings").innerHTML = `
+    <div class="card-head">
+      <h2 id="standings-h">Standings</h2>
+      <div class="seg" role="group" aria-label="Forecast lead time">${segHTML}</div>
+    </div>
+    <div class="tbl-scroll">
+      <table class="standings-tbl">
+        <thead><tr>
+          <th scope="col">Provider</th>
+          <th scope="col">MAE <span class="u">°F</span></th>
+          <th scope="col">≤3°F</th>
+          <th scope="col">Precip CSI</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    <p class="foot">At <b>${LEAD_LABELS[currentLead]}</b> lead, Tempest ranks <b>${ordinal}</b> of ${rows.length} by mean absolute error. Lower MAE &amp; Brier are better; higher ≤3°F &amp; CSI are better.</p>`;
+
+  document.querySelectorAll('#standings .seg button').forEach(b => {
+    b.addEventListener("click", () => { currentLead = b.dataset.lead; renderStandings(DATA); });
+  });
+}
+
+/* ------------------------------------------------------------- 4 · TREND */
+const hidden = new Set();
+function renderTrend(d) {
+  const data = d.trend;
+  if (!data || data.length === 0) {
+    document.getElementById("trend").innerHTML = `
+      <div class="card-head">
+        <h2 id="trend-h">Weekly accuracy trend</h2>
+        <span class="meta">MAE °F · lower is better</span>
+      </div>
+      <p class="muted" style="font-size:var(--fs-sm)">The weekly accuracy trend appears once a few days of forecasts have been scored against observed actuals.</p>`;
+    return;
+  }
+  const W = 680, H = 280, PAD = { t: 16, r: 14, b: 30, l: 34 };
+  const innerW = W - PAD.l - PAD.r, innerH = H - PAD.t - PAD.b;
+
+  const allVals = [];
+  data.forEach(row => ORDER.forEach(s => { if (row[s] != null) allVals.push(row[s]); }));
+  const lo = Math.floor(Math.min(...allVals) * 10) / 10 - 0.1;
+  const hi = Math.ceil(Math.max(...allVals) * 10) / 10 + 0.1;
+  const x = (i) => PAD.l + (data.length === 1 ? innerW / 2 : (i / (data.length - 1)) * innerW);
+  const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * innerH;
+
+  // gridlines
+  const ticks = [];
+  for (let v = Math.ceil(lo * 5) / 5; v <= hi; v += 0.2) ticks.push(Number(v.toFixed(2)));
+  const grid = ticks.map(v => `
+    <line x1="${PAD.l}" y1="${y(v).toFixed(1)}" x2="${W - PAD.r}" y2="${y(v).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+    <text x="${PAD.l - 6}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-3)" font-family="var(--font-mono)">${v.toFixed(1)}</text>
+  `).join("");
+
+  const xlabels = data.map((row, i) =>
+    `<text x="${x(i).toFixed(1)}" y="${H - 9}" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-mono)">${fmtMD(row.week)}</text>`
+  ).join("");
+
+  // gap shading between Tempest and best public (lowest MAE among non-Tempest, per week)
+  const bestPublic = (row) => Math.min(...ORDER.filter(s => s !== "Tempest" && row[s] != null).map(s => row[s]));
+  let gapPath = "";
+  if (!hidden.has("Tempest")) {
+    const top = data.map((row, i) => `${x(i).toFixed(1)},${y(row.Tempest).toFixed(1)}`);
+    const bot = data.map((row, i) => `${x(i).toFixed(1)},${y(bestPublic(row)).toFixed(1)}`).reverse();
+    gapPath = `<polygon points="${top.concat(bot).join(" ")}" fill="var(--p-tempest)" fill-opacity="0.08"/>`;
+  }
+
+  const linePath = (src) => {
+    const pts = data.map((row, i) => `${x(i).toFixed(1)},${y(row[src]).toFixed(1)}`);
+    return "M" + pts.join(" L");
+  };
+  const lines = ORDER.filter(s => !hidden.has(s)).map(src => {
+    const isT = src === "Tempest";
+    const dots = data.map((row, i) =>
+      `<circle cx="${x(i).toFixed(1)}" cy="${y(row[src]).toFixed(1)}" r="${isT ? 3.6 : 2.6}" fill="${pcolor(src)}"/>`
+    ).join("");
+    return `<path d="${linePath(src)}" fill="none" stroke="${pcolor(src)}" stroke-width="${isT ? 3 : 1.75}"
+              stroke-linejoin="round" stroke-linecap="round" ${isT ? "" : 'stroke-opacity="0.85"'}/>${dots}`;
+  }).join("");
+
+  const legend = ORDER.map(src => {
+    const off = hidden.has(src);
+    const isT = src === "Tempest";
+    return `<button type="button" data-src="${src}" aria-pressed="${!off}">
+      <span class="ln" style="background:${pcolor(src)}"></span>
+      <span class="name ${isT ? "is-tempest" : ""}">${esc(PROVIDERS[src].label)}</span>
+    </button>`;
+  }).join("");
+
+  // narrative: current gap Tempest vs best public
+  const last = data[data.length - 1];
+  const first = data[0];
+  const gapNow = last.Tempest - bestPublic(last);
+  const gapThen = first.Tempest - bestPublic(first);
+  const closing = gapNow < gapThen;
+  const gapTxt = Math.abs(gapNow) < 0.005
+    ? `Tempest and the best public line are essentially <b>level</b>.`
+    : `Tempest trails the best public forecast by <b class="num">${f2(Math.abs(gapNow))}°F</b> this week — the gap has <b>${closing ? "narrowed" : "widened"}</b> from <span class="num">${f2(Math.abs(gapThen))}°F</span> six weeks ago.`;
+
+  // sr-only data table mirroring the chart, for screen readers
+  const srHead = ORDER.map(s => `<th scope="col">${esc(PROVIDERS[s].label)}</th>`).join("");
+  const srBody = data.map(row => {
+    const cells = ORDER.map(s => `<td>${row[s] != null ? f2(row[s]) : "—"}</td>`).join("");
+    return `<tr><th scope="row">${fmtMD(row.week)}</th>${cells}</tr>`;
+  }).join("");
+  const srTable = `
+    <table class="sr-only">
+      <caption>Weekly mean absolute error in degrees Fahrenheit by provider (lower is better). Week-of date shown for each row.</caption>
+      <thead><tr><th scope="col">Week of</th>${srHead}</tr></thead>
+      <tbody>${srBody}</tbody>
+    </table>`;
+
+  document.getElementById("trend").innerHTML = `
+    <div class="card-head">
+      <h2 id="trend-h">Weekly accuracy trend</h2>
+      <span class="meta">MAE °F · lower is better</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly mean absolute error per provider over time. Tempest is the bold teal line. A data table with the same values follows.">
+      ${grid}
+      ${gapPath}
+      ${lines}
+      ${xlabels}
+    </svg>
+    ${srTable}
+    <p class="gap-note">${gapTxt}</p>
+    <div class="legend" role="group" aria-label="Toggle providers">${legend}</div>`;
+
+  document.querySelectorAll("#trend .legend button").forEach(b => {
+    b.addEventListener("click", () => {
+      const s = b.dataset.src;
+      if (hidden.has(s)) hidden.delete(s); else hidden.add(s);
+      if (hidden.size >= ORDER.length) hidden.delete(s); // keep at least one
+      renderTrend(DATA);
+    });
+  });
+}
+
+/* ----------------------------------------------------------- 5 · DETAILS */
+function renderDetails(d) {
+  const busts = (d.busts || []).map(b => {
+    let whoHTML, descHTML;
+    if (String(b.source).startsWith("ALL_EXCEPT:")) {
+      const except = b.source.split(":")[1];
+      whoHTML = `<span class="badge" style="background:var(--st-behind)">All except ${esc(except)}</span>`;
+      descHTML = `${esc(b.note || (b.var + " miss"))}`;
+    } else {
+      whoHTML = `<span class="badge" style="background:${pcolor(b.source)}">${esc(PROVIDERS[b.source] ? PROVIDERS[b.source].label : b.source)}</span>`;
+      const varLabel = b.var === "high" ? "High temp" : b.var === "low" ? "Low temp" : b.var === "precip" ? "Precip" : esc(b.var);
+      if (b.forecast != null && b.actual != null) {
+        const miss = Math.abs(b.actual - b.forecast);
+        descHTML = `${varLabel}: forecast <span class="num">${b.forecast}°</span><span class="arrow">→</span>actual <span class="num">${b.actual}°</span> <span class="miss">(${miss}° off)</span>`;
+      } else {
+        descHTML = `${varLabel}${b.note ? " — " + esc(b.note) : ""}`;
+      }
+    }
+    return `<div class="bust">
+      <span class="date">${fmtMD(b.date)}</span>
+      <div>
+        <div class="who">${whoHTML}</div>
+        <div class="desc">${descHTML}</div>
+      </div>
+    </div>`;
+  }).join("") || `<p class="muted" style="font-size:var(--fs-sm)">No notable busts logged this week.</p>`;
+
+  // Brier table from standings (current lead), sorted; lowest = best (calibration)
+  const brierRows = (d.standings.lead1 || []).slice().sort((a, b) => a.brier - b.brier);
+  const bestBrier = brierRows.length ? brierRows[0].brier : null;
+  const brierHTML = brierRows.map(r => `
+    <tr>
+      <td><span class="rank"><span class="swatch" style="background:${pcolor(r.source)}"></span>${esc(PROVIDERS[r.source] ? PROVIDERS[r.source].label : r.source)}</span></td>
+      <td class="num ${r.brier === bestBrier ? "best" : ""}">${f3(r.brier)}</td>
+    </tr>`).join("");
+
+  document.getElementById("details").innerHTML = `
+    <summary aria-controls="details-body">
+      <span class="caret"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      <h2>This week's details</h2>
+      <span class="meta">${(d.busts || []).length} busts · PoP calibration</span>
+    </summary>
+    <div class="body" id="details-body">
+      <div class="sub-block">
+        <h3>Biggest forecast busts</h3>
+        ${busts}
+      </div>
+      <div class="sub-block">
+        <h3>PoP calibration <span class="muted" style="font-weight:500">· Brier score, lower = better</span></h3>
+        <table class="brier-tbl">
+          <thead><tr><th scope="col">Provider</th><th scope="col">Brier</th></tr></thead>
+          <tbody>${brierHTML}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ------------------------------------------------------------- 6 · HEALTH */
+function renderHealth(d) {
+  const h = d.data_health;
+  const snapWarn = h.last_snapshot_hours_ago > 48;
+  const capWarn = h.capture_misses > 3;
+  const batt = h.battery_volts;
+  const battState = batt == null ? "ok" : batt <= 2.355 ? "fail" : batt <= 2.5 ? "warn" : "ok";
+  const faults = h.sensor_faults || [];
+  const faultState = faults.length ? "fail" : "ok";
+  const cocoState = h.cocorahs_ok == null ? "ok" : h.cocorahs_ok ? "ok" : "fail";
+  const cocoVal = h.cocorahs_ok == null ? "n/a" : h.cocorahs_ok ? "OK" : "DOWN";
+  const needsAttention = snapWarn || capWarn || battState !== "ok" || faultState !== "ok";
+  const badge = (label, valHTML, state) => `
+    <div class="hbadge ${state === "warn" ? "warn" : state === "fail" ? "fail" : ""}">
+      <span class="hl"><span class="dot ${state}"></span>${label}</span>
+      <span class="hv">${valHTML}</span>
+    </div>`;
+
+  document.getElementById("health").innerHTML = `
+    <div class="card-head">
+      <h2 id="health-h">Data health</h2>
+      <span class="meta">${needsAttention ? "needs attention" : "all systems nominal"}</span>
+    </div>
+    <div class="grid">
+      ${badge("Capture streak", `${h.capture_days - h.capture_misses}<small> / ${h.capture_days}d</small>`, capWarn ? "warn" : "ok")}
+      ${badge("Station online", `${h.station_online_streak}<small>d streak</small>`, "ok")}
+      ${badge("Last snapshot", `${h.last_snapshot_hours_ago}<small>h ago</small>`, snapWarn ? "fail" : "ok")}
+      ${badge("Battery", batt == null ? "n/a" : `${f2(batt)}<small>V</small>`, battState)}
+      ${badge("Sensor faults", faults.length ? `${faults.length}<small> flagged</small>` : "None", faultState)}
+      ${badge("CoCoRaHS feed", cocoVal, cocoState)}
+    </div>`;
+}
+
+/* ------------------------------------------------------------- ORCHESTRATE */
+let DATA = null;
+function renderAll(d) {
+  DATA = d;
+  renderVerdict(d);
+  renderClock(d);
+  renderStandings(d);
+  renderTrend(d);
+  renderDetails(d);
+  renderHealth(d);
+  const gen = parseDate(d.generated_at);
+  document.getElementById("pagefoot").innerHTML =
+    `Generated <span class="num">${gen.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC</span> · WeatherFlow Tempest guarantee tracker`;
+}
+
+function loadFallback() {
+  try { return JSON.parse(document.getElementById("fallback-data").textContent); }
+  catch (e) { console.error("fallback parse failed", e); return null; }
+}
+
+/* same-origin fetch on GitHub Pages; fall back to baked-in data otherwise */
+(async function init() {
+  let data = null;
+  try {
+    const res = await fetch("./scores.json", { cache: "no-store" });
+    if (res.ok) data = await res.json();
+  } catch (e) { /* file:// or sandbox — use fallback */ }
+  const usingFallback = !data;
+  if (usingFallback) data = loadFallback();
+  const banner = document.getElementById("sampleBanner");
+  if (banner) banner.hidden = !usingFallback;
+  if (data) renderAll(data);
+  // entrance: transition from hidden → visible (resting state is always visible)
+})();
+
+/* --------------------------------------------------------------- THEME */
+const ICON_MOON = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>';
+const ICON_SUN  = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme")
+    || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+function applyThemeIcon() {
+  const dark = currentTheme() === "dark";
+  document.getElementById("themeIcon").innerHTML = dark ? ICON_SUN : ICON_MOON;
+}
+(function initTheme() {
+  const saved = localStorage.getItem("tempest-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+  applyThemeIcon();
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("tempest-theme", next);
+    applyThemeIcon();
+    if (DATA) renderTrend(DATA); // re-render SVG colors for new theme
+  });
+})();
+</script>
+
+
+</body></html>

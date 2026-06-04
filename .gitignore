@@ -1,0 +1,22 @@
+# Secrets — the Tempest token lives ONLY in GitHub Secrets, never on disk here.
+.env
+.env.*
+*.token
+secrets.*
+
+# Local scratch / sc800 experiments
+scratch/
+tmp/
+*.local
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
