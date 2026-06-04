@@ -482,6 +482,15 @@ def main():
             cocorahs_seen = True
             cocorahs.update(parse_cocorahs(cj))
 
+    # Historical device-obs backfill (e.g. the install gap before daily capture began).
+    # Folded into actuals + rain totals, but NOT counted as daily captures / health.
+    for bf in sorted(glob.glob(os.path.join(BASE, "backfill", "*.json"))):
+        bj = load(bf)
+        actuals.update(parse_actuals(bj))
+        tr = parse_tempest_rain(bj)
+        if tr and (tr[1] is not None or tr[2] is not None):
+            tempest_rain[tr[0]] = {"raw": tr[1], "corrected": tr[2]}
+
     # CoCoRaHS is the precip-AMOUNT truth (Tempest haptic under-reports). Attribute a
     # report dated D back to calendar day D-1, and override the Tempest precip there.
     cocorahs_cal = {}

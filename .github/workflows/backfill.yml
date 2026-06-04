@@ -1,0 +1,36 @@
+# Manual-only historical backfill. Run from the Actions tab (or `gh workflow run backfill`)
+# to fetch past Tempest device-obs (default: the 5/31-6/2 install gap), then re-score.
+# Optionally pass dates via the `dates` input (space-separated YYYY-MM-DD).
+name: backfill
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: "Space-separated YYYY-MM-DD dates (blank = install gap default)"
+        required: false
+        default: ""
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Backfill device history
+        env:
+          TEMPEST_TOKEN: ${{ secrets.TEMPEST_TOKEN }}
+          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
+        run: python backfill.py ${{ github.event.inputs.dates }}
+      - name: Re-score
+        if: always()
+        run: python extract.py
+      - name: Commit backfill + scores
+        if: always()
+        run: |
+          git config user.name "forecast-capture-bot"
+          git config user.email "actions@github.com"
+          git add backfill/ scores.json || true
+          git commit -m "backfill device history $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git pull --rebase --autostash || true
+          git push || echo "push skipped"
