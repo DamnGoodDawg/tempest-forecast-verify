@@ -29,12 +29,20 @@ LAT, LON = 33.9364, -83.5736
 NWS_GRID = "FFC/80,97"
 UA = "tempest-forecast-verify/1.0 (tkb5047@gmail.com)"
 BASE = os.path.dirname(os.path.abspath(__file__))
+COCORAHS_STATION = "GA-OC-20"   # "Bogart 2.4 S", ~2.6 mi away — independent precip truth
+COCORAHS_WINDOW_DAYS = 6        # trailing window: the observer reports ~7am, so allow lag
 
 def get(url, params=None):
     if params: url = url + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
+
+def get_text(url, params=None):
+    if params: url = url + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return r.read().decode("utf-8", "replace")
 
 def write(outdir, name, obj):
     with open(os.path.join(outdir, name), "w") as f:
@@ -148,6 +156,23 @@ def main():
             print(f"[ok] tempest_device_yesterday.json ({nobs} obs)")
         except Exception as e:
             warnings.append(f"tempest_device_yesterday: {e} (non-fatal)")
+
+    # 6. CoCoRaHS daily precip from nearby GA-OC-20 (independent rain-amount truth).
+    #    Free CSV export. The observer reports ~7am for the prior 24h, so a trailing
+    #    window lets a late entry be picked up on a subsequent day. SOFT (token-free).
+    try:
+        end = now_local.date()
+        start = end - dt.timedelta(days=COCORAHS_WINDOW_DAYS)
+        csv_text = get_text("https://data.cocorahs.org/cocorahs/export/exportreports.aspx", {
+            "ReportType": "Daily", "dtf": "1", "Format": "CSV", "ReportDateType": "reportdate",
+            "Station": COCORAHS_STATION,
+            "StartDate": f"{start.month}/{start.day}/{start.year}",
+            "EndDate": f"{end.month}/{end.day}/{end.year}"})
+        write(outdir, "cocorahs.json", {"meta": meta, "station": COCORAHS_STATION, "csv": csv_text})
+        nrows = max(0, csv_text.count("\n") - 1)
+        print(f"[ok] cocorahs.json ({nrows} rows)")
+    except Exception as e:
+        warnings.append(f"cocorahs: {e} (non-fatal)")
 
     write(outdir, "_capture_log.json", {"meta": meta, "failures": failures, "warnings": warnings})
     if warnings:

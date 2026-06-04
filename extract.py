@@ -17,7 +17,7 @@ TOO EARLY, and any source/section with no data is simply omitted. This script mu
 NEVER crash the daily run -- on any unexpected error it still writes a minimal,
 valid TOO EARLY scores.json and exits 0.
 """
-import json, os, sys, glob, datetime as dt
+import json, os, sys, glob, csv, io, datetime as dt
 from collections import defaultdict
 from zoneinfo import ZoneInfo
 
@@ -192,6 +192,32 @@ def parse_device_health(device_json):
             break
     return out
 
+def parse_cocorahs(cocorahs_json):
+    """CoCoRaHS daily CSV -> {ObservationDate 'YYYY-MM-DD': precip inches}. Trace -> 0.0.
+    NOTE on attribution: a CoCoRaHS report dated D is the ~24h total ending at the
+    observer's morning reading on D, i.e. mostly calendar day D-1's rain. The caller
+    shifts it back one day to align with the Tempest local-calendar-day truth."""
+    out = {}
+    if not cocorahs_json:
+        return out
+    text = cocorahs_json.get("csv") or ""
+    try:
+        for row in csv.DictReader(io.StringIO(text)):
+            date = (row.get("ObservationDate") or "").strip()
+            amt = (row.get("TotalPrecipAmt") or "").strip()
+            if not date:
+                continue
+            if amt.upper() in ("T", "TRACE"):
+                out[date] = 0.0
+            elif amt and amt.upper() != "NA":
+                try:
+                    out[date] = float(amt)
+                except ValueError:
+                    pass
+    except Exception:
+        pass
+    return out
+
 
 # ---------------------------------------------------------------- scoring
 def temp_errors(records, actuals, src, leads):
@@ -317,7 +343,7 @@ def build(records, actuals):
     return standings, verdict, trend_rows, busts, n_days
 
 
-def data_health(day_dirs, latest_device):
+def data_health(day_dirs, latest_device, cocorahs_ok):
     capture_days = len(day_dirs)
     # total days missing the irreplaceable Tempest snapshot
     misses = sum(1 for dd in day_dirs if not os.path.exists(os.path.join(dd, "tempest.json")))
@@ -349,7 +375,7 @@ def data_health(day_dirs, latest_device):
         "capture_days": capture_days,
         "capture_misses": misses,
         "station_online_streak": streak,
-        "cocorahs_ok": None,            # CoCoRaHS fetcher not yet wired (README open item) -> n/a
+        "cocorahs_ok": cocorahs_ok,     # True=feed fresh, False=feed seen but stale/empty, None=never captured
         "last_snapshot_hours_ago": last_hours if last_hours is not None else 0,
         "battery_volts": diag["battery_volts"],
         "rain_sensor_ok": (diag["battery_volts"] is None) or (diag["battery_volts"] > RAIN_SENSOR_MIN_V),
@@ -376,6 +402,7 @@ def empty_scores(note=""):
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
     records, actuals, latest_device = [], {}, None
+    cocorahs, cocorahs_seen = {}, False
     for dd in day_dirs:
         capture = os.path.basename(dd)
         records += parse_tempest(load(os.path.join(dd, "tempest.json")), capture)
@@ -385,13 +412,31 @@ def main():
         actuals.update(parse_actuals(dev))
         if dev:
             latest_device = dev
+        cj = load(os.path.join(dd, "cocorahs.json"))
+        if cj is not None:
+            cocorahs_seen = True
+            cocorahs.update(parse_cocorahs(cj))
+
+    # CoCoRaHS is the precip-AMOUNT truth (Tempest haptic under-reports). Attribute a
+    # report dated D back to calendar day D-1, and override the Tempest precip there.
+    cocorahs_cal = {}
+    for obsdate, amt in cocorahs.items():
+        try:
+            cal = (d(obsdate) - dt.timedelta(days=1)).isoformat()
+        except Exception:
+            continue
+        cocorahs_cal[cal] = amt
+        actuals[(cal, "precip_amt")] = amt
+    today = dt.datetime.now(NY).date()
+    fresh = any((today - d(x)).days <= 8 for x in cocorahs_cal)   # keys are valid ISO dates
+    cocorahs_ok = True if fresh else (False if cocorahs_seen else None)
 
     standings, verdict, trend, busts, n_days = build(records, actuals)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
-        "data_health": data_health(day_dirs, latest_device),
+        "data_health": data_health(day_dirs, latest_device, cocorahs_ok),
     }
     with open(OUT, "w") as f:
         json.dump(scores, f, indent=2)
