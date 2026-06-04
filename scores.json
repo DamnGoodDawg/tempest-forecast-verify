@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-06-04T20:25:46Z",
+  "install_date": "2026-05-31",
+  "milestones": {
+    "window_opens": "2026-08-01",
+    "five_month": "2026-10-31",
+    "claim_deadline": "2027-01-25"
+  },
+  "verdict": {
+    "status": "TOO EARLY",
+    "headline": "Only 0 scored days so far \u2014 need ~30 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
+    "n_days": 0,
+    "dm_p_value": null,
+    "best_public": null
+  },
+  "standings": {
+    "lead1": [],
+    "lead2": [],
+    "lead3": [],
+    "blend": []
+  },
+  "trend": [],
+  "busts": [],
+  "rain_compare": [
+    {
+      "date": "2026-05-29",
+      "tempest_raw": null,
+      "tempest_corrected": null,
+      "cocorahs": 0.47
+    },
+    {
+      "date": "2026-05-30",
+      "tempest_raw": null,
+      "tempest_corrected": null,
+      "cocorahs": 1.5
+    },
+    {
+      "date": "2026-05-31",
+      "tempest_raw": 0.04,
+      "tempest_corrected": 0.04,
+      "cocorahs": 0.15
+    },
+    {
+      "date": "2026-06-01",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null
+    },
+    {
+      "date": "2026-06-02",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null
+    },
+    {
+      "date": "2026-06-03",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null
+    }
+  ],
+  "data_health": {
+    "capture_days": 1,
+    "capture_misses": 0,
+    "station_online_streak": 1,
+    "hub_online": true,
+    "cocorahs_ok": true,
+    "last_snapshot_hours_ago": 0,
+    "battery_volts": 2.65,
+    "battery_warn": false,
+    "rain_sensor_ok": true,
+    "sensor_faults": null,
+    "rssi": null,
+    "hub_rssi": null
+  }
+}
