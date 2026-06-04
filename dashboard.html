@@ -546,6 +546,11 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     { "date": "2026-08-12", "source": "Tempest", "var": "high", "forecast": 84, "actual": 91 },
     { "date": "2026-08-14", "source": "ALL_EXCEPT:NBM", "var": "precip", "note": "everyone missed the pop-up storm but NBM" }
   ],
+  "rain_compare": [
+    { "date": "2026-08-08", "tempest_raw": 0.31, "tempest_corrected": 0.44, "cocorahs": 0.52 },
+    { "date": "2026-08-11", "tempest_raw": 0.00, "tempest_corrected": 0.00, "cocorahs": 0.00 },
+    { "date": "2026-08-14", "tempest_raw": 0.62, "tempest_corrected": 0.88, "cocorahs": 1.21 }
+  ],
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
     "hub_online": true, "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
@@ -901,6 +906,25 @@ function renderDetails(d) {
       <td class="num ${r.brier === bestBrier ? "best" : ""}">${f3(r.brier)}</td>
     </tr>`).join("");
 
+  // Rain totals: Tempest haptic (raw) vs RainCheck-corrected vs CoCoRaHS gauge truth
+  const rain = d.rain_compare || [];
+  const inOrDash = v => v == null ? '<span class="muted">—</span>' : `${f2(v)}"`;
+  const rainRows = rain.slice().reverse().map(r => `
+    <tr>
+      <td>${fmtMD(r.date)}</td>
+      <td class="num">${inOrDash(r.tempest_raw)}</td>
+      <td class="num">${inOrDash(r.tempest_corrected)}</td>
+      <td class="num">${inOrDash(r.cocorahs)}</td>
+    </tr>`).join("");
+  const rainHTML = rain.length ? `
+      <div class="sub-block">
+        <h3>Rain totals — station vs gauge <span class="muted" style="font-weight:500">· inches/day, CoCoRaHS is truth</span></h3>
+        <table class="brier-tbl">
+          <thead><tr><th scope="col">Date</th><th scope="col">Tempest raw</th><th scope="col">RainCheck</th><th scope="col">CoCoRaHS</th></tr></thead>
+          <tbody>${rainRows}</tbody>
+        </table>
+      </div>` : "";
+
   document.getElementById("details").innerHTML = `
     <summary aria-controls="details-body">
       <span class="caret"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -919,6 +943,7 @@ function renderDetails(d) {
           <tbody>${brierHTML}</tbody>
         </table>
       </div>
+      ${rainHTML}
     </div>`;
 }
 
@@ -1001,7 +1026,8 @@ function loadFallback() {
 (async function init() {
   let data = null;
   try {
-    const res = await fetch("./scores.json", { cache: "no-store" });
+    // cache-bust the query so a stale CDN/edge copy can never strand the dashboard
+    const res = await fetch("./scores.json?t=" + Date.now(), { cache: "no-store" });
     if (res.ok) data = await res.json();
   } catch (e) { /* file:// or sandbox — use fallback */ }
   const usingFallback = !data;

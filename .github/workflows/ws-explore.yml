@@ -1,0 +1,27 @@
+# Manual-only WebSocket menu probe — NOT scheduled. Run from the Actions tab (or
+# `gh workflow run ws-explore`) to record what the Tempest WebSocket delivers to a
+# personal token. Writes ws_sample.json. Safe to re-run anytime.
+name: ws-explore
+on:
+  workflow_dispatch: {}
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Probe WebSocket
+        env:
+          TEMPEST_TOKEN: ${{ secrets.TEMPEST_TOKEN }}
+          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
+        run: python ws_explore.py
+      - name: Commit sample
+        if: always()
+        run: |
+          git config user.name "forecast-capture-bot"
+          git config user.email "actions@github.com"
+          git add ws_sample.json || true
+          git commit -m "ws sample $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git push || echo "push skipped"

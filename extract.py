@@ -202,6 +202,21 @@ def parse_device_health(device_json):
             break
     return out
 
+def parse_tempest_rain(device_json):
+    """Yesterday's Tempest daily rain totals -> (date, raw_in, corrected_in).
+    raw = haptic accumulator (idx 18), corrected = RainCheck/NC (idx 20); mm -> in."""
+    if not device_json:
+        return None
+    target = device_json.get("for_date")
+    obs = ((device_json.get("data") or {}).get("obs")) or []
+    if not target or not obs:
+        return None
+    raw = [x for x in (_cell(r, OBS_RAIN_DAY_MM) for r in obs) if isinstance(x, (int, float))]
+    cor = [x for x in (_cell(r, OBS_RAIN_DAY_FINAL_MM) for r in obs) if isinstance(x, (int, float))]
+    return (target,
+            round(max(raw) / 25.4, 3) if raw else None,
+            round(max(cor) / 25.4, 3) if cor else None)
+
 def parse_device_status(ds_json):
     """WebSocket device_status/hub_status -> decoded sensor faults + RSSI.
     sensor_faults: list of fault names ([] = all sensors OK), or None if unavailable."""
@@ -429,7 +444,7 @@ def empty_scores(note=""):
                                 "forecasts can be checked against observed actuals." + (f" ({note})" if note else ""),
                     "n_days": 0, "dm_p_value": None, "best_public": None},
         "standings": {"lead1": [], "lead2": [], "lead3": [], "blend": []},
-        "trend": [], "busts": [],
+        "trend": [], "busts": [], "rain_compare": [],
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
                         "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
                         "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
@@ -441,6 +456,7 @@ def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
     records, actuals, latest_device, latest_ds = [], {}, None, None
     cocorahs, cocorahs_seen, hub_online = {}, False, None
+    tempest_rain = {}   # date -> {raw, corrected} daily totals (inches)
     for dd in day_dirs:
         capture = os.path.basename(dd)
         tj = load(os.path.join(dd, "tempest.json"))
@@ -455,6 +471,9 @@ def main():
         actuals.update(parse_actuals(dev))
         if dev:
             latest_device = dev
+        tr = parse_tempest_rain(dev)
+        if tr and (tr[1] is not None or tr[2] is not None):
+            tempest_rain[tr[0]] = {"raw": tr[1], "corrected": tr[2]}
         ds = load(os.path.join(dd, "device_status.json"))
         if ds:
             latest_ds = ds
@@ -477,11 +496,24 @@ def main():
     fresh = any((today - d(x)).days <= 8 for x in cocorahs_cal)   # keys are valid ISO dates
     cocorahs_ok = True if fresh else (False if cocorahs_seen else None)
 
+    # Rain comparison: Tempest (raw haptic vs RainCheck-corrected) vs the CoCoRaHS gauge.
+    # Tests the known haptic under-reporting and whether RainCheck helps or hurts here.
+    rain_compare = []
+    for dd_ in sorted(set(tempest_rain) | set(cocorahs_cal))[-21:]:
+        tr = tempest_rain.get(dd_, {})
+        rain_compare.append({
+            "date": dd_,
+            "tempest_raw": tr.get("raw"),
+            "tempest_corrected": tr.get("corrected"),
+            "cocorahs": cocorahs_cal.get(dd_),
+        })
+
     standings, verdict, trend, busts, n_days = build(records, actuals)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
+        "rain_compare": rain_compare,
         "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
     with open(OUT, "w") as f:
