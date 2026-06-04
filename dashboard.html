@@ -437,6 +437,9 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   background: var(--tint-tied); border: 1px solid color-mix(in oklch, var(--st-tied) 45%, transparent);
   color: oklch(0.40 0.09 80); font-size: var(--fs-sm); font-weight: 600;
 }
+/* the `hidden` attribute must win over the flex display above (else the banner
+   stays visible even when live data loaded — the class display would override it) */
+.sample-banner[hidden] { display: none; }
 [data-theme="dark"] .sample-banner, :root:not([data-theme="light"]) .sample-banner { color: var(--st-tied); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sample-banner { color: var(--st-tied); } }
 .sample-banner svg { width: 18px; height: 18px; flex: none; }
