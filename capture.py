@@ -87,8 +87,9 @@ class _WSReader:
             payload = bytes(c ^ mask[i % 4] for i, c in enumerate(payload))
         return opcode, payload
 
-def ws_device_status(device_id, token, timeout=80):
-    """Connect, subscribe to the device, collect device_status (+ hub_status), close."""
+def ws_device_status(device_id, token, timeout=150):
+    """Connect, subscribe to the device, collect device_status (+ hub_status), close.
+    Returns a dict that also carries '_seen' (the message types observed) for diagnostics."""
     host, path = "ws.weatherflow.com", "/swd/data?token=" + urllib.parse.quote(token, safe="")
     ctx = ssl.create_default_context()
     raw = socket.create_connection((host, 443), timeout=20)
@@ -109,7 +110,7 @@ def ws_device_status(device_id, token, timeout=80):
         rdr = _WSReader(s, buf.split(b"\r\n\r\n", 1)[1])
         _ws_send(s, 0x1, json.dumps({"type": "listen_start", "device_id": int(device_id), "id": "hc"}).encode())
         s.settimeout(timeout)
-        out, end = {}, time.time() + timeout
+        out, seen, end = {}, set(), time.time() + timeout
         while time.time() < end:
             try:
                 opcode, payload = rdr.frame()
@@ -125,10 +126,14 @@ def ws_device_status(device_id, token, timeout=80):
                 m = json.loads(payload.decode())
             except Exception:
                 continue
-            if m.get("type") in ("device_status", "hub_status"):
-                out[m["type"]] = m
+            t = m.get("type")
+            if t:
+                seen.add(t)
+            if t in ("device_status", "hub_status"):
+                out[t] = m
             if "device_status" in out:
                 break
+        out["_seen"] = sorted(seen)
         return out
     finally:
         try: s.close()
@@ -254,12 +259,13 @@ def main():
     if token and device_id:
         try:
             ds = ws_device_status(device_id, token)
-            if ds:
+            seen = ds.pop("_seen", []) if isinstance(ds, dict) else []
+            if ds.get("device_status") or ds.get("hub_status"):
                 write(outdir, "device_status.json", {"meta": meta, "data": ds})
                 ss = (ds.get("device_status") or {}).get("sensor_status")
-                print(f"[ok] device_status.json (sensor_status={ss})")
+                print(f"[ok] device_status.json (sensor_status={ss}, types={seen})")
             else:
-                warnings.append("device_status: no status frame received within timeout (non-fatal)")
+                warnings.append(f"device_status: no status frame within timeout; saw types={seen} (non-fatal)")
         except Exception as e:
             warnings.append(f"device_status: {e} (non-fatal)")
 
