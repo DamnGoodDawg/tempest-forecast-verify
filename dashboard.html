@@ -549,7 +549,8 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
     "hub_online": true, "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
-    "battery_volts": 2.71, "battery_warn": false, "rain_sensor_ok": true, "sensor_faults": null
+    "battery_volts": 2.71, "battery_warn": false, "rain_sensor_ok": true,
+    "sensor_faults": [], "rssi": -67, "hub_rssi": -52
   }
 }
 </script>
@@ -936,6 +937,8 @@ function renderHealth(d) {
   const faultVal = (faults == null) ? "n/a" : (faults.length ? `${faults.length}<small> flagged</small>` : "None");
   const cocoState = h.cocorahs_ok == null ? "ok" : h.cocorahs_ok ? "ok" : "fail";
   const cocoVal = h.cocorahs_ok == null ? "n/a" : h.cocorahs_ok ? "OK" : "DOWN";
+  const rssi = h.rssi;
+  const rssiState = (rssi == null) ? "ok" : (rssi <= -85 ? "warn" : "ok");
 
   // station-health alerts (the RMA / continuous-reporting insurance)
   const alerts = [];
@@ -943,7 +946,8 @@ function renderHealth(d) {
   if (battState === "fail") alerts.push({ sev: "fail", t: `Battery ${f2(batt)} V — at/below 2.355 V the rain sensor silently disables. Charge or service now.` });
   else if (battState === "warn") alerts.push({ sev: "warn", t: `Battery ${f2(batt)} V — trending low. Act before the 2.355 V rain-sensor cutoff.` });
   if (snapWarn) alerts.push({ sev: "fail", t: `No fresh snapshot in ${h.last_snapshot_hours_ago} h — the daily capture may have stalled.` });
-  if (faults && faults.length) alerts.push({ sev: "fail", t: `Sensor fault flagged: ${faults.join(", ")}.` });
+  if (faults && faults.length) alerts.push({ sev: "fail", t: `Sensor fault flagged: ${faults.join(", ")} — likely a warranty/RMA case.` });
+  if (rssiState === "warn") alerts.push({ sev: "warn", t: `Weak hub signal (${rssi} dBm) — risk of dropped reports.` });
   const needsAttention = alerts.length > 0 || capWarn;
   const alertLvl = alerts.some(a => a.sev === "fail") ? "fail" : "warn";
   const alertHTML = alerts.length
@@ -968,6 +972,7 @@ function renderHealth(d) {
       ${badge("Last snapshot", `${h.last_snapshot_hours_ago}<small>h ago</small>`, snapWarn ? "fail" : "ok")}
       ${badge("Battery", batt == null ? "n/a" : `${f2(batt)}<small>V</small>`, battState)}
       ${badge("Sensor faults", faultVal, faultState)}
+      ${badge("Hub signal", rssi == null ? "n/a" : `${rssi}<small>dBm</small>`, rssiState)}
       ${badge("CoCoRaHS feed", cocoVal, cocoState)}
     </div>`;
 }

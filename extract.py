@@ -149,6 +149,15 @@ def parse_nws(j, capture):
 OBS_AIRTEMP_C, OBS_BATTERY = 7, 16
 OBS_RAIN_DAY_MM, OBS_RAIN_DAY_FINAL_MM = 18, 20  # raw vs RainCheck-corrected daily accum
 
+# device_status.sensor_status bitmask -> hardware fault names (WebSocket-only field).
+# Lightning noise/disturber bits (0x2/0x4) are environmental, not faults -> excluded.
+SENSOR_FAULTS = [
+    (0x00000001, "lightning failed"), (0x00000008, "pressure failed"),
+    (0x00000010, "temperature failed"), (0x00000020, "humidity failed"),
+    (0x00000040, "wind failed"), (0x00000080, "precip (rain) failed"),
+    (0x00000100, "light/UV failed"),
+]
+
 def _cell(row, i):
     return row[i] if isinstance(row, (list, tuple)) and len(row) > i else None
 
@@ -191,6 +200,25 @@ def parse_device_health(device_json):
         if isinstance(b, (int, float)):
             out["battery_volts"] = round(float(b), 3)
             break
+    return out
+
+def parse_device_status(ds_json):
+    """WebSocket device_status/hub_status -> decoded sensor faults + RSSI.
+    sensor_faults: list of fault names ([] = all sensors OK), or None if unavailable."""
+    out = {"sensor_faults": None, "rssi": None, "hub_rssi": None}
+    if not ds_json:
+        return out
+    data = ds_json.get("data") or {}
+    ds = data.get("device_status") or {}
+    hs = data.get("hub_status") or {}
+    ss = ds.get("sensor_status")
+    if ss is not None:
+        try:
+            out["sensor_faults"] = [name for bit, name in SENSOR_FAULTS if int(ss) & bit]
+        except (TypeError, ValueError):
+            out["sensor_faults"] = None
+    out["rssi"] = ds.get("rssi")
+    out["hub_rssi"] = hs.get("rssi")
     return out
 
 def parse_cocorahs(cocorahs_json):
@@ -344,7 +372,7 @@ def build(records, actuals):
     return standings, verdict, trend_rows, busts, n_days
 
 
-def data_health(day_dirs, latest_device, cocorahs_ok, hub_online):
+def data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds):
     capture_days = len(day_dirs)
     # total days missing the irreplaceable Tempest snapshot
     misses = sum(1 for dd in day_dirs if not os.path.exists(os.path.join(dd, "tempest.json")))
@@ -373,6 +401,7 @@ def data_health(day_dirs, latest_device, cocorahs_ok, hub_online):
 
     diag = parse_device_health(latest_device)
     batt = diag["battery_volts"]
+    dsx = parse_device_status(latest_ds)   # sensor faults + RSSI from WebSocket device_status
     return {
         "capture_days": capture_days,
         "capture_misses": misses,
@@ -383,9 +412,11 @@ def data_health(day_dirs, latest_device, cocorahs_ok, hub_online):
         "battery_volts": batt,
         "battery_warn": batt is not None and batt <= BATTERY_WARN_V,   # early warning before 2.355 cutoff
         "rain_sensor_ok": (batt is None) or (batt > RAIN_SENSOR_MIN_V),
-        # Sensor fault flags (wind/rain failed) + RSSI live only in the WebSocket
-        # device_status stream, not REST -> None means "not monitored" (see receipt).
-        "sensor_faults": None,
+        # sensor_faults: list of failed sensors ([] = all OK), or None if the WebSocket
+        # device_status poll didn't land this run. rssi/hub_rssi in dBm (None if unknown).
+        "sensor_faults": dsx["sensor_faults"],
+        "rssi": dsx["rssi"],
+        "hub_rssi": dsx["hub_rssi"],
     }
 
 
@@ -402,13 +433,13 @@ def empty_scores(note=""):
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
                         "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
                         "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
-                        "sensor_faults": None},
+                        "sensor_faults": None, "rssi": None, "hub_rssi": None},
     }
 
 
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
-    records, actuals, latest_device = [], {}, None
+    records, actuals, latest_device, latest_ds = [], {}, None, None
     cocorahs, cocorahs_seen, hub_online = {}, False, None
     for dd in day_dirs:
         capture = os.path.basename(dd)
@@ -424,6 +455,9 @@ def main():
         actuals.update(parse_actuals(dev))
         if dev:
             latest_device = dev
+        ds = load(os.path.join(dd, "device_status.json"))
+        if ds:
+            latest_ds = ds
         cj = load(os.path.join(dd, "cocorahs.json"))
         if cj is not None:
             cocorahs_seen = True
@@ -448,7 +482,7 @@ def main():
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
-        "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online),
+        "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
     with open(OUT, "w") as f:
         json.dump(scores, f, indent=2)

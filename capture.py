@@ -23,6 +23,7 @@ Design notes (June 2026 hardening):
     Tempest capture is never silent. Diagnostics is a soft warning (never blocks the run).
 """
 import json, os, sys, urllib.request, urllib.parse, datetime as dt
+import socket, ssl, base64, struct, time
 from zoneinfo import ZoneInfo
 
 LAT, LON = 33.9364, -83.5736
@@ -43,6 +44,95 @@ def get_text(url, params=None):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read().decode("utf-8", "replace")
+
+# --- minimal stdlib WebSocket client (RFC 6455) -----------------------------
+# Just enough to grab one device_status (sensor faults + RSSI) and hub_status.
+# device_status/rssi/sensor_status are NOT in any REST endpoint -- only here.
+def _ws_send(sock, opcode, payload=b""):
+    mask = os.urandom(4)
+    n = len(payload)
+    hdr = bytearray([0x80 | opcode])
+    if n < 126:
+        hdr.append(0x80 | n)
+    elif n < 65536:
+        hdr.append(0x80 | 126); hdr += struct.pack(">H", n)
+    else:
+        hdr.append(0x80 | 127); hdr += struct.pack(">Q", n)
+    hdr += mask
+    sock.sendall(bytes(hdr) + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+class _WSReader:
+    def __init__(self, sock, leftover=b""):
+        self.s, self.buf = sock, leftover
+    def _need(self, n):
+        while len(self.buf) < n:
+            chunk = self.s.recv(4096)
+            if not chunk:
+                raise RuntimeError("ws closed")
+            self.buf += chunk
+    def frame(self):
+        self._need(2)
+        b0, b1 = self.buf[0], self.buf[1]
+        opcode, masked, ln, idx = b0 & 0x0F, b1 & 0x80, b1 & 0x7F, 2
+        if ln == 126:
+            self._need(4); ln = struct.unpack(">H", self.buf[2:4])[0]; idx = 4
+        elif ln == 127:
+            self._need(10); ln = struct.unpack(">Q", self.buf[2:10])[0]; idx = 10
+        mask = b""
+        if masked:
+            self._need(idx + 4); mask = self.buf[idx:idx + 4]; idx += 4
+        self._need(idx + ln)
+        payload = self.buf[idx:idx + ln]; self.buf = self.buf[idx + ln:]
+        if masked:
+            payload = bytes(c ^ mask[i % 4] for i, c in enumerate(payload))
+        return opcode, payload
+
+def ws_device_status(device_id, token, timeout=80):
+    """Connect, subscribe to the device, collect device_status (+ hub_status), close."""
+    host, path = "ws.weatherflow.com", "/swd/data?token=" + urllib.parse.quote(token, safe="")
+    ctx = ssl.create_default_context()
+    raw = socket.create_connection((host, 443), timeout=20)
+    s = ctx.wrap_socket(raw, server_hostname=host)
+    try:
+        key = base64.b64encode(os.urandom(16)).decode()
+        s.sendall((f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\n"
+                   f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                   f"Sec-WebSocket-Version: 13\r\n\r\n").encode())
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = s.recv(1024)
+            if not chunk:
+                raise RuntimeError("ws closed during handshake")
+            buf += chunk
+        if b"101" not in buf.split(b"\r\n", 1)[0]:
+            raise RuntimeError("ws upgrade not accepted")
+        rdr = _WSReader(s, buf.split(b"\r\n\r\n", 1)[1])
+        _ws_send(s, 0x1, json.dumps({"type": "listen_start", "device_id": int(device_id), "id": "hc"}).encode())
+        s.settimeout(timeout)
+        out, end = {}, time.time() + timeout
+        while time.time() < end:
+            try:
+                opcode, payload = rdr.frame()
+            except (socket.timeout, RuntimeError):
+                break
+            if opcode == 0x8:        # close
+                break
+            if opcode == 0x9:        # ping -> pong
+                _ws_send(s, 0xA, payload); continue
+            if opcode != 0x1:        # only care about text
+                continue
+            try:
+                m = json.loads(payload.decode())
+            except Exception:
+                continue
+            if m.get("type") in ("device_status", "hub_status"):
+                out[m["type"]] = m
+            if "device_status" in out:
+                break
+        return out
+    finally:
+        try: s.close()
+        except Exception: pass
 
 def write(outdir, name, obj):
     with open(os.path.join(outdir, name), "w") as f:
@@ -156,6 +246,22 @@ def main():
             print(f"[ok] tempest_device_yesterday.json ({nobs} obs)")
         except Exception as e:
             warnings.append(f"tempest_device_yesterday: {e} (non-fatal)")
+
+    # 5b. Device status over WebSocket: sensor fault flags (sensor_status bitmask:
+    #     wind/rain/etc. failed) + RSSI + hub status. These are NOT in any REST endpoint
+    #     (/diagnostics 401s for personal tokens). device_status is periodic (~60s), so
+    #     this can take up to ~80s. SOFT (never blocks the run).
+    if token and device_id:
+        try:
+            ds = ws_device_status(device_id, token)
+            if ds:
+                write(outdir, "device_status.json", {"meta": meta, "data": ds})
+                ss = (ds.get("device_status") or {}).get("sensor_status")
+                print(f"[ok] device_status.json (sensor_status={ss})")
+            else:
+                warnings.append("device_status: no status frame received within timeout (non-fatal)")
+        except Exception as e:
+            warnings.append(f"device_status: {e} (non-fatal)")
 
     # 6. CoCoRaHS daily precip from nearby GA-OC-20 (independent rain-amount truth).
     #    Free CSV export. The observer reports ~7am for the prior 24h, so a trailing
