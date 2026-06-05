@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-04T20:25:46Z",
+  "generated_at": "2026-06-05T13:55:06Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -57,12 +57,18 @@
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
       "cocorahs": null
+    },
+    {
+      "date": "2026-06-04",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null
     }
   ],
   "data_health": {
-    "capture_days": 1,
+    "capture_days": 2,
     "capture_misses": 0,
-    "station_online_streak": 1,
+    "station_online_streak": 2,
     "hub_online": true,
     "cocorahs_ok": true,
     "last_snapshot_hours_ago": 0,
