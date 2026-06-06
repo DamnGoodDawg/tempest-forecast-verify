@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-05T13:55:06Z",
+  "generated_at": "2026-06-06T12:11:31Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -8,19 +8,108 @@
   },
   "verdict": {
     "status": "TOO EARLY",
-    "headline": "Only 0 scored days so far \u2014 need ~30 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
-    "n_days": 0,
+    "headline": "Only 1 scored day so far \u2014 need ~29 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
+    "n_days": 1,
     "dm_p_value": null,
-    "best_public": null
+    "best_public": "NBM"
   },
   "standings": {
-    "lead1": [],
+    "lead1": [
+      {
+        "source": "NBM",
+        "mae": 2.0,
+        "pct_within_3f": 100,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "Tempest",
+        "mae": 2.05,
+        "pct_within_3f": 100,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "GFS",
+        "mae": 3.4,
+        "pct_within_3f": 50,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "NWS",
+        "mae": 3.55,
+        "pct_within_3f": 50,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "ECMWF",
+        "mae": 4.0,
+        "pct_within_3f": 0,
+        "csi": NaN,
+        "brier": 0.0
+      }
+    ],
     "lead2": [],
     "lead3": [],
-    "blend": []
+    "blend": [
+      {
+        "source": "NBM",
+        "mae": 2.0,
+        "pct_within_3f": 100,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "Tempest",
+        "mae": 2.05,
+        "pct_within_3f": 100,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "GFS",
+        "mae": 3.4,
+        "pct_within_3f": 50,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "NWS",
+        "mae": 3.55,
+        "pct_within_3f": 50,
+        "csi": NaN,
+        "brier": 0.0
+      },
+      {
+        "source": "ECMWF",
+        "mae": 4.0,
+        "pct_within_3f": 0,
+        "csi": NaN,
+        "brier": 0.0
+      }
+    ]
   },
-  "trend": [],
-  "busts": [],
+  "trend": [
+    {
+      "week": "2026-06-01",
+      "Tempest": 2.05,
+      "NBM": 2.0,
+      "NWS": 3.55,
+      "ECMWF": 4.0,
+      "GFS": 3.4
+    }
+  ],
+  "busts": [
+    {
+      "date": "2026-06-05",
+      "source": "ECMWF",
+      "var": "high",
+      "forecast": 82,
+      "actual": 86
+    }
+  ],
   "rain_compare": [
     {
       "date": "2026-05-29",
@@ -63,12 +152,18 @@
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
       "cocorahs": null
+    },
+    {
+      "date": "2026-06-05",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null
     }
   ],
   "data_health": {
-    "capture_days": 2,
+    "capture_days": 3,
     "capture_misses": 0,
-    "station_online_streak": 2,
+    "station_online_streak": 3,
     "hub_online": true,
     "cocorahs_ok": true,
     "last_snapshot_hours_ago": 0,
