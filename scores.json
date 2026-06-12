@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-12T14:12:42Z",
+  "generated_at": "2026-06-12T17:22:01Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -11,10 +11,17 @@
     "headline": "Only 7 scored days so far \u2014 need ~23 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
     "n_days": 7,
     "dm_p_value": null,
-    "best_public": "NBM"
+    "best_public": "NWS"
   },
   "standings": {
     "lead1": [
+      {
+        "source": "NWS",
+        "mae": 1.66,
+        "pct_within_3f": 86,
+        "csi": 0.5,
+        "brier": 0.064
+      },
       {
         "source": "NBM",
         "mae": 1.76,
@@ -37,13 +44,6 @@
         "brier": 0.081
       },
       {
-        "source": "NWS",
-        "mae": 2.94,
-        "pct_within_3f": 64,
-        "csi": 0.5,
-        "brier": 0.064
-      },
-      {
         "source": "ECMWF",
         "mae": 2.94,
         "pct_within_3f": 57,
@@ -52,6 +52,13 @@
       }
     ],
     "lead2": [
+      {
+        "source": "NWS",
+        "mae": 1.46,
+        "pct_within_3f": 92,
+        "csi": 0.5,
+        "brier": 0.085
+      },
       {
         "source": "Tempest",
         "mae": 1.81,
@@ -65,13 +72,6 @@
         "pct_within_3f": 83,
         "csi": 0.5,
         "brier": 0.076
-      },
-      {
-        "source": "NWS",
-        "mae": 2.29,
-        "pct_within_3f": 75,
-        "csi": 0.5,
-        "brier": 0.085
       },
       {
         "source": "ECMWF",
@@ -97,18 +97,18 @@
         "brier": 0.17
       },
       {
+        "source": "NWS",
+        "mae": 1.6,
+        "pct_within_3f": 100,
+        "csi": 0.5,
+        "brier": 0.173
+      },
+      {
         "source": "NBM",
         "mae": 1.78,
         "pct_within_3f": 80,
         "csi": 0.5,
         "brier": 0.187
-      },
-      {
-        "source": "NWS",
-        "mae": 2.08,
-        "pct_within_3f": 90,
-        "csi": 0.5,
-        "brier": 0.173
       },
       {
         "source": "ECMWF",
@@ -127,6 +127,13 @@
     ],
     "blend": [
       {
+        "source": "NWS",
+        "mae": 1.58,
+        "pct_within_3f": 92,
+        "csi": 0.5,
+        "brier": 0.101
+      },
+      {
         "source": "Tempest",
         "mae": 1.79,
         "pct_within_3f": 81,
@@ -139,13 +146,6 @@
         "pct_within_3f": 86,
         "csi": 0.5,
         "brier": 0.109
-      },
-      {
-        "source": "NWS",
-        "mae": 2.49,
-        "pct_within_3f": 75,
-        "csi": 0.5,
-        "brier": 0.101
       },
       {
         "source": "ECMWF",
@@ -168,7 +168,7 @@
       "week": "2026-06-01",
       "Tempest": 1.53,
       "NBM": 1.38,
-      "NWS": 3.63,
+      "NWS": 1.47,
       "ECMWF": 2.93,
       "GFS": 2.15
     },
@@ -176,7 +176,7 @@
       "week": "2026-06-08",
       "Tempest": 2.23,
       "NBM": 2.04,
-      "NWS": 2.43,
+      "NWS": 1.8,
       "ECMWF": 2.95,
       "GFS": 2.44
     }
@@ -209,85 +209,99 @@
       "date": "2026-05-29",
       "tempest_raw": null,
       "tempest_corrected": null,
-      "cocorahs": 0.47
+      "cocorahs": 0.47,
+      "flag": null
     },
     {
       "date": "2026-05-30",
       "tempest_raw": null,
       "tempest_corrected": null,
-      "cocorahs": 1.5
+      "cocorahs": 1.5,
+      "flag": null
     },
     {
       "date": "2026-05-31",
       "tempest_raw": 0.04,
       "tempest_corrected": 0.04,
-      "cocorahs": 0.15
+      "cocorahs": 0.15,
+      "flag": null
     },
     {
       "date": "2026-06-01",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-02",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-03",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-04",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-05",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-06",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-07",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-08",
       "tempest_raw": 0.052,
       "tempest_corrected": 0.052,
-      "cocorahs": 0.07
+      "cocorahs": 0.07,
+      "flag": null
     },
     {
       "date": "2026-06-09",
       "tempest_raw": 0.462,
       "tempest_corrected": 0.462,
-      "cocorahs": 0.17
+      "cocorahs": 0.17,
+      "flag": null
     },
     {
       "date": "2026-06-10",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     },
     {
       "date": "2026-06-11",
       "tempest_raw": 0.0,
       "tempest_corrected": 0.0,
-      "cocorahs": null
+      "cocorahs": null,
+      "flag": null
     }
   ],
   "data_health": {
@@ -296,7 +310,7 @@
     "station_online_streak": 9,
     "hub_online": true,
     "cocorahs_ok": true,
-    "last_snapshot_hours_ago": 0,
+    "last_snapshot_hours_ago": 3,
     "battery_volts": 2.65,
     "battery_warn": false,
     "rain_sensor_ok": true,

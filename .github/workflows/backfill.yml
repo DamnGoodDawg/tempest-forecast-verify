@@ -14,14 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Backfill device history
+        # DATES passed via env (not interpolated into the run line) so a crafted workflow
+        # input string cannot inject shell commands.
         env:
           TEMPEST_TOKEN: ${{ secrets.TEMPEST_TOKEN }}
           TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
-        run: python backfill.py ${{ github.event.inputs.dates }}
+          DATES: ${{ github.event.inputs.dates }}
+        run: python backfill.py $DATES
       - name: Re-score
         if: always()
         run: python extract.py
@@ -33,4 +36,4 @@ jobs:
           git add backfill/ scores.json || true
           git commit -m "backfill device history $(date -u +%FT%TZ)" || echo "nothing to commit"
           git pull --rebase --autostash || true
-          git push || echo "push skipped"
+          git push

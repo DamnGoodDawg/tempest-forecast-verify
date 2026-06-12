@@ -9,18 +9,24 @@ honest, timestamped, tamper-evident record of forecast accuracy and let the numb
 
 ## How it works
 
-A GitHub Actions job runs once a day (~07:00 ET) and:
+A GitHub Actions job runs once a day (cron `23 10 * * *`, i.e. 10:23 UTC ≈ 06:23 ET — moved
+off the congested top-of-hour, where runs had been drifting 1–4 h late) and:
 
 1. **Captures** (`capture.py`) each provider's forecast into `data/YYYY-MM-DD/`:
    - `tempest.json` — Tempest `better_forecast` (the subject under test). Irreplaceable: it has no public archive.
    - `nws.json` — the official National Weather Service gridpoint forecast.
    - `openmeteo.json` — GFS / ECMWF / NBM via Open-Meteo.
-   - `tempest_obs_yesterday.json` — the station's own observed actuals (the ground truth).
-   - `diagnostics.json` — station/hub health (online, signal, battery, sensor faults).
+   - `tempest_station_obs.json` — the current station observation (current conditions + yesterday's raw/corrected daily rain totals).
+   - `tempest_device_yesterday.json` — yesterday's per-minute device observations: the temperature ground truth (daily high/low) plus battery voltage.
+   - `cocorahs.json` — nearby CoCoRaHS gauge report (independent precip-amount truth).
 2. **Scores** (`extract.py` → `verify.py`) every snapshot and writes `scores.json`:
    mean absolute error and % within 3 °F on temperature, precip-occurrence CSI, PoP Brier
    score, and a paired Diebold-Mariano significance test — at 1-, 2-, 3-day and blended leads.
 3. **Publishes** a static dashboard (`dashboard.html` + `scores.json`) via GitHub Pages.
+
+> Station/hub sensor-fault flags and RSSI are **not** captured here: `/diagnostics` returns 401
+> for personal tokens and the WebSocket never delivers `device_status` to them. Those live only
+> on the local UDP broadcast — see the separate `tempest-local` listener.
 
 Until enough days accrue, the verdict reads **TOO EARLY** — by design.
 
@@ -41,8 +47,11 @@ The capture job reads two values from **GitHub Actions secrets** (never stored i
 - `TEMPEST_TOKEN` — a personal access token from tempestwx.com → Settings → Data Authorizations.
 - `TEMPEST_STATION_ID` — the station id (discoverable from the Tempest `/stations` endpoint).
 
-The only location reference in the code is the station's published coordinates
-(33.9364, -83.5736), which are already public on the Tempest station map.
+The station's published coordinates (33.9364, -83.5736) appear in the code, and the retained
+raw snapshots under `data/` additionally embed the station's full-precision (5-decimal)
+coordinates and its public station name as returned by the APIs. This is accepted: the station
+is already publicly listed on the Tempest station map, and the snapshots are kept verbatim as a
+tamper-evident evidence record (they are never scrubbed or rewritten).
 
 ## Methodology & data
 
@@ -50,6 +59,36 @@ Scores follow the ForecastAdvisor convention (temperature accuracy as % within 3
 MAE, scored at short leads on a rolling window), extended with Brier scores for
 probability-of-precipitation and Diebold-Mariano paired significance tests. Every raw
 snapshot is retained in `data/` as the evidence record.
+
+**Diebold-Mariano significance (updated 2026-06).** The DM test now collapses each calendar
+date to a **single** loss observation — the mean of the absolute high-temperature error and
+the absolute low-temperature error — before testing. Feeding the test high and low errors as
+two separate observations per day double-counted strongly correlated errors (they share the
+day's airmass); because the verdict uses a 1-day HAC lag, that correlation went entirely
+unmodeled and produced optimistically small p-values that could flip the verdict prematurely.
+On the collapsed one-per-day series we also apply the **Harvey–Leybourne–Newbold** small-sample
+correction and refer the statistic to a Student-t(n−1) distribution rather than the normal —
+both shrink the small-sample optimism. Precipitation attribution conventions are unchanged:
+PoP is the max over forecast periods touching the target calendar day, and a CoCoRaHS report
+dated *D* is attributed back to calendar day *D−1*. NWS overnight lows are attributed to the
+morning they actually occur (the night period's start date **+1 day**), per standard NWS
+verification practice.
+
+## Operations
+
+- **Staleness check (next routine edit — not yet automated here):** the Monday
+  `tempest-weekly-scorecard` routine should fetch the published `scores.json` and confirm
+  `generated_at` is **< 48 h old**, flagging loudly if not. The daily cron can silently stop
+  (GitHub drops scheduled events under load, and auto-disables a workflow after 60 days of repo
+  inactivity); when it does, `scores.json` freezes. The dashboard now detects this client-side
+  (it computes snapshot age from `generated_at` against the viewer's clock), but a server-side
+  check in the weekly routine is the belt-and-suspenders backstop.
+- **Capture-miss health:** `scores.json → data_health.capture_misses` counts days in the
+  expected span (first capture → today) with no irreplaceable Tempest snapshot — including days
+  the workflow never ran at all — and any such gap breaks `station_online_streak`.
+- **Manual workflows** (`backfill`, `ws-explore`) push directly and are intended to fail red if
+  the push fails; the daily `capture` job rebases before pushing and serializes via a
+  `concurrency` group.
 
 ## License
 

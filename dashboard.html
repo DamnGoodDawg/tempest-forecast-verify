@@ -886,7 +886,7 @@ function renderDetails(d) {
       const varLabel = b.var === "high" ? "High temp" : b.var === "low" ? "Low temp" : b.var === "precip" ? "Precip" : esc(b.var);
       if (b.forecast != null && b.actual != null) {
         const miss = Math.abs(b.actual - b.forecast);
-        descHTML = `${varLabel}: forecast <span class="num">${b.forecast}°</span><span class="arrow">→</span>actual <span class="num">${b.actual}°</span> <span class="miss">(${miss}° off)</span>`;
+        descHTML = `${varLabel}: forecast <span class="num">${esc(b.forecast)}°</span><span class="arrow">→</span>actual <span class="num">${esc(b.actual)}°</span> <span class="miss">(${esc(miss)}° off)</span>`;
       } else {
         descHTML = `${varLabel}${b.note ? " — " + esc(b.note) : ""}`;
       }
@@ -900,21 +900,32 @@ function renderDetails(d) {
     </div>`;
   }).join("") || `<p class="muted" style="font-size:var(--fs-sm)">No notable busts logged this week.</p>`;
 
-  // Brier table from standings (current lead), sorted; lowest = best (calibration)
-  const brierRows = (d.standings.lead1 || []).slice().sort((a, b) => a.brier - b.brier);
-  const bestBrier = brierRows.length ? brierRows[0].brier : null;
+  // Brier table from standings (current lead), sorted; lowest = best (calibration).
+  // A3: a null Brier (no PoP pairs / guarded NaN) must NOT sort as 0 or render as "0.000"
+  // (a fake perfect score). Filter nulls out of the ranking, push them to the bottom, and
+  // render them as an em-dash — matching the rain table's inOrDash pattern.
+  const brierRows = (d.standings.lead1 || []).slice().sort((a, b) => {
+    if (a.brier == null && b.brier == null) return 0;
+    if (a.brier == null) return 1;
+    if (b.brier == null) return -1;
+    return a.brier - b.brier;
+  });
+  const brierVals = brierRows.filter(r => r.brier != null).map(r => r.brier);
+  const bestBrier = brierVals.length ? Math.min(...brierVals) : null;
   const brierHTML = brierRows.map(r => `
     <tr>
       <td><span class="rank"><span class="swatch" style="background:${pcolor(r.source)}"></span>${esc(PROVIDERS[r.source] ? PROVIDERS[r.source].label : r.source)}</span></td>
-      <td class="num ${r.brier === bestBrier ? "best" : ""}">${f3(r.brier)}</td>
+      <td class="num ${r.brier != null && r.brier === bestBrier ? "best" : ""}">${r.brier == null ? '<span class="muted">—</span>' : f3(r.brier)}</td>
     </tr>`).join("");
 
   // Rain totals: Tempest haptic (raw) vs RainCheck-corrected vs CoCoRaHS gauge truth
   const rain = d.rain_compare || [];
   const inOrDash = v => v == null ? '<span class="muted">—</span>' : `${f2(v)}"`;
+  // A7: a "disagree" flag means Tempest and CoCoRaHS split on wet vs dry for the day —
+  // mark it (★) rather than silently trusting either; both feed the OR'd occurrence truth.
   const rainRows = rain.slice().reverse().map(r => `
-    <tr>
-      <td>${fmtMD(r.date)}</td>
+    <tr${r.flag === "disagree" ? ' title="Tempest and CoCoRaHS disagree on wet/dry for this day"' : ""}>
+      <td>${fmtMD(r.date)}${r.flag === "disagree" ? ' <span class="muted" aria-label="wet/dry disagreement">★</span>' : ""}</td>
       <td class="num">${inOrDash(r.tempest_raw)}</td>
       <td class="num">${inOrDash(r.tempest_corrected)}</td>
       <td class="num">${inOrDash(r.cocorahs)}</td>
@@ -953,7 +964,14 @@ function renderDetails(d) {
 /* ------------------------------------------------------------- 6 · HEALTH */
 function renderHealth(d) {
   const h = d.data_health;
-  const snapWarn = h.last_snapshot_hours_ago > 48;
+  // A2: compute snapshot age CLIENT-SIDE from generated_at. The server-side
+  // last_snapshot_hours_ago is frozen into scores.json, so if the daily cron silently
+  // stops the file (and that field) freeze at "0h ago, all green" and the alarm can never
+  // fire. Deriving age from generated_at vs the viewer's clock catches a stalled pipeline.
+  // The server field is kept in the JSON for non-browser consumers.
+  const ageH = Math.max(0, (Date.now() - Date.parse(d.generated_at)) / 3.6e6);
+  const snapAge = Math.round(ageH);
+  const snapWarn = ageH > 48;
   const capWarn = h.capture_misses > 3;
   const batt = h.battery_volts;
   const battState = batt == null ? "ok" : batt <= 2.355 ? "fail" : batt <= 2.40 ? "warn" : "ok";
@@ -973,13 +991,13 @@ function renderHealth(d) {
   if (hubOffline) alerts.push({ sev: "fail", t: "Station/hub is offline — capture will gap until it reconnects." });
   if (battState === "fail") alerts.push({ sev: "fail", t: `Battery ${f2(batt)} V — at/below 2.355 V the rain sensor silently disables. Charge or service now.` });
   else if (battState === "warn") alerts.push({ sev: "warn", t: `Battery ${f2(batt)} V — trending low. Act before the 2.355 V rain-sensor cutoff.` });
-  if (snapWarn) alerts.push({ sev: "fail", t: `No fresh snapshot in ${h.last_snapshot_hours_ago} h — the daily capture may have stalled.` });
+  if (snapWarn) alerts.push({ sev: "fail", t: `No fresh data in ${snapAge} h — the daily capture/scoring pipeline may have stalled.` });
   if (faults && faults.length) alerts.push({ sev: "fail", t: `Sensor fault flagged: ${faults.join(", ")} — likely a warranty/RMA case.` });
   if (rssiState === "warn") alerts.push({ sev: "warn", t: `Weak hub signal (${rssi} dBm) — risk of dropped reports.` });
   const needsAttention = alerts.length > 0 || capWarn;
   const alertLvl = alerts.some(a => a.sev === "fail") ? "fail" : "warn";
   const alertHTML = alerts.length
-    ? `<div class="alert lvl-${alertLvl}" role="alert">${alerts.length === 1 ? alerts[0].t : "<ul>" + alerts.map(a => `<li>${esc(a.t)}</li>`).join("") + "</ul>"}</div>`
+    ? `<div class="alert lvl-${alertLvl}" role="alert">${alerts.length === 1 ? esc(alerts[0].t) : "<ul>" + alerts.map(a => `<li>${esc(a.t)}</li>`).join("") + "</ul>"}</div>`
     : "";
 
   const badge = (label, valHTML, state) => `
@@ -997,7 +1015,7 @@ function renderHealth(d) {
     <div class="grid">
       ${badge("Capture streak", `${h.capture_days - h.capture_misses}<small> / ${h.capture_days}d</small>`, capWarn ? "warn" : "ok")}
       ${badge("Station online", hubOffline ? "OFFLINE" : `${h.station_online_streak}<small>d streak</small>`, hubState)}
-      ${badge("Last snapshot", `${h.last_snapshot_hours_ago}<small>h ago</small>`, snapWarn ? "fail" : "ok")}
+      ${badge("Last snapshot", `${snapAge}<small>h ago</small>`, snapWarn ? "fail" : "ok")}
       ${badge("Battery", batt == null ? "n/a" : `${f2(batt)}<small>V</small>`, battState)}
       ${badge("Sensor faults", faultVal, faultState)}
       ${badge("Hub signal", rssi == null ? "n/a" : `${rssi}<small>dBm</small>`, rssiState)}

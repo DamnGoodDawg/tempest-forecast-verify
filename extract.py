@@ -114,27 +114,50 @@ def parse_openmeteo(j, capture):
 def parse_nws(j, capture):
     periods = ((j or {}).get("data") or {}).get("forecast", {}).get("properties", {}).get("periods", []) or []
     slots = {}
+
+    def slot(key):
+        return slots.setdefault(key, {"high": None, "low": None, "pops": []})
+
     for p in periods:
         st = p.get("startTime")
         if not st:
             continue
         try:
-            target = iso_to_date(st)
+            base_date = iso_to_date(st)   # calendar date the period STARTS on
         except Exception:
             continue
-        lead = lead_of(target, capture)
-        if lead not in LEADS:
-            continue
-        s = slots.setdefault((target, lead), {"high": None, "low": None, "pops": []})
         temp, isday = p.get("temperature"), p.get("isDaytime")
+
+        # A1: a night period (startTime ~18:00 on day D, isDaytime=false) forecasts the
+        # OVERNIGHT LOW that occurs in the EARLY MORNING of D+1. The old code keyed it to D,
+        # so every NWS low was scored against a low that happened ~12-30 h earlier, inflating
+        # NWS temp MAE. Attribute night-period temps to D+1 (standard NWS verification
+        # convention) and re-derive the lead from that target date.
         if temp is not None:
             if isday:
-                s["high"] = temp
+                temp_target = base_date
             else:
-                s["low"] = temp
+                try:
+                    temp_target = (d(base_date) + dt.timedelta(days=1)).isoformat()
+                except Exception:
+                    temp_target = base_date
+            temp_lead = lead_of(temp_target, capture)
+            if temp_lead in LEADS:
+                s = slot((temp_target, temp_lead))
+                if isday:
+                    s["high"] = temp
+                else:
+                    s["low"] = temp
+
+        # PoP convention unchanged: keyed to the calendar date the period TOUCHES (its start
+        # date D), max over all periods touching D. Kept distinct from the temp target so the
+        # A1 night-low shift does not move precip probability.
         pop = (p.get("probabilityOfPrecipitation") or {}).get("value")
         if pop is not None:
-            s["pops"].append(pop)
+            pop_lead = lead_of(base_date, capture)
+            if pop_lead in LEADS:
+                slot((base_date, pop_lead))["pops"].append(pop)
+
     out = []
     for (target, lead), s in slots.items():
         rec(out, target, lead, "NWS", "high", s["high"])
@@ -295,6 +318,20 @@ def precip_pairs(records, actuals, src, leads, wet):
             yn_pairs.append((r["value"] >= 50, wet[r["date"]]))
     return pop_pairs, yn_pairs
 
+def _finite(x, ndigits):
+    """Round x, but collapse None/NaN/inf to None so they never reach json.dump (A3).
+    contingency() returns csi=NaN when hits+misses+false_alarms == 0 (an all-dry window);
+    a literal NaN poisons scores.json (invalid JSON) and strands the dashboard on sample
+    data, so it must become a clean null here."""
+    if x is None:
+        return None
+    try:
+        if x != x or x in (float("inf"), float("-inf")):   # NaN or inf
+            return None
+        return round(x, ndigits)
+    except (TypeError, ValueError):
+        return None
+
 def source_row(records, actuals, wet, src, leads):
     errs, dates = temp_errors(records, actuals, src, leads)
     if not errs:
@@ -303,8 +340,8 @@ def source_row(records, actuals, wet, src, leads):
            "mae": round(verify.mae(errs), 2),
            "pct_within_3f": int(round(verify.pct_within(errs)))}
     pop_pairs, yn_pairs = precip_pairs(records, actuals, src, leads, wet)
-    row["csi"] = round(verify.contingency(yn_pairs)["csi"], 2) if yn_pairs else None
-    row["brier"] = round(verify.brier(pop_pairs)["brier"], 3) if pop_pairs else None
+    row["csi"] = _finite(verify.contingency(yn_pairs)["csi"], 2) if yn_pairs else None
+    row["brier"] = _finite(verify.brier(pop_pairs)["brier"], 3) if pop_pairs else None
     return row, dates
 
 def standings_for(records, actuals, wet, leads):
@@ -318,9 +355,7 @@ def standings_for(records, actuals, wet, leads):
 
 
 # ---------------------------------------------------------------- assemble
-def build(records, actuals):
-    wet = {dd: v >= WET for (dd, var), v in actuals.items() if var == "precip_amt"}
-
+def build(records, actuals, wet):
     standings = {f"lead{L}": standings_for(records, actuals, wet, L) for L in LEADS}
     standings["blend"] = standings_for(records, actuals, wet, LEADS)
 
@@ -336,8 +371,11 @@ def build(records, actuals):
                "dm_p_value": None, "best_public": best["source"] if best else None}
 
     if tempest and best and n_days >= MIN_VERDICT_N:
-        ta = temp_errors_keyed(records, actuals, "Tempest", 1)
-        ba = temp_errors_keyed(records, actuals, best["source"], 1)
+        # A6: DM on per-date collapsed losses (mean of |high|,|low|) — one obs per date,
+        # not two correlated ones — with the HLN small-sample correction inside verify.
+        loss = verify.per_date_losses(records, actuals, 1)
+        ta = loss.get("Tempest", {})
+        ba = loss.get(best["source"], {})
         common = sorted(set(ta) & set(ba))
         dm = verify.diebold_mariano([ta[k] for k in common], [ba[k] for k in common], h=1) if len(common) >= 10 else {}
         p = dm.get("p_value")
@@ -388,16 +426,41 @@ def build(records, actuals):
 
 
 def data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds):
-    capture_days = len(day_dirs)
-    # total days missing the irreplaceable Tempest snapshot
-    misses = sum(1 for dd in day_dirs if not os.path.exists(os.path.join(dd, "tempest.json")))
-    # current streak: consecutive most-recent days that DID capture Tempest
-    streak = 0
-    for dd in sorted(day_dirs, reverse=True):
+    # A2 / audit M7: count misses against the EXPECTED calendar span, not just the
+    # directories that happen to exist. Days the workflow never ran leave no directory at
+    # all, so the old `sum over day_dirs` could never see them — the miss count and streak
+    # stayed green through a total outage. Build the set of dates that DID capture the
+    # irreplaceable Tempest snapshot, then measure against first-capture..today inclusive.
+    have_tempest = set()
+    for dd in day_dirs:
         if os.path.exists(os.path.join(dd, "tempest.json")):
-            streak += 1
-        else:
-            break
+            try:
+                have_tempest.add(d(os.path.basename(dd)))
+            except Exception:
+                pass
+
+    today_local = dt.datetime.now(NY).date()
+    capture_dates = []
+    for dd in day_dirs:
+        try:
+            capture_dates.append(d(os.path.basename(dd)))
+        except Exception:
+            pass
+    if capture_dates:
+        first = min(capture_dates)
+        expected_days = max((today_local - first).days + 1, len(capture_dates))
+    else:
+        expected_days = 0
+    capture_days = expected_days                       # denominator = days we SHOULD have
+    misses = max(0, expected_days - len(have_tempest)) # incl. days with no directory at all
+
+    # current streak: consecutive most-recent CALENDAR days (ending today) that captured.
+    # A missing day — even one with no directory — now breaks the streak.
+    streak = 0
+    cur = today_local
+    while cur in have_tempest:
+        streak += 1
+        cur = cur - dt.timedelta(days=1)
 
     # hours since newest snapshot
     last_hours = None
@@ -491,8 +554,12 @@ def main():
         if tr and (tr[1] is not None or tr[2] is not None):
             tempest_rain[tr[0]] = {"raw": tr[1], "corrected": tr[2]}
 
+    # A7: snapshot the Tempest device-obs precip occurrence BEFORE CoCoRaHS overrides the
+    # amounts, so the wet/dry truth can be Tempest OR CoCoRaHS rather than CoCoRaHS alone.
+    tempest_precip = {dte: v for (dte, var), v in actuals.items() if var == "precip_amt"}
+
     # CoCoRaHS is the precip-AMOUNT truth (Tempest haptic under-reports). Attribute a
-    # report dated D back to calendar day D-1, and override the Tempest precip there.
+    # report dated D back to calendar day D-1, and override the Tempest precip AMOUNT there.
     cocorahs_cal = {}
     for obsdate, amt in cocorahs.items():
         try:
@@ -505,19 +572,35 @@ def main():
     fresh = any((today - d(x)).days <= 8 for x in cocorahs_cal)   # keys are valid ISO dates
     cocorahs_ok = True if fresh else (False if cocorahs_seen else None)
 
+    # A7: occurrence (wet/dry) truth = Tempest device-obs OR CoCoRaHS gauge. The haptic can
+    # miss light rain; the gauge sits ~2.6 mi away and can miss a convective cell over the
+    # station — OR-ing them is the conservative occurrence map. Amounts stay CoCoRaHS-truth
+    # (set in actuals above); this only drives the wet/dry classification used for CSI/Brier.
+    wet = {dte: (v >= WET) for (dte, var), v in actuals.items() if var == "precip_amt"}
+    for dte, v in tempest_precip.items():
+        if v is not None and v >= WET:
+            wet[dte] = True
+
     # Rain comparison: Tempest (raw haptic vs RainCheck-corrected) vs the CoCoRaHS gauge.
     # Tests the known haptic under-reporting and whether RainCheck helps or hurts here.
+    # A7: surface (don't silently resolve) any wet/dry DISAGREEMENT via a `flag` field.
     rain_compare = []
     for dd_ in sorted(set(tempest_rain) | set(cocorahs_cal))[-21:]:
         tr = tempest_rain.get(dd_, {})
+        t_amt = tr.get("corrected") if tr.get("corrected") is not None else tr.get("raw")
+        c_amt = cocorahs_cal.get(dd_)
+        flag = None
+        if t_amt is not None and c_amt is not None and (t_amt >= WET) != (c_amt >= WET):
+            flag = "disagree"
         rain_compare.append({
             "date": dd_,
             "tempest_raw": tr.get("raw"),
             "tempest_corrected": tr.get("corrected"),
-            "cocorahs": cocorahs_cal.get(dd_),
+            "cocorahs": c_amt,
+            "flag": flag,
         })
 
-    standings, verdict, trend, busts, n_days = build(records, actuals)
+    standings, verdict, trend, busts, n_days = build(records, actuals, wet)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
@@ -525,8 +608,12 @@ def main():
         "rain_compare": rain_compare,
         "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
+    # A3: serialize to a string with allow_nan=False FIRST, so a stray NaN/inf raises
+    # before we truncate the existing good file (and fails loudly rather than emitting
+    # invalid JSON that would strand the dashboard on baked-in sample data).
+    payload = json.dumps(scores, indent=2, allow_nan=False)
     with open(OUT, "w") as f:
-        json.dump(scores, f, indent=2)
+        f.write(payload)
     print(f"[ok] scores.json  status={verdict['status']}  n_days={n_days}  "
           f"records={len(records)}  actuals={len(actuals)}  days={len(day_dirs)}")
 
@@ -535,11 +622,26 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        # Never crash the daily run -- emit a safe TOO EARLY scores.json and carry on.
-        print(f"extract.py: unexpected error, writing safe fallback: {e}", file=sys.stderr)
+        # A4: never crash the daily run, and never clobber a known-good scores.json. Only
+        # write the empty TOO EARLY fallback when no scores.json exists yet; otherwise leave
+        # the last good file in place and just stamp it `degraded` so the failure is visible.
+        print(f"extract.py: unexpected error, preserving last good scores.json: {e}", file=sys.stderr)
+        stamp = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         try:
-            with open(OUT, "w") as f:
-                json.dump(empty_scores(note="extract recovered from an error"), f, indent=2)
+            if not os.path.exists(OUT):
+                payload = json.dumps(empty_scores(note="extract recovered from an error"),
+                                     indent=2, allow_nan=False)
+                with open(OUT, "w") as f:
+                    f.write(payload)
+            else:
+                # Stamp the retained good file (string-first so a failed write can't corrupt it).
+                existing = json.load(open(OUT))
+                existing["degraded"] = True
+                existing["degraded_at"] = stamp
+                existing["degraded_reason"] = str(e)
+                payload = json.dumps(existing, indent=2, allow_nan=False)
+                with open(OUT, "w") as f:
+                    f.write(payload)
         except Exception as e2:
-            print(f"extract.py: could not write fallback scores.json: {e2}", file=sys.stderr)
+            print(f"extract.py: could not update scores.json fallback: {e2}", file=sys.stderr)
         sys.exit(0)

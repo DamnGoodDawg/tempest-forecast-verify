@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Probe WebSocket
@@ -25,4 +25,4 @@ jobs:
           git add ws_sample.json || true
           git commit -m "ws sample $(date -u +%FT%TZ)" || echo "nothing to commit"
           git pull --rebase --autostash || true
-          git push || echo "push skipped"
+          git push

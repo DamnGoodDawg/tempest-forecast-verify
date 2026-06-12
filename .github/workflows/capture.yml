@@ -3,14 +3,18 @@
 name: daily-forecast-capture
 on:
   schedule:
-    - cron: "0 11 * * *"   # 11:00 UTC = 07:00 EDT / 06:00 EST
+    # 10:23 UTC: off the congested top-of-hour (observed drift 1.2-3.8 h past 11:00) and
+    # early enough to buy DST headroom. = 06:23 EDT / 05:23 EST.
+    - cron: "23 10 * * *"
   workflow_dispatch: {}     # manual trigger for testing
+concurrency:
+  group: capture            # never let two capture runs race the same data/ + scores.json push
 jobs:
   capture:
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
 
@@ -21,6 +25,13 @@ jobs:
           TEMPEST_TOKEN: ${{ secrets.TEMPEST_TOKEN }}
           TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
         run: python capture.py
+
+      # Parser/scoring smoke tests (NWS attribution, missing-field tolerance, unit
+      # conversions, NaN guard, DM). The API's documented failure mode is silently dropping
+      # fields — this is the insurance. Runs even if capture failed; a red test blocks scoring.
+      - name: Run tests
+        if: always()
+        run: python -m unittest test_extract
 
       # Re-score from all snapshots into scores.json. Runs even if capture failed, so the
       # dashboard reflects the latest scorable data. extract.py never crashes the run.
@@ -35,4 +46,5 @@ jobs:
           git config user.email "actions@github.com"
           git add data/ scores.json
           git commit -m "capture $(date -u +%F)" || echo "nothing to commit"
+          git pull --rebase --autostash || true
           git push
