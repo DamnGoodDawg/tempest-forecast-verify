@@ -248,16 +248,10 @@ def current_observations(day_dirs, anchors):
             if len(agg) > 1:
                 out[sid] = agg
         break
-    # WATUGA: no live feed — show its most recent DAILY summary, stamped daily (fills the
-    # tile honestly instead of leaving it empty). as_of = that calendar day.
-    wdays = anchors.get("WATUGA") or {}
-    if wdays:
-        wdate = max(wdays)
-        wagg = {k: round(v, 1) for k, v in wdays[wdate].items() if isinstance(v, (int, float))}
-        wagg["as_of"] = wdate + "T12:00:00Z"   # the daily summary's date (noon = mid-day marker)
-        wagg["daily"] = True
-        if any(k in wagg for k in ("temp", "rh", "wind", "pressure")):
-            out["WATUGA"] = wagg
+    # WATUGA is intentionally NOT a current-conditions tile: it has no live feed (only a
+    # daily summary), and a daily value in a "current conditions" strip is misleading. It
+    # still participates in the offset analysis below. Only stations with a genuine recent
+    # reading (Tempest + the METAR anchors) get a tile.
     return {"as_of": top_as_of, "stations": out}
 
 

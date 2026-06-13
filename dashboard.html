@@ -537,7 +537,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .var-key b { color: var(--text-2); font-weight: 600; }
 
 /* COMPONENT — current conditions hero (v2.1) */
-.hcurrent .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-3); }
+.hcurrent .cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s-3); }
 @media (max-width: 600px) { .hcurrent .cc-grid { grid-template-columns: repeat(2, 1fr); } .hcurrent .cc-tile.hero { grid-column: 1 / -1; } }
 .cc-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-3) var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); }
 .cc-tile.hero { background: var(--tint-tempest); border-color: color-mix(in oklch, var(--p-tempest) 35%, transparent); }
@@ -1457,25 +1457,24 @@ function fmtReadingHTML(v, unit) {
 }
 
 /* ----- current conditions hero: Tempest + every anchor service, side by side ----- */
-// per-tile "as of" line — each station carries its OWN observation time, since Tempest
-// (live, seconds), the METARs (up to ~1 h), and WATUGA (daily) all refresh differently
-function tileAsOf(st) {
-  if (!st || !st.as_of) return `<div class="cc-asof"><span class="warn">no recent data</span></div>`;
-  if (st.daily) return `<div class="cc-asof">daily · ${fmtMD(st.as_of)}</div>`;
-  const ageH = (Date.now() - Date.parse(st.as_of)) / 3.6e6;
-  const cls = ageH < 0.34 ? "live" : (ageH > 1.5 ? "warn" : "");
-  const dot = ageH < 0.34 ? "● " : "";
-  return `<div class="cc-asof"><span class="${cls}">${dot}${esc(agoStr(st.as_of))}</span> · ${fmtETTime(st.as_of)}</div>`;
-}
-
 function renderCurrentConditions(d) {
   const byId = (d.current_obs && d.current_obs.stations) || {};
+  // only stations with a genuine recent reading get a tile — Tempest + any METAR anchor we
+  // have current data for. WATUGA is omitted on purpose (daily-only, no live feed).
   const stations = [{ id: "Tempest", hero: true }]
-    .concat((d.anchors || []).map(a => ({ id: a.id, hero: false, dist: `~${a.miles}mi ${a.dir}` })));
-  let anyLive = false;
+    .concat((d.anchors || [])
+      .filter(a => byId[a.id])
+      .map(a => ({ id: a.id, hero: false, dist: `~${a.miles}mi ${a.dir}` })));
+  // common ground: every tile is shown "as of" the OLDEST reading among them, so the
+  // comparison is apples-to-apples (the freshest station is no more authoritative than the
+  // laggard for a side-by-side). Track the oldest and which station it is.
+  let oldest = null, oldestId = null;
+  stations.forEach(s => {
+    const as = (byId[s.id] || {}).as_of;
+    const t = as ? Date.parse(as) : null;
+    if (t != null && (oldest == null || t < oldest)) { oldest = t; oldestId = s.id; }
+  });
   const tiles = stations.map(s => {
-    const st = byId[s.id] || null;
-    if (st && !st.daily && st.as_of && (Date.now() - Date.parse(st.as_of)) / 3.6e6 < 0.34) anyLive = true;
     const temp = stationCurrent(d, s.id, "temp");
     const subs = ["rh", "wind", "pressure"].map(vk => {
       const f = ccUnit(vk, stationCurrent(d, s.id, vk));
@@ -1489,15 +1488,17 @@ function renderCurrentConditions(d) {
       </div>
       <div class="cc-temp">${tempHTML}</div>
       <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
-      ${tileAsOf(st)}
     </div>`;
   }).join("");
-  const meta = anyLive
-    ? `<span style="color:var(--hl-ok)">● live</span> · each tile stamped below`
-    : `latest readings · each tile stamped below`;
-  const note = anyLive
-    ? `Tempest is <b>live</b> from the local station listener; KWDR/KAHN are the latest METAR; WATUGA is its most recent <b>daily</b> summary (no live feed). Each tile shows its own observation time. The offset analysis below uses 7-day means.`
-    : `Readings from the most recent <b>daily</b> capture (~8&nbsp;AM ET) — not live, so they lag the Tempest app later in the day. Each tile shows its own time; WATUGA has no live feed. The offset analysis below uses 7-day means.`;
+  const stamp = oldest != null ? new Date(oldest).toISOString() : (d.last_check || null);
+  const ageH = stamp ? (Date.now() - Date.parse(stamp)) / 3.6e6 : 0;
+  const stale = ageH > 1.5;   // amber once the common floor is clearly old
+  const meta = stamp
+    ? `as of <b${stale ? ' style="color:var(--hl-warn)"' : ""}>${agoStr(stamp)}</b> · ${fmtETTime(stamp)}`
+    : "latest readings";
+  const note = oldestId
+    ? `All tiles shown <b>as of the least-recent station</b> (${esc(oldestId)}, ${agoStr(stamp)}) so they compare on common ground — individual stations (Tempest is live) may be newer. WATUGA is omitted here (daily summary only); it still appears in the offset analysis below, which uses 7-day means.`
+    : `Readings from the most recent daily capture. The offset analysis below uses 7-day means.`;
   document.getElementById("hcurrent").innerHTML = `
     <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">${meta}</span></div>
     <div class="cc-grid">${tiles}</div>
