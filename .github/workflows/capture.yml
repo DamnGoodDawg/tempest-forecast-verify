@@ -31,7 +31,7 @@ jobs:
       # fields — this is the insurance. Runs even if capture failed; a red test blocks scoring.
       - name: Run tests
         if: always()
-        run: python -m unittest test_extract
+        run: python -m unittest test_extract test_health
 
       # Re-score from all snapshots into scores.json. Runs even if capture failed, so the
       # dashboard reflects the latest scorable data. extract.py never crashes the run.
@@ -39,12 +39,28 @@ jobs:
         if: always()
         run: python extract.py
 
+      # Station-health monitor: compare Tempest daily aggregates vs the 3 verified anchors,
+      # emit health.json + anchors.csv, maintain the flag log. Never crashes the run.
+      - name: Compute station health
+        if: always()
+        run: python health.py
+
+      # Send the one-per-flag warning email (only if health.py queued a NEW flag). No-ops
+      # cleanly when there's nothing pending or the Gmail secrets aren't configured.
+      - name: Send station-health warning email
+        if: always()
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python notify.py
+
       - name: Commit snapshots + scores
         if: always()
         run: |
           git config user.name "forecast-capture-bot"
           git config user.email "actions@github.com"
-          git add data/ scores.json
+          git add data/ scores.json health.json anchors.csv health_state.json anchors_backfill.json
+          git add health_emailed.json 2>/dev/null || true   # only exists after the first warning email
           git commit -m "capture $(date -u +%F)" || echo "nothing to commit"
           git pull --rebase --autostash || true
           git push

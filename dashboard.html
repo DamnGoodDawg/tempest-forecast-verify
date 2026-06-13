@@ -39,6 +39,11 @@
   --tint-behind:   oklch(0.60 0.18 25 / 0.12);
   --tint-tooearly: oklch(0.56 0.04 250 / 0.12);
   --tint-tempest:  oklch(0.62 0.13 205 / 0.10);
+  /* health status tints — NEW in v2 (Station Health tab); same hues as --hl-* */
+  --tint-ok:    oklch(0.60 0.14 150 / 0.12);
+  --tint-warn:  oklch(0.70 0.14 75 / 0.16);
+  --tint-fail:  oklch(0.60 0.18 25 / 0.12);
+  --tint-muted: oklch(0.56 0.04 250 / 0.10);
 
   /* --- Neutrals / surfaces (cool off-white, AA-safe text) --------------- */
   --bg:        oklch(0.975 0.004 240);
@@ -444,6 +449,177 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sample-banner { color: var(--st-tied); } }
 .sample-banner svg { width: 18px; height: 18px; flex: none; }
 .sample-banner .b-sub { font-weight: 500; color: var(--text-2); }
+
+/* ============================================================================
+   COMPONENT — tab bar  (v2)
+   ============================================================================ */
+.tabs { display: flex; gap: var(--s-1); border-bottom: 1px solid var(--border); }
+.tab {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-sans); font-size: var(--fs-base); font-weight: 600; color: var(--text-3);
+  padding: var(--s-3) var(--s-3); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px;
+  transition: color .15s var(--ease);
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--p-tempest); }
+.tab:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+.tab-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hl-warn); flex: none; box-shadow: 0 0 0 3px var(--tint-warn); }
+.tab-dot.fail { background: var(--hl-fail); box-shadow: 0 0 0 3px var(--tint-fail); }
+.tab-dot[hidden] { display: none; }
+.tabpanel { display: flex; flex-direction: column; gap: var(--s-4); }
+@media (min-width: 600px) { .tabpanel { gap: var(--s-5); } }
+.tabpanel[hidden] { display: none; }
+.tab-lede { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.5; text-wrap: pretty; }
+.tab-lede em { color: var(--text); font-style: normal; font-weight: 600; }
+
+/* COMPONENT — fallback banner (v2) */
+.fallback-banner {
+  display: flex; align-items: center; gap: var(--s-2);
+  background: var(--tint-warn); border: 1px solid color-mix(in oklch, var(--hl-warn) 40%, transparent);
+  color: var(--text-2); border-radius: var(--r-md); padding: var(--s-2) var(--s-3); font-size: var(--fs-sm);
+}
+.fallback-banner svg { width: 15px; height: 15px; color: var(--hl-warn); flex: none; }
+.fallback-banner b { color: var(--text); font-weight: 650; }
+.fallback-banner[hidden] { display: none; }
+
+/* COMPONENT — health status chips (v2; extend .chip) */
+.chip--ok       { color: var(--hl-ok);            background: var(--tint-ok);    border-color: color-mix(in oklch, var(--hl-ok) 28%, transparent); }
+.chip--warn     { color: oklch(0.48 0.11 70);     background: var(--tint-warn);  border-color: color-mix(in oklch, var(--hl-warn) 50%, transparent); }
+.chip--fail     { color: var(--hl-fail);          background: var(--tint-fail);  border-color: color-mix(in oklch, var(--hl-fail) 30%, transparent); }
+.chip--learning { color: var(--text-2);           background: var(--tint-muted); border-color: var(--border-2); }
+[data-theme="dark"] .chip--warn { color: var(--hl-warn); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip--warn { color: var(--hl-warn); } }
+
+/* COMPONENT — health status strip (v2) */
+.hstatus { position: relative; overflow: hidden; padding-left: calc(var(--s-5) + 4px); }
+.hstatus::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent, var(--hl-ok)); }
+.hstatus .top { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.hstatus .summary { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; text-wrap: pretty; margin-top: var(--s-3); }
+.hstatus .meta { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin-top: var(--s-4); font-size: var(--fs-sm); color: var(--text-2); }
+.hstatus .meta > span { white-space: nowrap; }
+.hstatus .meta .k { color: var(--text-3); }
+.hstatus .meta .num { color: var(--text); }
+
+/* COMPONENT — anchor cards (v2) */
+.anchor-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-3); }
+@media (min-width: 560px) { .anchor-grid { grid-template-columns: repeat(3, 1fr); } }
+.anchor { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-3); display: flex; flex-direction: column; gap: 3px; }
+.anchor .a-top { display: flex; align-items: center; gap: var(--s-2); }
+.anchor .a-id { font-family: var(--font-mono); font-weight: 700; font-size: var(--fs-base); color: var(--text); }
+.anchor .rep { margin-left: auto; font-size: var(--fs-micro); font-weight: 650; display: inline-flex; align-items: center; gap: 5px; color: var(--hl-ok); white-space: nowrap; }
+.anchor .rep .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hl-ok); flex: none; }
+.anchor .rep.off { color: var(--text-3); } .anchor .rep.off .dot { background: var(--text-3); }
+.anchor .a-name { font-size: var(--fs-sm); color: var(--text); font-weight: 600; }
+.anchor .a-meta { font-size: var(--fs-micro); color: var(--text-3); font-family: var(--font-mono); }
+.anchor .a-vars { font-size: var(--fs-micro); color: var(--text-2); margin-top: 2px; }
+.anchor .a-vars b { color: var(--text); font-weight: 600; }
+
+/* COMPONENT — variable status table (v2) */
+.var-scroll { overflow-x: auto; margin: var(--s-6) calc(-1 * var(--s-5)) 0; padding: 0 var(--s-5); }
+.var-tbl { width: 100%; border-collapse: collapse; min-width: 560px; }
+.var-tbl thead th { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); text-align: right; padding: 0 0 var(--s-3); white-space: nowrap; }
+.var-tbl thead th:first-child { text-align: left; }
+.var-tbl tbody td { padding: var(--s-3) 0; border-top: 1px solid var(--border); text-align: right; vertical-align: middle; }
+.var-tbl tbody td:first-child { text-align: left; padding-right: var(--s-3); }
+.var-tbl thead th + th, .var-tbl tbody td + td { padding-left: var(--s-3); }
+.var-tbl tbody td.statuscell { padding-left: var(--s-3); }
+.var-tbl .vname { font-weight: 600; }
+.var-tbl .vsub { display: block; font-size: var(--fs-micro); font-weight: 500; color: var(--text-3); margin-top: 2px; text-transform: none; letter-spacing: 0; max-width: 230px; text-wrap: pretty; }
+.var-tbl .off { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.var-tbl .off.out { color: var(--hl-fail); font-weight: 650; }
+.var-tbl .off.dash { color: var(--text-3); }
+.var-tbl .band { font-family: var(--font-mono); color: var(--text-3); font-size: var(--fs-sm); }
+.var-tbl .reading { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 650; color: var(--text); white-space: nowrap; }
+.var-tbl .actual { display: block; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--text-3); margin-top: 3px; }
+.var-tbl td.read-col, .var-tbl thead th.read-col { border-right: 1px solid var(--border); padding-right: var(--s-3); }
+.var-key { font-size: var(--fs-micro); color: var(--text-3); margin-top: var(--s-3); text-wrap: pretty; }
+.var-key b { color: var(--text-2); font-weight: 600; }
+
+/* COMPONENT — current conditions hero (v2.1) */
+.hcurrent .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-3); }
+@media (max-width: 600px) { .hcurrent .cc-grid { grid-template-columns: repeat(2, 1fr); } .hcurrent .cc-tile.hero { grid-column: 1 / -1; } }
+.cc-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-3) var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); }
+.cc-tile.hero { background: var(--tint-tempest); border-color: color-mix(in oklch, var(--p-tempest) 35%, transparent); }
+.cc-top { display: flex; align-items: center; gap: var(--s-2); }
+.cc-id { font-family: var(--font-mono); font-weight: 700; font-size: var(--fs-sm); color: var(--text); letter-spacing: 0.02em; }
+.cc-tile.hero .cc-id { color: var(--p-tempest); }
+.cc-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--p-tempest); border: 1px solid color-mix(in oklch, var(--p-tempest) 40%, transparent); padding: 1px 6px; border-radius: var(--r-pill); white-space: nowrap; }
+.cc-dist { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); white-space: nowrap; }
+.cc-temp { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: var(--fs-xl); line-height: 1; color: var(--text); letter-spacing: -0.01em; }
+.cc-tile.hero .cc-temp { font-size: var(--fs-2xl); }
+.cc-temp .u { font-size: 0.5em; font-weight: 500; color: var(--text-3); margin-left: 2px; }
+.cc-temp .none { font-size: 0.5em; color: var(--text-3); }
+.cc-sub { display: flex; flex-wrap: wrap; gap: 2px var(--s-3); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--text-2); }
+.cc-sub i { font-style: normal; color: var(--text-3); }
+.cc-sub .none { color: var(--text-3); }
+
+/* COMPONENT — variable offset gauge cards (v2.1, replaces the wide table) */
+.varcards { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-5); }
+.varcard { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-4); background: var(--surface); }
+.varcard.is-watch { border-color: color-mix(in oklch, var(--hl-warn) 45%, transparent); background: oklch(0.70 0.14 75 / 0.05); }
+.varcard.is-flag { border-color: color-mix(in oklch, var(--hl-fail) 45%, transparent); background: var(--tint-fail); }
+.vc-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.vc-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vc-name { font-weight: 650; font-size: var(--fs-base); }
+.vc-tag { font-size: var(--fs-micro); color: var(--text-3); text-wrap: pretty; }
+.vc-head .chip { margin-left: auto; flex: none; }
+.vc-readout { display: flex; align-items: baseline; gap: var(--s-3); margin: var(--s-3) 0 var(--s-4); flex-wrap: wrap; }
+.vc-reading { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: var(--fs-lg); color: var(--text); }
+.vc-reading .u { font-size: 0.6em; color: var(--text-3); font-weight: 500; margin-left: 1px; }
+.vc-band-label { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); }
+.vc-anchors { display: flex; flex-direction: column; gap: var(--s-2); }
+.vc-row { display: grid; grid-template-columns: 58px 1fr 58px 50px; align-items: center; gap: var(--s-2); }
+.vc-anchor { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.vc-track { position: relative; height: 22px; }
+.vc-track .axis { position: absolute; left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%); background: var(--surface-3); border-radius: var(--r-pill); }
+.vc-band { position: absolute; top: 50%; height: 12px; transform: translateY(-50%); background: var(--tint-ok); border: 1px solid color-mix(in oklch, var(--hl-ok) 35%, transparent); border-radius: 3px; }
+.vc-zero { position: absolute; top: 50%; height: 14px; width: 1px; transform: translateY(-50%); background: var(--border-2); }
+.vc-marker { position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--hl-ok); border: 2px solid var(--surface); box-shadow: 0 0 0 1px color-mix(in oklch, var(--hl-ok) 55%, transparent); }
+.vc-marker.out { background: var(--hl-fail); box-shadow: 0 0 0 1px color-mix(in oklch, var(--hl-fail) 55%, transparent); }
+.vc-off { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); font-weight: 650; text-align: right; color: var(--text); }
+.vc-off.out { color: var(--hl-fail); }
+.vc-actual { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--text-3); text-align: right; }
+.vc-note { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-2); text-wrap: pretty; }
+.var-tbl td.cc { color: var(--text-3); font-size: var(--fs-sm); text-align: left; }
+.var-tbl tbody tr.row-watch td { background: var(--tint-warn); }
+.var-tbl tbody tr.row-flag td { background: var(--tint-fail); }
+.var-tbl tbody tr.row-watch td:first-child, .var-tbl tbody tr.row-flag td:first-child { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
+.var-tbl tbody tr.row-watch td:last-child, .var-tbl tbody tr.row-flag td:last-child { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
+
+/* COMPONENT — offset trend chart (v2; mirrors .trend) */
+.offset-chart svg { display: block; width: 100%; height: auto; margin-top: var(--s-5); }
+.offset-legend { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); margin-top: var(--s-4); }
+.offset-legend .item { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.offset-legend .ln { width: 16px; height: 3px; border-radius: var(--r-pill); flex: none; }
+.offset-legend .ln.dash { background: none !important; border-top: 3px dashed var(--ln); }
+.offset-explain { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-4); text-wrap: pretty; }
+.offset-explain b { color: var(--text); font-weight: 650; }
+
+/* COMPONENT — flag log table (v2) */
+.flag-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--s-5)); padding: 0 var(--s-5); }
+.flag-tbl { width: 100%; border-collapse: collapse; min-width: 540px; }
+.flag-tbl thead th { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); text-align: left; padding: 0 var(--s-3) var(--s-3) 0; white-space: nowrap; }
+.flag-tbl tbody td { padding: var(--s-3) var(--s-3) var(--s-3) 0; border-top: 1px solid var(--border); vertical-align: top; font-size: var(--fs-sm); }
+.flag-tbl tbody tr:first-child td { border-top: none; }
+.flag-tbl .fdate { font-family: var(--font-mono); color: var(--text-3); white-space: nowrap; }
+.flag-tbl .fvar { font-weight: 600; white-space: nowrap; }
+.flag-tbl .fdesc { color: var(--text-2); max-width: 260px; text-wrap: pretty; }
+.flag-tbl .faction { color: var(--text-2); max-width: 180px; text-wrap: pretty; }
+.flag-tbl td:last-child { padding-right: 0; }
+
+/* COMPONENT — scoreboard-annotation explainer (v2) */
+.hexplain .mock { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-4); margin-top: var(--s-3); }
+.hexplain .mock .mk-label { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--s-2); }
+.hexplain .mock .mk-row { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: center; }
+.hexplain .mock .mk-row .sep { color: var(--border-2); }
+.flag-mark { color: var(--hl-warn); font-weight: 700; }
+.hexplain .foot-note { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
+.hexplain .tagline { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-4); font-size: var(--fs-sm); color: var(--text-2); flex-wrap: wrap; }
+
+/* Tab 1 standings ⚠ footnote (v2) */
+.standings .flag-foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--border-2); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
+.standings .flag-foot .flag-mark { flex: none; }
 </style>
 </head>
 <body>
@@ -475,6 +651,15 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <span>Showing sample data — live scores didn't load. <span class="b-sub">Numbers below are illustrative, not your station's results.</span></span>
   </div>
 
+  <!-- tab bar (v2 — Station Health) -->
+  <nav class="tabs" role="tablist" aria-label="Dashboard views">
+    <button class="tab" id="tab-btn-scoreboard" role="tab" type="button" aria-selected="true" aria-controls="tab-scoreboard">Guarantee Scoreboard</button>
+    <button class="tab" id="tab-btn-health" role="tab" type="button" aria-selected="false" aria-controls="tab-health">Station Health<span class="tab-dot" id="healthDot" hidden aria-hidden="true"></span></button>
+  </nav>
+
+  <!-- ============ TAB 1 · GUARANTEE SCOREBOARD ============ -->
+  <div class="tabpanel" id="tab-scoreboard" role="tabpanel" aria-labelledby="tab-btn-scoreboard">
+
   <!-- 1 · verdict banner -->
   <section class="card verdict" id="verdict" aria-labelledby="verdict-h"></section>
 
@@ -492,6 +677,22 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 
   <!-- 6 · data health -->
   <section class="card health" id="health" aria-labelledby="health-h"></section>
+
+  </div><!-- /tab-scoreboard -->
+
+  <!-- ============ TAB 2 · STATION HEALTH ============ -->
+  <div class="tabpanel" id="tab-health" role="tabpanel" aria-labelledby="tab-btn-health" hidden>
+    <div class="fallback-banner" id="healthFallback" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span><b>Showing sample data.</b> Live health feed unavailable — values are illustrative.</span>
+    </div>
+    <p class="tab-lede">Is my station's data trustworthy? The station's own readings are the <em>ground truth</em> for forecast scoring — this tab is the independent evidence the truth source is behaving. Flags <em>annotate</em> the scoreboard; they never change or exclude scores.</p>
+    <section class="card hcurrent" id="hcurrent" aria-labelledby="hcurrent-h"></section>
+    <section class="card hstatus" id="hstatus" aria-labelledby="hstatus-h"></section>
+    <section class="card anchors-card" id="hanchors" aria-labelledby="hanchors-h"></section>
+    <section class="card flaglog" id="hflaglog" aria-labelledby="hflaglog-h"></section>
+    <section class="card hexplain" id="hexplain" aria-labelledby="hexplain-h"></section>
+  </div><!-- /tab-health -->
 
   <p class="pagefoot" id="pagefoot"></p>
 </div>
@@ -560,6 +761,66 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     "battery_volts": 2.71, "battery_warn": false, "rain_sensor_ok": true,
     "sensor_faults": [], "rssi": -67, "hub_rssi": -52
   }
+}
+</script>
+
+<!-- baked-in sample health data: Station Health tab renders standalone if ./health.json is absent -->
+<script type="application/json" id="fallback-health">
+{
+  "generated_at": "2026-06-12T10:23:00Z",
+  "last_check": "2026-06-12T06:10:00Z",
+  "next_check": "2026-06-13T06:10:00Z",
+  "overall": "WATCH",
+  "summary": "Temperature running warm vs all 3 anchors",
+  "days_monitored": 247,
+  "active_watches": 1,
+  "confirmed_faults": 0,
+  "last_email": "2026-06-11",
+  "anchors": [
+    { "id": "KWDR", "name": "Barrow Co. Airport", "type": "AWOS-3", "place": "Winder", "dir": "W", "miles": 6, "elev_ft": 919, "reporting": true, "variables": ["temp", "rh", "pressure"] },
+    { "id": "KAHN", "name": "Athens–Ben Epps", "type": "ASOS", "place": "Athens", "dir": "E", "miles": 12, "elev_ft": 791, "reporting": true, "variables": ["temp", "rh", "wind", "pressure", "precip"] },
+    { "id": "WATUGA", "name": "UGA Watkinsville", "type": "UGA AEMN", "place": "Watkinsville", "dir": "SE", "miles": 12, "elev_ft": 760, "reporting": true, "variables": ["temp", "rh", "wind", "rain"] }
+  ],
+  "variables": [
+    { "var": "temp", "label": "Temperature", "unit": "°F", "state": "WATCH", "days_in_state": 3, "current": 88.4,
+      "offsets_7d": { "KWDR": 2.3, "KAHN": 2.6, "WATUGA": 2.1 },
+      "band": [0.4, 1.5],
+      "trend": [
+        { "week": "2026-03-23", "KWDR": 0.8, "KAHN": 1.0, "WATUGA": 0.9 },
+        { "week": "2026-03-30", "KWDR": 0.9, "KAHN": 1.0, "WATUGA": 0.8 },
+        { "week": "2026-04-06", "KWDR": 0.7, "KAHN": 0.9, "WATUGA": 0.8 },
+        { "week": "2026-04-13", "KWDR": 0.8, "KAHN": 1.1, "WATUGA": 0.9 },
+        { "week": "2026-04-20", "KWDR": 0.9, "KAHN": 1.0, "WATUGA": 0.8 },
+        { "week": "2026-04-27", "KWDR": 1.0, "KAHN": 1.1, "WATUGA": 0.9 },
+        { "week": "2026-05-04", "KWDR": 0.9, "KAHN": 1.2, "WATUGA": 1.0 },
+        { "week": "2026-05-11", "KWDR": 1.1, "KAHN": 1.2, "WATUGA": 1.0 },
+        { "week": "2026-05-18", "KWDR": 1.2, "KAHN": 1.3, "WATUGA": 1.1 },
+        { "week": "2026-05-25", "KWDR": 1.4, "KAHN": 1.5, "WATUGA": 1.3 },
+        { "week": "2026-06-01", "KWDR": 1.9, "KAHN": 2.1, "WATUGA": 1.8 },
+        { "week": "2026-06-08", "KWDR": 2.3, "KAHN": 2.6, "WATUGA": 2.1 }
+      ],
+      "opened": "2026-06-09" },
+    { "var": "rh", "label": "Humidity", "unit": "pts", "state": "OK", "days_in_state": 41, "current": 58,
+      "offsets_7d": { "KWDR": -2, "KAHN": -3, "WATUGA": -2 }, "band": [-5, 1], "trend": [] },
+    { "var": "wind", "label": "Wind", "unit": "mph", "state": "OK", "days_in_state": 247, "current": 4.2, "trend_only": true,
+      "offsets_7d": { "KAHN": -4.1, "WATUGA": -3.8 }, "band": [-5.5, -3.0], "trend": [] },
+    { "var": "pressure", "label": "Pressure", "unit": "mb", "state": "OK", "days_in_state": 247, "current": 1015.2,
+      "offsets_7d": { "KWDR": 0.3, "KAHN": 0.2, "WATUGA": 0.3 }, "band": [-0.8, 0.8], "trend": [] },
+    { "var": "rain", "label": "Rain", "unit": "in", "state": "OK", "days_in_state": 88, "current": null,
+      "offsets_7d": {}, "band": null, "cross_check": "CoCoRaHS GA-OC-20", "trend": [] }
+  ],
+  "flags": [
+    { "opened": "2026-06-09", "var": "temp", "state": "WATCH",
+      "description": "Offset drifted +1.1°F above the normal band vs KWDR, KAHN and WATUGA for 3 consecutive days.",
+      "action": "Scoreboard annotated · warning email sent 2026-06-11", "resolved": null },
+    { "opened": "2026-04-22", "var": "rh", "state": "OK",
+      "description": "Single-day humidity spike vs KAHN only (front passage) — divergence from just 1 of 3 anchors.",
+      "action": "Logged as weather — no flag", "resolved": "2026-04-22" },
+    { "opened": "2026-03-14", "var": "rain", "state": "OK",
+      "description": "CoCoRaHS gauge disagreement on a 0.4 in event (existing rain cross-check).",
+      "action": "Scoreboard annotated", "resolved": "2026-03-16" }
+  ],
+  "scoreboard_annotations": [ { "from": "2026-06-09", "to": null, "var": "temp" } ]
 }
 </script>
 
@@ -752,7 +1013,8 @@ function renderStandings(d) {
         <tbody>${body}</tbody>
       </table>
     </div>
-    <p class="foot">At <b>${LEAD_LABELS[currentLead]}</b> lead, Tempest ranks <b>${ordinal}</b> of ${rows.length} by mean absolute error. Lower MAE &amp; Brier are better; higher ≤3°F &amp; CSI are better.</p>`;
+    <p class="foot">At <b>${LEAD_LABELS[currentLead]}</b> lead, Tempest ranks <b>${ordinal}</b> of ${rows.length} by mean absolute error. Lower MAE &amp; Brier are better; higher ≤3°F &amp; CSI are better.</p>
+    ${flagFootHTML()}`;
 
   document.querySelectorAll('#standings .seg button').forEach(b => {
     b.addEventListener("click", () => { currentLead = b.dataset.lead; renderStandings(DATA); });
@@ -1045,19 +1307,365 @@ function loadFallback() {
 
 /* same-origin fetch on GitHub Pages; fall back to baked-in data otherwise */
 (async function init() {
-  let data = null;
+  let data = null, health = null;
+  // cache-bust both queries so a stale CDN/edge copy can never strand the dashboard
   try {
-    // cache-bust the query so a stale CDN/edge copy can never strand the dashboard
     const res = await fetch("./scores.json?t=" + Date.now(), { cache: "no-store" });
     if (res.ok) data = await res.json();
   } catch (e) { /* file:// or sandbox — use fallback */ }
+  try {
+    const res = await fetch("./health.json?t=" + Date.now(), { cache: "no-store" });
+    if (res.ok) health = await res.json();
+  } catch (e) { /* file:// or sandbox — use fallback */ }
   const usingFallback = !data;
   if (usingFallback) data = loadFallback();
+  const healthFallback = !health;
+  if (healthFallback) health = loadHealthFallback();
   const banner = document.getElementById("sampleBanner");
   if (banner) banner.hidden = !usingFallback;
+  const hbanner = document.getElementById("healthFallback");
+  if (hbanner) hbanner.hidden = !healthFallback;
   if (data) renderAll(data);
-  // entrance: transition from hidden → visible (resting state is always visible)
+  if (health) renderHealthTab(health);
+  initTabs();
 })();
+
+/* ============================================================================
+   STATION HEALTH TAB (v2) — render layer
+   ============================================================================ */
+let HEALTH = null;
+
+const HSTATE = {
+  LEARNING: { chip: "learning", accent: "--st-tooearly", label: "LEARNING", sev: 0 },
+  OK:       { chip: "ok",       accent: "--hl-ok",       label: "OK",       sev: 1 },
+  WATCH:    { chip: "warn",     accent: "--hl-warn",     label: "WATCH",    sev: 2 },
+  FLAG:     { chip: "fail",     accent: "--hl-fail",     label: "FLAG",     sev: 3 }
+};
+const hstateOf = (s) => HSTATE[String(s || "").toUpperCase()] || HSTATE.LEARNING;
+
+const ANCHOR_COLORS = { KWDR: "var(--text-3)", KAHN: "var(--p-tempest)", WATUGA: "var(--p-gfs)" };
+const ANCHOR_DASH   = { KWDR: true, KAHN: false, WATUGA: false };
+const VARLABEL = { temp: "temp", rh: "humidity", wind: "wind", pressure: "pressure", precip: "precip", rain: "rain" };
+const VARTITLE = { temp: "Temp", rh: "Humidity", wind: "Wind", pressure: "Pressure", precip: "Precip", rain: "Rain" };
+
+function fmtOffset(v, unit) {
+  if (v == null) return "—";
+  const sign = v > 0 ? "+" : (v < 0 ? "−" : "±");
+  const mag = Math.abs(v);
+  const num = (unit === "pts") ? Math.round(mag) : mag.toFixed(1);
+  const suffix = unit === "pts" ? " pts" : (unit === "°F" ? "°F" : " " + unit);
+  return `${sign}${num}${suffix}`;
+}
+function fmtBand(band, unit) {
+  if (!band) return "—";
+  const one = (x) => { const s = x > 0 ? "+" : (x < 0 ? "−" : ""); const m = Math.abs(x); return s + ((unit === "pts") ? Math.round(m) : m.toFixed(1)); };
+  const suffix = unit === "pts" ? " pts" : (unit === "°F" ? "°F" : " " + unit);
+  return `${one(band[0])} … ${one(band[1])}${suffix}`;
+}
+const outOfBand = (v, band) => !!band && v != null && (v < band[0] || v > band[1]);
+function fmtReading(v, unit) {
+  if (v == null) return "—";
+  if (unit === "pts") return Math.round(v) + "%";
+  if (unit === "°F") return v.toFixed(1) + "°F";
+  return v.toFixed(1) + " " + unit;
+}
+function fmtActual(v, unit) {
+  if (v == null) return "";
+  if (unit === "pts") return Math.round(v) + "%";
+  if (unit === "°F") return v.toFixed(1) + "°";
+  return v.toFixed(1);
+}
+
+/* ----- status strip ----- */
+function renderHStatus(d) {
+  const st = hstateOf(d.overall);
+  const el = document.getElementById("hstatus");
+  el.style.setProperty("--accent", cvar(st.accent));
+  const t = (s) => s ? new Date(s).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }) : "—";
+  const meta = [];
+  if (d.last_check) meta.push(`<span><span class="k">Last check</span> <span class="num">${t(d.last_check)} UTC</span></span>`);
+  if (d.next_check) meta.push(`<span><span class="k">Next</span> <span class="num">${t(d.next_check)} UTC</span></span>`);
+  if (d.last_email) meta.push(`<span><span class="k">Warning email</span> ✉ <span class="num">${fmtMD(d.last_email)}</span></span>`);
+  meta.push(`<span><span class="num">${d.days_monitored}</span> days monitored · <span class="num">${d.active_watches || 0}</span> active · <span class="num">${d.confirmed_faults || 0}</span> faults</span>`);
+  el.innerHTML = `
+    <div class="top">
+      <span class="chip chip--${st.chip}"><span class="dot"></span>${st.label}</span>
+      <span class="eyebrow">Station health · ${esc(d.location || "Statham, GA")}</span>
+    </div>
+    <p class="summary" id="hstatus-h">${esc(d.summary || "")}</p>
+    <div class="meta">${meta.join("")}</div>`;
+}
+
+/* ----- station reading helpers (Tempest is ground truth; anchor = Tempest − offset) ----- */
+function stationCurrent(d, stationId, varKey) {
+  const v = (d.variables || []).find(x => x.var === varKey);
+  if (!v || v.current == null) return null;
+  if (stationId === "Tempest") return v.current;
+  const off = (v.offsets_7d || {})[stationId];
+  return off == null ? null : v.current - off;
+}
+function ccUnit(varKey, val) {
+  if (val == null) return null;
+  if (varKey === "temp") return { v: val.toFixed(1), u: "°F" };
+  if (varKey === "rh") return { v: Math.round(val) + "%", u: "RH" };
+  if (varKey === "wind") return { v: val.toFixed(1), u: "mph" };
+  if (varKey === "pressure") return { v: String(Math.round(val)), u: "mb" };
+  return null;
+}
+function fmtReadingHTML(v, unit) {
+  if (v == null) return "—";
+  if (unit === "pts") return `${Math.round(v)}<span class="u">%</span>`;
+  if (unit === "°F") return `${v.toFixed(1)}<span class="u">°F</span>`;
+  return `${v.toFixed(1)}<span class="u">${esc(unit)}</span>`;
+}
+
+/* ----- current conditions hero: Tempest + every anchor service, side by side ----- */
+function renderCurrentConditions(d) {
+  const stations = [{ id: "Tempest", hero: true }]
+    .concat((d.anchors || []).map(a => ({ id: a.id, hero: false, dist: `~${a.miles}mi ${a.dir}` })));
+  const tiles = stations.map(s => {
+    const temp = stationCurrent(d, s.id, "temp");
+    const subs = ["rh", "wind", "pressure"].map(vk => {
+      const f = ccUnit(vk, stationCurrent(d, s.id, vk));
+      return f ? `<span>${f.v} <i>${esc(f.u)}</i></span>` : "";
+    }).filter(Boolean).join("");
+    const tempHTML = temp != null ? `${temp.toFixed(1)}<span class="u">°F</span>` : `<span class="none">—</span>`;
+    return `<div class="cc-tile ${s.hero ? "hero" : ""}">
+      <div class="cc-top">
+        <span class="cc-id">${esc(s.hero ? "TEMPEST" : s.id)}</span>
+        ${s.hero ? '<span class="cc-tag">YOUR STATION</span>' : `<span class="cc-dist">${esc(s.dist)}</span>`}
+      </div>
+      <div class="cc-temp">${tempHTML}</div>
+      <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
+    </div>`;
+  }).join("");
+  const t = d.last_check ? new Date(d.last_check).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }) : "";
+  document.getElementById("hcurrent").innerHTML = `
+    <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">7-day mean · as of ${t} UTC</span></div>
+    <div class="cc-grid">${tiles}</div>`;
+}
+
+/* ----- anchors card: metadata cards + per-variable offset gauges + chart ----- */
+function renderAnchorsCard(d) {
+  const anchors = d.anchors || [];
+  const anchorIds = anchors.map(a => a.id);
+  const cards = anchors.map(a => `
+    <div class="anchor">
+      <div class="a-top">
+        <span class="a-id">${esc(a.id)}</span>
+        <span class="rep ${a.reporting ? "" : "off"}"><span class="dot"></span>${a.reporting ? "REPORTING" : "OFFLINE"}</span>
+      </div>
+      <div class="a-name">${esc(a.name)}</div>
+      <div class="a-meta">${esc(a.type)} · ~${a.miles} mi ${esc(a.dir)}${a.elev_ft ? " · " + a.elev_ft + " ft" : ""}</div>
+      <div class="a-vars">${(a.variables || []).map(v => esc(VARLABEL[v] || v)).join(" · ")}</div>
+    </div>`).join("");
+
+  const varCards = (d.variables || []).map(v => {
+    const st = hstateOf(v.state);
+    const dayBadge = (v.state === "WATCH" || v.state === "FLAG") && v.days_in_state ? ` · day ${v.days_in_state}` : "";
+    if (v.var === "rain") {
+      return `<div class="varcard">
+        <div class="vc-head"><div class="vc-title"><span class="vc-name">${esc(v.label)}</span></div><span class="chip chip--${st.chip}"><span class="dot"></span>${st.label}</span></div>
+        <p class="vc-note">Amounts are cross-checked against ${esc(v.cross_check || "CoCoRaHS")} (existing) — not the METAR anchors.</p>
+      </div>`;
+    }
+    const offs = anchorIds.map(id => (v.offsets_7d || {})[id]).filter(x => x != null);
+    if (!offs.length) return "";
+    const span = offs.concat(v.band ? [v.band[0], v.band[1]] : []).concat([0]);
+    let lo = Math.min(...span), hi = Math.max(...span);
+    const pad = Math.max((hi - lo) * 0.18, v.unit === "mb" ? 0.4 : 0.3);
+    lo -= pad; hi += pad;
+    const pct = (x) => (((x - lo) / (hi - lo)) * 100).toFixed(1);
+    const rows = anchorIds.map(id => {
+      const off = (v.offsets_7d || {})[id];
+      if (off == null) return "";
+      const out = outOfBand(off, v.band);
+      const actual = v.current != null ? fmtActual(v.current - off, v.unit) : "";
+      return `<div class="vc-row">
+        <span class="vc-anchor">${esc(id)}</span>
+        <div class="vc-track">
+          <span class="axis"></span>
+          ${v.band ? `<span class="vc-band" style="left:${pct(v.band[0])}%;width:${(pct(v.band[1]) - pct(v.band[0])).toFixed(1)}%"></span>` : ""}
+          <span class="vc-zero" style="left:${pct(0)}%"></span>
+          <span class="vc-marker ${out ? "out" : ""}" style="left:${pct(off)}%"></span>
+        </div>
+        <span class="vc-off ${out ? "out" : ""}">${fmtOffset(off, v.unit)}</span>
+        <span class="vc-actual">${actual}</span>
+      </div>`;
+    }).join("");
+    const tag = v.var === "wind" ? `<span class="vc-tag">trend-only — a large constant offset vs 33-ft towers is expected; only drift matters</span>` : "";
+    const cls = v.state === "WATCH" ? "is-watch" : (v.state === "FLAG" ? "is-flag" : "");
+    return `<div class="varcard ${cls}">
+      <div class="vc-head"><div class="vc-title"><span class="vc-name">${esc(v.label)}</span>${tag}</div><span class="chip chip--${st.chip}"><span class="dot"></span>${st.label}${dayBadge}</span></div>
+      <div class="vc-readout"><span class="vc-reading">${fmtReadingHTML(v.current, v.unit)}</span><span class="vc-band-label">normal band ${fmtBand(v.band, v.unit)}</span></div>
+      <div class="vc-anchors">${rows}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("hanchors").innerHTML = `
+    <div class="card-head"><h2 id="hanchors-h">vs. Verified Anchors</h2><span class="meta">${anchors.length} stations · 7-day offset</span></div>
+    <div class="anchor-grid">${cards}</div>
+    <p class="var-key">Each bar plots an anchor's 7-day offset (<b>●</b>) against the shaded <b>normal band</b>; the grey figure is that anchor's own reading. A dot outside the band turns <b>red</b>.</p>
+    <div class="varcards">${varCards}</div>
+    ${renderOffsetChartSVG(d)}
+    <p class="offset-explain"><b>How a flag is decided:</b> a stable offset is microclimate, not error. Tempest must drift outside the normal band <b>in the same direction vs ≥2 of 3 anchors</b> for 3+ consecutive days (temp/humidity) before a watch opens — single-anchor divergence is logged as weather across 6–12 miles, not a fault.</p>`;
+}
+
+/* ----- offset trend chart (temp), mirrors the Tab 1 trend chart idiom ----- */
+function renderOffsetChartSVG(d) {
+  const tv = (d.variables || []).find(v => v.var === "temp");
+  if (!tv || !tv.trend || !tv.trend.length) return "";
+  const data = tv.trend;
+  const anchorIds = (d.anchors || []).map(a => a.id).filter(id => data.some(r => r[id] != null));
+  const W = 680, H = 240, PAD = { t: 30, r: 14, b: 28, l: 38 };
+  const innerW = W - PAD.l - PAD.r, innerH = H - PAD.t - PAD.b;
+  const vals = [];
+  data.forEach(r => anchorIds.forEach(id => { if (r[id] != null) vals.push(r[id]); }));
+  if (tv.band) { vals.push(tv.band[0], tv.band[1]); }
+  let lo = Math.floor((Math.min(...vals) - 0.2) * 5) / 5;
+  let hi = Math.ceil((Math.max(...vals) + 0.2) * 5) / 5;
+  const x = (i) => PAD.l + (data.length === 1 ? innerW / 2 : (i / (data.length - 1)) * innerW);
+  const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * innerH;
+
+  let bandRect = "";
+  if (tv.band) {
+    const y1 = y(tv.band[1]), y2 = y(tv.band[0]);
+    bandRect = `<rect x="${PAD.l}" y="${y1.toFixed(1)}" width="${innerW}" height="${(y2 - y1).toFixed(1)}" fill="var(--tint-muted)"/>
+      <text x="${(PAD.l + 6).toFixed(1)}" y="${(y1 - 5).toFixed(1)}" font-size="11" fill="var(--text-3)" font-family="var(--font-mono)">normal band (28-day)</text>`;
+  }
+  let grid = "";
+  for (let v = Math.ceil(lo); v <= hi; v += 1) {
+    grid += `<line x1="${PAD.l}" y1="${y(v).toFixed(1)}" x2="${W - PAD.r}" y2="${y(v).toFixed(1)}" stroke="var(--border)"/>
+      <text x="${(PAD.l - 6).toFixed(1)}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${v > 0 ? "+" : ""}${v}</text>`;
+  }
+  const xlabels = `<text x="${x(0).toFixed(1)}" y="${H - 8}" text-anchor="start" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${fmtMD(data[0].week)}</text>
+    <text x="${x(data.length - 1).toFixed(1)}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${fmtMD(data[data.length - 1].week)}</text>`;
+  const lines = anchorIds.map(id => {
+    const col = ANCHOR_COLORS[id] || "var(--text-3)";
+    const pts = data.map((r, i) => `${x(i).toFixed(1)},${y(r[id]).toFixed(1)}`);
+    const dash = ANCHOR_DASH[id] ? 'stroke-dasharray="5 4"' : "";
+    const dots = data.map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(r[id]).toFixed(1)}" r="2.6" fill="${col}"/>`).join("");
+    return `<path d="M${pts.join(" L")}" fill="none" stroke="${col}" stroke-width="${ANCHOR_DASH[id] ? 2 : 2.6}" stroke-linejoin="round" stroke-linecap="round" ${dash}/>${dots}`;
+  }).join("");
+  let marker = "";
+  if (tv.opened) {
+    const openT = parseDate(tv.opened).getTime();
+    let idx = data.findIndex(r => parseDate(r.week).getTime() >= openT);
+    if (idx < 0) idx = data.length - 1;
+    const topId = anchorIds.reduce((a, b) => (data[idx][b] > data[idx][a] ? b : a), anchorIds[0]);
+    const near = x(idx) > W * 0.72;
+    const tAnchor = near ? "end" : "middle";
+    const tx = near ? (x(idx) - 7).toFixed(1) : x(idx).toFixed(1);
+    marker = `<line x1="${x(idx).toFixed(1)}" y1="${PAD.t}" x2="${x(idx).toFixed(1)}" y2="${(PAD.t + innerH).toFixed(1)}" stroke="var(--hl-warn)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <circle cx="${x(idx).toFixed(1)}" cy="${y(data[idx][topId]).toFixed(1)}" r="4.5" fill="var(--hl-warn)"/>
+      <text x="${tx}" y="${(PAD.t - 9).toFixed(1)}" text-anchor="${tAnchor}" font-size="11" fill="var(--hl-warn)" font-weight="700">⚠ WATCH</text>`;
+  }
+  const legend = anchorIds.map(id => {
+    const col = ANCHOR_COLORS[id] || "var(--text-3)";
+    const style = ANCHOR_DASH[id] ? `--ln:${col}` : `background:${col}`;
+    return `<span class="item"><span class="ln ${ANCHOR_DASH[id] ? "dash" : ""}" style="${style}"></span>offset vs ${esc(id)}</span>`;
+  }).join("");
+  const srRows = data.map(r => `<tr><td>${fmtMD(r.week)}</td>${anchorIds.map(id => `<td>${r[id] == null ? "—" : r[id]}</td>`).join("")}</tr>`).join("");
+
+  return `<div class="offset-chart">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature offset versus anchors over ${data.length} weeks, drifting above the normal band into a watch.">
+      ${bandRect}${grid}${lines}${marker}${xlabels}
+    </svg>
+    <div class="offset-legend">${legend}</div>
+    <table class="sr-only"><caption>Temperature offset (°F) by week and anchor</caption><thead><tr><th>Week</th>${anchorIds.map(id => `<th>${esc(id)}</th>`).join("")}</tr></thead><tbody>${srRows}</tbody></table>
+  </div>`;
+}
+
+/* ----- flag log ----- */
+function renderFlagLog(d) {
+  const flags = d.flags || [];
+  const body = flags.map(f => {
+    const active = f.resolved == null;
+    const isWeather = /logged as weather/i.test(f.action || "");
+    let chipCls, chipLabel;
+    if (active) { chipCls = hstateOf(f.state).chip; chipLabel = "ACTIVE"; }
+    else if (isWeather) { chipCls = "learning"; chipLabel = "NO FLAG"; }
+    else { chipCls = "ok"; chipLabel = "CLOSED"; }
+    return `<tr>
+      <td class="fdate">${fmtMD(f.opened)}</td>
+      <td class="fvar">${esc(VARTITLE[f.var] || f.var)}</td>
+      <td class="fdesc">${esc(f.description || "")}</td>
+      <td class="faction">${esc(f.action || "")}</td>
+      <td><span class="chip chip--${chipCls}"><span class="dot"></span>${chipLabel}</span></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" class="muted" style="padding:var(--s-3) 0">No flags logged yet.</td></tr>`;
+  document.getElementById("hflaglog").innerHTML = `
+    <div class="card-head"><h2 id="hflaglog-h">Flag log</h2><span class="meta">${flags.filter(f => f.resolved == null).length} active</span></div>
+    <div class="flag-scroll">
+      <table class="flag-tbl">
+        <thead><tr><th scope="col">Opened</th><th scope="col">Variable</th><th scope="col">What happened</th><th scope="col">Action taken</th><th scope="col">Status</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ----- scoreboard-annotation explainer ----- */
+function renderExplainer(d) {
+  document.getElementById("hexplain").innerHTML = `
+    <div class="card-head"><h2 id="hexplain-h">How a flag appears on the Scoreboard</h2></div>
+    <p class="tab-lede">Annotate-only — flagged days stay in the scoring (a locked decision; exclusions invite cherry-picking). The Scoreboard tab gets a small status dot on its label, plus a footnote under the standings:</p>
+    <div class="mock">
+      <div class="mk-label">Standings — Temp MAE (lead 1)</div>
+      <div class="mk-row"><span>Tempest 1.42°F<span class="flag-mark"> ⚠</span></span><span class="sep">·</span><span>NWS 1.66°F<span class="flag-mark"> ⚠</span></span><span class="sep">·</span><span>NBM 1.71°F<span class="flag-mark"> ⚠</span></span></div>
+      <div class="foot-note"><span class="flag-mark">⚠</span><span>Jun 9–present included while a station temp watch was active — see Station Health. Affects all providers equally.</span></div>
+    </div>
+    <div class="tagline"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--hl-ok)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Flag, never override — reference stations monitor stability; the scoring truth source stays the Tempest station.</div>`;
+}
+
+/* ----- Tab 1 standings ⚠ footnote (reads the active health annotation) ----- */
+function flagFootHTML() {
+  if (!HEALTH || !Array.isArray(HEALTH.scoreboard_annotations)) return "";
+  const ann = HEALTH.scoreboard_annotations.filter(a => a && a.to == null);
+  if (!ann.length) return "";
+  const a = ann[0];
+  const vlabel = (VARTITLE[a.var] || a.var).toLowerCase();
+  const word = HEALTH.overall === "FLAG" ? "flag" : "watch";
+  return `<div class="flag-foot"><span class="flag-mark">⚠</span><span>${fmtMD(a.from)}–${a.to ? fmtMD(a.to) : "present"} included while a station ${esc(vlabel)} ${word} was active — see <b>Station Health</b>. Affects all providers equally.</span></div>`;
+}
+
+function renderHealthTab(d) {
+  if (!d) return;
+  HEALTH = d;
+  renderCurrentConditions(d);
+  renderHStatus(d);
+  renderAnchorsCard(d);
+  renderFlagLog(d);
+  renderExplainer(d);
+  const dot = document.getElementById("healthDot");
+  if (hstateOf(d.overall).sev >= 2) { dot.hidden = false; dot.classList.toggle("fail", d.overall === "FLAG"); }
+  else dot.hidden = true;
+  if (DATA) renderStandings(DATA); // refresh footnote now HEALTH exists
+}
+
+/* ----- tab switching (deep-linkable via #health / #scoreboard) ----- */
+function showTab(name) {
+  const isHealth = name === "health";
+  document.getElementById("tab-scoreboard").hidden = isHealth;
+  document.getElementById("tab-health").hidden = !isHealth;
+  document.getElementById("tab-btn-scoreboard").setAttribute("aria-selected", String(!isHealth));
+  document.getElementById("tab-btn-health").setAttribute("aria-selected", String(isHealth));
+  const hash = isHealth ? "#health" : "#scoreboard";
+  if (history.replaceState) history.replaceState(null, "", hash); else location.hash = hash;
+}
+function initTabs() {
+  document.getElementById("tab-btn-scoreboard").addEventListener("click", () => showTab("scoreboard"));
+  document.getElementById("tab-btn-health").addEventListener("click", () => showTab("health"));
+  window.addEventListener("hashchange", () => {
+    if (location.hash === "#health") showTab("health");
+    else if (location.hash === "#scoreboard") showTab("scoreboard");
+  });
+  if (location.hash === "#health") showTab("health");
+}
+
+function loadHealthFallback() {
+  try { return JSON.parse(document.getElementById("fallback-health").textContent); }
+  catch (e) { console.error("health fallback parse failed", e); return null; }
+}
 
 /* --------------------------------------------------------------- THEME */
 const ICON_MOON = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>';
@@ -1080,6 +1688,7 @@ function applyThemeIcon() {
     localStorage.setItem("tempest-theme", next);
     applyThemeIcon();
     if (DATA) renderTrend(DATA); // re-render SVG colors for new theme
+    if (HEALTH) renderAnchorsCard(HEALTH);
   });
 })();
 </script>

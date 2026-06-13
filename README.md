@@ -22,7 +22,11 @@ off the congested top-of-hour, where runs had been drifting 1–4 h late) and:
 2. **Scores** (`extract.py` → `verify.py`) every snapshot and writes `scores.json`:
    mean absolute error and % within 3 °F on temperature, precip-occurrence CSI, PoP Brier
    score, and a paired Diebold-Mariano significance test — at 1-, 2-, 3-day and blended leads.
-3. **Publishes** a static dashboard (`dashboard.html` + `scores.json`) via GitHub Pages.
+3. **Checks station health** (`health.py`): compares the Tempest daily aggregates against
+   three independent verified anchors and writes `health.json` + `anchors.csv`. On a newly
+   opened flag it queues a one-time warning email, sent by `notify.py`.
+4. **Publishes** a static dashboard (`dashboard.html` + `scores.json` + `health.json`) via
+   GitHub Pages — a two-tab page: **Guarantee Scoreboard** and **Station Health**.
 
 > Station/hub sensor-fault flags and RSSI are **not** captured here: `/diagnostics` returns 401
 > for personal tokens and the WebSocket never delivers `device_status` to them. Those live only
@@ -37,7 +41,10 @@ Until enough days accrue, the verdict reads **TOO EARLY** — by design.
 | `capture.py` | Daily snapshot job. Standard library only. Fails loud if the Tempest capture is missed. |
 | `extract.py` | Reads snapshots → scores them → emits `scores.json` in the dashboard's data contract. |
 | `verify.py` | Scoring engine: MAE/RMSE/bias, %±3 °F, Brier, POD/FAR/CSI, Diebold-Mariano. |
-| `dashboard.html` | Self-contained static page that reads `scores.json`. No frameworks, no external calls. |
+| `health.py` | Station-health monitor: Tempest vs 3 anchors → offsets, bands, flag states → `health.json` + `anchors.csv`. |
+| `backfill_anchors.py` | One-time METAR-anchor baseline backfill (AWC history) → `anchors_backfill.json`, so flags arm fast. |
+| `notify.py` | Sends the one-per-flag station-health warning email (Gmail SMTP). |
+| `dashboard.html` | Self-contained static page that reads `scores.json` + `health.json`. Two tabs. No frameworks, no external calls. |
 | `.github/workflows/capture.yml` | The daily cron that ties it together. |
 
 ## Configuration
@@ -46,6 +53,9 @@ The capture job reads two values from **GitHub Actions secrets** (never stored i
 
 - `TEMPEST_TOKEN` — a personal access token from tempestwx.com → Settings → Data Authorizations.
 - `TEMPEST_STATION_ID` — the station id (discoverable from the Tempest `/stations` endpoint).
+- `GMAIL_USER` / `GMAIL_APP_PASSWORD` — *(optional)* a Gmail address + [App Password](https://myaccount.google.com/apppasswords)
+  for the station-health warning email. If unset, `notify.py` no-ops cleanly and the dashboard
+  badge/flag-log still convey the flag. (Interim path — alerts migrate to Pushover later.)
 
 The station's published coordinates (33.9364, -83.5736) appear in the code, and the retained
 raw snapshots under `data/` additionally embed the station's full-precision (5-decimal)
@@ -73,6 +83,50 @@ PoP is the max over forecast periods touching the target calendar day, and a CoC
 dated *D* is attributed back to calendar day *D−1*. NWS overnight lows are attributed to the
 morning they actually occur (the night period's start date **+1 day**), per standard NWS
 verification practice.
+
+## Station health — is the truth source trustworthy?
+
+Forecast scoring uses the Tempest station's **own** readings as ground truth, so a silently
+drifting sensor would quietly poison the scoreboard — and a credible guarantee claim needs
+independent evidence the truth source was behaving (Tempest's forecast likely assimilates our
+own obs, a home-field advantage). `health.py` provides that evidence by comparing the Tempest
+daily aggregates against three verified anchors:
+
+| Anchor | Type | Distance | Variables |
+|---|---|---|---|
+| **KWDR** Barrow Co. Airport (Winder) | AWOS-3 | ~6 mi W | temp, humidity, pressure |
+| **KAHN** Athens–Ben Epps | ASOS (NWS-grade) | ~12 mi E | temp, humidity, wind, pressure |
+| **WATUGA** UGA Watkinsville | research-grade (UGA AEMN) | ~12 mi SE | temp, humidity, wind |
+
+KWDR + KAHN come from the NOAA Aviation Weather Center METAR JSON API (no key); WATUGA is the
+server-rendered "Yesterday Condition" daily summary from georgiaweather.net, parsed defensively
+(a parse failure drops to two anchors rather than crashing the run). Each is dumped raw into the
+daily snapshot; `health.py` aggregates and compares.
+
+**Method.** For each variable, `offset = tempest_daily − anchor_daily` is appended (per anchor,
+per day) to `anchors.csv` — the evidence vault. The baseline is the **28-day window ending 7
+days ago** (the recent week is excluded so live drift can't inflate its own baseline); the
+**normal band** is the 5th–95th percentile of that pooled baseline, with a per-variable
+minimum half-width so a thin early sample can't flag on noise. The current 7-day mean offset is
+tested against the band.
+
+- **Flag, never override.** Anchors monitor *stability*; the scoring truth source stays the
+  Tempest station, unchanged. A flag only **annotates** the scoreboard (a ⚠ footnote) — flagged
+  days are never excluded from scoring (exclusion rules invite cherry-picking on a claim).
+- **Triangulation.** A variable flags only on **same-direction divergence vs ≥ 2 of 3 anchors**
+  (wind uses the two wind-capable anchors). Divergence vs a single anchor is real weather across
+  6–12 miles — logged, never flagged.
+- **States.** `LEARNING` (baseline still warming up, < 12 days) → `OK` → `WATCH` (3 consecutive
+  divergent days, temp/RH) → `FLAG` (5+ days, or a step-change jump).
+- **Wind is trend-only.** A fence-post vs a 33-ft airport tower guarantees a large *constant*
+  offset; the rolling baseline absorbs it, so only **drift** in the offset is meaningful.
+  (Pressure is reduced to sea-level before comparison, so its offset is small and centered.)
+- **Rain** stays on the existing CoCoRaHS cross-check, not the METAR anchors.
+
+The flag log persists in `health_state.json`; `notify.py` sends exactly one warning email per
+flag-open event (a `health_emailed.json` ledger prevents repeats). The METAR baseline is
+backfilled from AWC history (`backfill_anchors.py`) so flags arm within days of launch rather
+than after a month; WATUGA accumulates from launch.
 
 ## Operations
 

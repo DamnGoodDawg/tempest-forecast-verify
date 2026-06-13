@@ -32,6 +32,16 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 COCORAHS_STATION = "GA-OC-20"   # "Bogart 2.4 S", ~2.6 mi away — independent precip truth
 COCORAHS_WINDOW_DAYS = 6        # trailing window: the observer reports ~7am, so allow lag
 
+# Station-health reference anchors (independent "is my station behaving?" evidence).
+#   KWDR + KAHN: NOAA Aviation Weather Center METAR JSON (no key). hours=36 covers the
+#     previous full local day with margin; health.py buckets each ob to its local date.
+#   WATUGA (UGA Watkinsville, georgiaweather.net): server-rendered "Yesterday Condition"
+#     daily-summary table — scraped raw here, parsed defensively in health.py.
+# All anchor fetches are SOFT (warnings only) — a missing anchor never blocks capture.
+ANCHOR_METAR_IDS = "KWDR,KAHN"
+ANCHOR_METAR_HOURS = 36
+WATUGA_URL = "http://www.georgiaweather.net/?variable=YC&site=WATUGA"
+
 def get(url, params=None):
     if params: url = url + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
@@ -181,6 +191,27 @@ def main():
         print(f"[ok] cocorahs.json ({nrows} rows)")
     except Exception as e:
         warnings.append(f"cocorahs: {e} (non-fatal)")
+
+    # 7. Station-health anchors (SOFT — never block the run). Raw dumps; health.py parses.
+    #    7a. AWC METARs for KWDR + KAHN (JSON, no key). Whole response kept as the evidence
+    #        vault; health.py buckets obs to local days and computes daily aggregates.
+    try:
+        am = get("https://aviationweather.gov/api/data/metar", {
+            "ids": ANCHOR_METAR_IDS, "format": "json", "hours": ANCHOR_METAR_HOURS})
+        write(outdir, "anchors_metar.json", {"meta": meta, "data": am})
+        n = len(am) if isinstance(am, list) else 0
+        print(f"[ok] anchors_metar.json ({n} obs)")
+    except Exception as e:
+        warnings.append(f"anchors_metar: {e} (non-fatal)")
+
+    #    7b. WATUGA "Yesterday Condition" daily-summary page (server-rendered HTML table).
+    #        Parsed defensively in health.py; on parse failure the run continues on 2 anchors.
+    try:
+        watuga_html = get_text(WATUGA_URL)
+        write(outdir, "watuga.html", {"meta": meta, "url": WATUGA_URL, "html": watuga_html})
+        print(f"[ok] watuga.html ({len(watuga_html)} bytes)")
+    except Exception as e:
+        warnings.append(f"watuga: {e} (non-fatal)")
 
     write(outdir, "_capture_log.json", {"meta": meta, "failures": failures, "warnings": warnings})
     if warnings:
