@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-06-13T13:43:04Z",
-  "last_check": "2026-06-13T13:43:04Z",
-  "next_check": "2026-06-14T13:43:04Z",
+  "generated_at": "2026-06-13T14:30:18Z",
+  "last_check": "2026-06-13T14:30:18Z",
+  "next_check": "2026-06-14T14:30:18Z",
   "overall": "OK",
   "summary": "All variables within their normal range vs the verified anchors.",
   "days_monitored": 13,
@@ -16,18 +16,29 @@
         "temp": 72.1,
         "rh": 97,
         "wind": 0.7,
-        "pressure": 1016.8
+        "pressure": 1016.8,
+        "as_of": "2026-06-13T12:06:05Z"
       },
       "KWDR": {
+        "as_of": "2026-06-13T11:55:00Z",
         "temp": 75.2,
         "rh": 83,
         "pressure": 1017.7
       },
       "KAHN": {
+        "as_of": "2026-06-13T11:51:00Z",
         "temp": 75.9,
         "rh": 85,
         "wind": 5.8,
         "pressure": 1016.7
+      },
+      "WATUGA": {
+        "temp": 76.2,
+        "rh": 88.5,
+        "wind": 1.9,
+        "pressure": 1022.4,
+        "as_of": "2026-06-12T12:00:00Z",
+        "daily": true
       }
     }
   },

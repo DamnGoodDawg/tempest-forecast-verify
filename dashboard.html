@@ -553,6 +553,9 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .cc-sub { display: flex; flex-wrap: wrap; gap: 2px var(--s-3); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--text-2); }
 .cc-sub i { font-style: normal; color: var(--text-3); }
 .cc-sub .none { color: var(--text-3); }
+.cc-asof { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); margin-top: var(--s-2); white-space: nowrap; }
+.cc-asof .live { color: var(--hl-ok); font-weight: 600; }
+.cc-asof .warn { color: var(--hl-warn); }
 
 /* COMPONENT — variable offset gauge cards (v2.1, replaces the wide table) */
 .varcards { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-5); }
@@ -1358,7 +1361,9 @@ async function fetchLiveCurrent() {
     if (!r.ok) return;
     const live = await r.json();
     if (live && live.stations && live.stations.Tempest) {
-      HEALTH.current_obs = { as_of: live.as_of, stations: live.stations, live: true };
+      // merge live (Tempest/KWDR/KAHN, each with its own as_of) OVER the daily snapshot,
+      // so WATUGA — which has no live feed — keeps its daily value instead of going empty
+      HEALTH.current_obs = { stations: Object.assign({}, DAILY_STATIONS, live.stations) };
       renderCurrentConditions(HEALTH);
     }
   } catch (e) { /* offline / CORS / file:// — keep the daily snapshot */ }
@@ -1368,6 +1373,7 @@ async function fetchLiveCurrent() {
    STATION HEALTH TAB (v2) — render layer
    ============================================================================ */
 let HEALTH = null;
+let DAILY_STATIONS = {};   // the daily-capture current_obs.stations; live feed merges over it (keeps WATUGA)
 
 const HSTATE = {
   LEARNING: { chip: "learning", accent: "--st-tooearly", label: "LEARNING", sev: 0 },
@@ -1451,10 +1457,25 @@ function fmtReadingHTML(v, unit) {
 }
 
 /* ----- current conditions hero: Tempest + every anchor service, side by side ----- */
+// per-tile "as of" line — each station carries its OWN observation time, since Tempest
+// (live, seconds), the METARs (up to ~1 h), and WATUGA (daily) all refresh differently
+function tileAsOf(st) {
+  if (!st || !st.as_of) return `<div class="cc-asof"><span class="warn">no recent data</span></div>`;
+  if (st.daily) return `<div class="cc-asof">daily · ${fmtMD(st.as_of)}</div>`;
+  const ageH = (Date.now() - Date.parse(st.as_of)) / 3.6e6;
+  const cls = ageH < 0.34 ? "live" : (ageH > 1.5 ? "warn" : "");
+  const dot = ageH < 0.34 ? "● " : "";
+  return `<div class="cc-asof"><span class="${cls}">${dot}${esc(agoStr(st.as_of))}</span> · ${fmtETTime(st.as_of)}</div>`;
+}
+
 function renderCurrentConditions(d) {
+  const byId = (d.current_obs && d.current_obs.stations) || {};
   const stations = [{ id: "Tempest", hero: true }]
     .concat((d.anchors || []).map(a => ({ id: a.id, hero: false, dist: `~${a.miles}mi ${a.dir}` })));
+  let anyLive = false;
   const tiles = stations.map(s => {
+    const st = byId[s.id] || null;
+    if (st && !st.daily && st.as_of && (Date.now() - Date.parse(st.as_of)) / 3.6e6 < 0.34) anyLive = true;
     const temp = stationCurrent(d, s.id, "temp");
     const subs = ["rh", "wind", "pressure"].map(vk => {
       const f = ccUnit(vk, stationCurrent(d, s.id, vk));
@@ -1468,20 +1489,15 @@ function renderCurrentConditions(d) {
       </div>
       <div class="cc-temp">${tempHTML}</div>
       <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
+      ${tileAsOf(st)}
     </div>`;
   }).join("");
-  const co = d.current_obs || {};
-  const stamp = co.as_of || d.last_check;
-  const ageH = stamp ? (Date.now() - Date.parse(stamp)) / 3.6e6 : 0;
-  const isLive = !!co.live && ageH < 0.34;          // live feed, < ~20 min old
-  const stale = ageH > (co.live ? 0.5 : 3);          // amber once clearly not "now"
-  const live = isLive ? `<span style="color:var(--hl-ok)">● live</span> · ` : "";
-  const meta = stamp
-    ? `${live}as of ${fmtETDateTime(stamp)} · <b${stale ? ' style="color:var(--hl-warn)"' : ""}>${agoStr(stamp)}</b>`
-    : "latest reading";
-  const note = co.live
-    ? `<b>Live</b> from the local station listener (refreshed every few minutes); anchor tiles are the latest METAR. WATUGA has no live feed. The offset analysis below uses 7-day means.`
-    : `Snapshot from the most recent <b>daily</b> capture (~8&nbsp;AM ET) — not live, so it will lag the Tempest app later in the day; WATUGA has no live feed. The offset analysis below uses 7-day means.`;
+  const meta = anyLive
+    ? `<span style="color:var(--hl-ok)">● live</span> · each tile stamped below`
+    : `latest readings · each tile stamped below`;
+  const note = anyLive
+    ? `Tempest is <b>live</b> from the local station listener; KWDR/KAHN are the latest METAR; WATUGA is its most recent <b>daily</b> summary (no live feed). Each tile shows its own observation time. The offset analysis below uses 7-day means.`
+    : `Readings from the most recent <b>daily</b> capture (~8&nbsp;AM ET) — not live, so they lag the Tempest app later in the day. Each tile shows its own time; WATUGA has no live feed. The offset analysis below uses 7-day means.`;
   document.getElementById("hcurrent").innerHTML = `
     <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">${meta}</span></div>
     <div class="cc-grid">${tiles}</div>
@@ -1674,6 +1690,7 @@ function flagFootHTML() {
 function renderHealthTab(d) {
   if (!d) return;
   HEALTH = d;
+  DAILY_STATIONS = (d.current_obs && d.current_obs.stations) || {};
   renderCurrentConditions(d);
   renderHStatus(d);
   renderAnchorsCard(d);

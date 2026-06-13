@@ -184,14 +184,17 @@ def tempest_daily(device_json):
 
 
 # ----------------------------------------------------------------- anchor daily aggregates
-def current_observations(day_dirs):
-    """Latest INSTANTANEOUS reading per station for the 'Current conditions' strip — a
-    real spot-check the owner can compare against the Tempest app, NOT a 7-day mean.
-    Tempest comes from the newest station-obs snapshot (metric → converted); KWDR/KAHN
-    from the most recent METAR ob. WATUGA has no current feed (we capture only its daily
-    'Yesterday' summary), so it's omitted. Fresh only to the last daily capture — the
-    `as_of` timestamp makes that visible; truly live conditions are the local listener's job."""
-    out, as_of = {}, None
+def _iso(epoch):
+    return dt.datetime.fromtimestamp(int(epoch), dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+def current_observations(day_dirs, anchors):
+    """Latest reading per station for the 'Current conditions' strip — a real spot-check vs
+    the Tempest app, NOT a 7-day mean. EACH station carries its own `as_of` because their
+    freshness differs: Tempest (newest station-obs snapshot, metric→converted) and KWDR/KAHN
+    (most recent METAR) are instantaneous; WATUGA has no live feed, so it shows its most
+    recent DAILY summary, stamped daily. The dashboard's live gist later overrides Tempest/
+    KWDR/KAHN with minute-fresh values, leaving WATUGA's daily here as the fallback."""
+    out, top_as_of = {}, None
     for dd in reversed(day_dirs):
         sj = load(os.path.join(dd, "tempest_station_obs.json"))
         obs = ((sj or {}).get("data") or {}).get("obs") or []
@@ -210,12 +213,14 @@ def current_observations(day_dirs):
         if isinstance(slp, (int, float)):
             agg["pressure"] = round(slp, 1)
         elif isinstance(o.get("station_pressure"), (int, float)):
-            agg["pressure"] = round(station_to_slp(o["station_pressure"], t) or 0, 1) or None
-        if agg:
-            out["Tempest"] = agg
+            sp = station_to_slp(o["station_pressure"], t)
+            if sp is not None:
+                agg["pressure"] = round(sp, 1)
         ts = o.get("timestamp")
         if ts:
-            as_of = dt.datetime.fromtimestamp(int(ts), dt.timezone.utc).isoformat().replace("+00:00", "Z")
+            agg["as_of"] = top_as_of = _iso(ts)
+        if len(agg) > (1 if "as_of" in agg else 0):
+            out["Tempest"] = agg
         break
     for dd in reversed(day_dirs):
         mj = load(os.path.join(dd, "anchors_metar.json"))
@@ -230,7 +235,7 @@ def current_observations(day_dirs):
                     latest[sid] = o
         for sid, o in latest.items():
             t, td = o.get("temp"), o.get("dewp")
-            agg = {}
+            agg = {"as_of": _iso(o["obsTime"])}
             if isinstance(t, (int, float)):
                 agg["temp"] = round(c_to_f(t), 1)
             rh = rh_from_t_td(t, td)
@@ -240,10 +245,20 @@ def current_observations(day_dirs):
                 agg["wind"] = round(o["wspd"] * 1.150779, 1)
             if isinstance(o.get("altim"), (int, float)):
                 agg["pressure"] = round(float(o["altim"]), 1)
-            if agg:
+            if len(agg) > 1:
                 out[sid] = agg
         break
-    return {"as_of": as_of, "stations": out}
+    # WATUGA: no live feed — show its most recent DAILY summary, stamped daily (fills the
+    # tile honestly instead of leaving it empty). as_of = that calendar day.
+    wdays = anchors.get("WATUGA") or {}
+    if wdays:
+        wdate = max(wdays)
+        wagg = {k: round(v, 1) for k, v in wdays[wdate].items() if isinstance(v, (int, float))}
+        wagg["as_of"] = wdate + "T12:00:00Z"   # the daily summary's date (noon = mid-day marker)
+        wagg["daily"] = True
+        if any(k in wagg for k in ("temp", "rh", "wind", "pressure")):
+            out["WATUGA"] = wagg
+    return {"as_of": top_as_of, "stations": out}
 
 
 def metar_daily(metar_json):
@@ -663,7 +678,7 @@ def main():
         "confirmed_faults": 0,    # named sensor-fault flags are listener-side (REST can't see them)
         "last_email": last_email,
         "location": "Statham, GA",
-        "current_obs": current_observations(day_dirs),
+        "current_obs": current_observations(day_dirs, anchors),
         "anchors": [{"id": a["id"], "name": a["name"], "type": a["type"], "place": a["place"],
                      "dir": a["dir"], "miles": a["miles"], "elev_ft": a["elev_ft"],
                      "reporting": bool(reporting[a["id"]]), "variables": a["vars"]} for a in ANCHORS],
