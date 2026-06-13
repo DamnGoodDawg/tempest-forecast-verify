@@ -1342,7 +1342,27 @@ function loadFallback() {
   if (data) renderAll(data);
   if (health) renderHealthTab(health);
   initTabs();
+  fetchLiveCurrent();                       // overlay the live listener feed if reachable
+  setInterval(fetchLiveCurrent, 90000);     // keep "Current conditions" fresh while open
 })();
+
+/* Live current conditions: the Mac listener publishes a tiny current.json to a gist every
+   few minutes (no token in this public page, no daily-capture lag). On success it overrides
+   the daily snapshot in the Current conditions card; on any failure the daily snapshot stays
+   and the "as of … · Nh ago" stamp tells the truth. */
+const LIVE_CURRENT_URL = "https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1/raw/current.json";
+async function fetchLiveCurrent() {
+  if (!HEALTH) return;
+  try {
+    const r = await fetch(LIVE_CURRENT_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const live = await r.json();
+    if (live && live.stations && live.stations.Tempest) {
+      HEALTH.current_obs = { as_of: live.as_of, stations: live.stations, live: true };
+      renderCurrentConditions(HEALTH);
+    }
+  } catch (e) { /* offline / CORS / file:// — keep the daily snapshot */ }
+}
 
 /* ============================================================================
    STATION HEALTH TAB (v2) — render layer
@@ -1450,16 +1470,22 @@ function renderCurrentConditions(d) {
       <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
     </div>`;
   }).join("");
-  const stamp = (d.current_obs && d.current_obs.as_of) || d.last_check;
+  const co = d.current_obs || {};
+  const stamp = co.as_of || d.last_check;
   const ageH = stamp ? (Date.now() - Date.parse(stamp)) / 3.6e6 : 0;
-  const stale = ageH > 3;   // a daily-capture reading older than this is clearly "not now"
+  const isLive = !!co.live && ageH < 0.34;          // live feed, < ~20 min old
+  const stale = ageH > (co.live ? 0.5 : 3);          // amber once clearly not "now"
+  const live = isLive ? `<span style="color:var(--hl-ok)">● live</span> · ` : "";
   const meta = stamp
-    ? `as of ${fmtETDateTime(stamp)} · <b${stale ? ' style="color:var(--hl-warn)"' : ""}>${agoStr(stamp)}</b>`
+    ? `${live}as of ${fmtETDateTime(stamp)} · <b${stale ? ' style="color:var(--hl-warn)"' : ""}>${agoStr(stamp)}</b>`
     : "latest reading";
+  const note = co.live
+    ? `<b>Live</b> from the local station listener (refreshed every few minutes); anchor tiles are the latest METAR. WATUGA has no live feed. The offset analysis below uses 7-day means.`
+    : `Snapshot from the most recent <b>daily</b> capture (~8&nbsp;AM ET) — not live, so it will lag the Tempest app later in the day; WATUGA has no live feed. The offset analysis below uses 7-day means.`;
   document.getElementById("hcurrent").innerHTML = `
     <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">${meta}</span></div>
     <div class="cc-grid">${tiles}</div>
-    <p class="var-key" style="margin-top:var(--s-3)">Snapshot from the most recent <b>daily</b> capture (~8&nbsp;AM ET) — not live, so it will lag the Tempest app later in the day; WATUGA has no live feed. The offset analysis below uses 7-day means.</p>`;
+    <p class="var-key" style="margin-top:var(--s-3)">${note}</p>`;
 }
 
 /* ----- anchors card: metadata cards + per-variable offset gauges + chart ----- */
