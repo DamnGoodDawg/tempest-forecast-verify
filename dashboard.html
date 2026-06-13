@@ -556,6 +556,18 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .cc-asof { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); margin-top: var(--s-2); white-space: nowrap; }
 .cc-asof .live { color: var(--hl-ok); font-weight: 600; }
 .cc-asof .warn { color: var(--hl-warn); }
+/* same-moment comparison (v2.2) — all stations snapped to the least-recent feed's time */
+.cmp { margin-top: var(--s-5); border-top: 1px dashed var(--border-2); padding-top: var(--s-4); }
+.cmp-head { font-size: var(--fs-base); font-weight: 650; display: flex; gap: var(--s-2); align-items: baseline; flex-wrap: wrap; }
+.cmp-at { font-size: var(--fs-micro); font-weight: 500; color: var(--text-3); font-family: var(--font-mono); }
+.cmp-tbl { width: 100%; border-collapse: collapse; min-width: 360px; margin-top: var(--s-3); }
+.cmp-tbl th { font-size: var(--fs-micro); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); text-align: right; padding: 0 0 var(--s-2) var(--s-3); white-space: nowrap; }
+.cmp-tbl th:first-child { text-align: left; padding-left: 0; }
+.cmp-tbl td { padding: var(--s-2) 0 var(--s-2) var(--s-3); border-top: 1px solid var(--border); text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.cmp-tbl td:first-child { text-align: left; padding-left: 0; font-family: var(--font-sans); font-weight: 600; }
+.cmp-tbl tbody tr:first-child td { border-top: none; }
+.cmp-tbl .muted { color: var(--text-3); }
+.cmp-note { font-size: var(--fs-micro); color: var(--text-3); margin-top: var(--s-3); text-wrap: pretty; }
 
 /* COMPONENT — variable offset gauge cards (v2.1, replaces the wide table) */
 .varcards { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-5); }
@@ -1363,7 +1375,7 @@ async function fetchLiveCurrent() {
     if (live && live.stations && live.stations.Tempest) {
       // merge live (Tempest/KWDR/KAHN, each with its own as_of) OVER the daily snapshot,
       // so WATUGA — which has no live feed — keeps its daily value instead of going empty
-      HEALTH.current_obs = { stations: Object.assign({}, DAILY_STATIONS, live.stations) };
+      HEALTH.current_obs = { stations: Object.assign({}, DAILY_STATIONS, live.stations), comparison: live.comparison };
       renderCurrentConditions(HEALTH);
     }
   } catch (e) { /* offline / CORS / file:// — keep the daily snapshot */ }
@@ -1457,23 +1469,47 @@ function fmtReadingHTML(v, unit) {
 }
 
 /* ----- current conditions hero: Tempest + every anchor service, side by side ----- */
+// per-tile freshness line — each station shows its OWN observation age
+function tileAsOf(st) {
+  if (!st || !st.as_of) return `<div class="cc-asof"><span class="warn">no recent data</span></div>`;
+  const ageH = (Date.now() - Date.parse(st.as_of)) / 3.6e6;
+  const cls = ageH < 0.34 ? "live" : (ageH > 1.5 ? "warn" : "");
+  const dot = ageH < 0.34 ? "● " : "";
+  return `<div class="cc-asof"><span class="${cls}">${dot}${esc(agoStr(st.as_of))}</span> · ${fmtETTime(st.as_of)}</div>`;
+}
+
+// SECTION 2: snap every station to the least-recent feed's timestamp and show what each
+// read THEN (from stored history) — a true apples-to-apples, not three different moments.
+function renderComparison(d) {
+  const c = d.current_obs && d.current_obs.comparison;
+  if (!c || !c.stations || !Object.keys(c.stations).length) {
+    return `<div class="cmp"><div class="cmp-head">Same-moment comparison</div>
+      <p class="cmp-note">Available from the live listener feed — currently showing each station's own latest reading above.</p></div>`;
+  }
+  const order = ["Tempest", "KWDR", "KAHN"].filter(id => c.stations[id]);
+  const COLS = [["temp", "Temp", v => v.toFixed(1) + "°"], ["rh", "Humidity", v => Math.round(v) + "%"],
+                ["wind", "Wind", v => v.toFixed(1)], ["pressure", "Pressure", v => Math.round(v)]];
+  const head = `<tr><th>Station</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr>`;
+  const body = order.map(id => {
+    const s = c.stations[id];
+    const cells = COLS.map(([k, , fmt]) => s[k] == null ? `<td class="muted">—</td>` : `<td>${fmt(s[k])}</td>`).join("");
+    return `<tr class="${id === "Tempest" ? "row-tempest" : ""}"><td>${esc(id)}</td>${cells}</tr>`;
+  }).join("");
+  return `<div class="cmp">
+    <div class="cmp-head">Same-moment comparison <span class="cmp-at">all stations as of ${fmtETTime(c.at)}</span></div>
+    <div class="tbl-scroll"><table class="cmp-tbl"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <p class="cmp-note">Each station's reading at the least-recent feed's timestamp (${fmtETTime(c.at)}), pulled from stored history — so they're compared at the same moment, not at three different times. Wind is mph, pressure mb.</p>
+  </div>`;
+}
+
 function renderCurrentConditions(d) {
   const byId = (d.current_obs && d.current_obs.stations) || {};
-  // only stations with a genuine recent reading get a tile — Tempest + any METAR anchor we
-  // have current data for. WATUGA is omitted on purpose (daily-only, no live feed).
+  // SECTION 1: live cards — Tempest + any anchor with a genuine recent reading. WATUGA is
+  // omitted (daily-only, no live feed); it still drives the offset analysis below.
   const stations = [{ id: "Tempest", hero: true }]
     .concat((d.anchors || [])
       .filter(a => byId[a.id])
       .map(a => ({ id: a.id, hero: false, dist: `~${a.miles}mi ${a.dir}` })));
-  // common ground: every tile is shown "as of" the OLDEST reading among them, so the
-  // comparison is apples-to-apples (the freshest station is no more authoritative than the
-  // laggard for a side-by-side). Track the oldest and which station it is.
-  let oldest = null, oldestId = null;
-  stations.forEach(s => {
-    const as = (byId[s.id] || {}).as_of;
-    const t = as ? Date.parse(as) : null;
-    if (t != null && (oldest == null || t < oldest)) { oldest = t; oldestId = s.id; }
-  });
   const tiles = stations.map(s => {
     const temp = stationCurrent(d, s.id, "temp");
     const subs = ["rh", "wind", "pressure"].map(vk => {
@@ -1488,21 +1524,13 @@ function renderCurrentConditions(d) {
       </div>
       <div class="cc-temp">${tempHTML}</div>
       <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
+      ${tileAsOf(byId[s.id] || null)}
     </div>`;
   }).join("");
-  const stamp = oldest != null ? new Date(oldest).toISOString() : (d.last_check || null);
-  const ageH = stamp ? (Date.now() - Date.parse(stamp)) / 3.6e6 : 0;
-  const stale = ageH > 1.5;   // amber once the common floor is clearly old
-  const meta = stamp
-    ? `as of <b${stale ? ' style="color:var(--hl-warn)"' : ""}>${agoStr(stamp)}</b> · ${fmtETTime(stamp)}`
-    : "latest readings";
-  const note = oldestId
-    ? `All tiles shown <b>as of the least-recent station</b> (${esc(oldestId)}, ${agoStr(stamp)}) so they compare on common ground — individual stations (Tempest is live) may be newer. WATUGA is omitted here (daily summary only); it still appears in the offset analysis below, which uses 7-day means.`
-    : `Readings from the most recent daily capture. The offset analysis below uses 7-day means.`;
   document.getElementById("hcurrent").innerHTML = `
-    <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">${meta}</span></div>
+    <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">live · each tile shows its own time</span></div>
     <div class="cc-grid">${tiles}</div>
-    <p class="var-key" style="margin-top:var(--s-3)">${note}</p>`;
+    ${renderComparison(d)}`;
 }
 
 /* ----- anchors card: metadata cards + per-variable offset gauges + chart ----- */
