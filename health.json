@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-06-13T12:06:21Z",
-  "last_check": "2026-06-13T12:06:21Z",
-  "next_check": "2026-06-14T12:06:21Z",
+  "generated_at": "2026-06-13T13:43:04Z",
+  "last_check": "2026-06-13T13:43:04Z",
+  "next_check": "2026-06-14T13:43:04Z",
   "overall": "OK",
   "summary": "All variables within their normal range vs the verified anchors.",
   "days_monitored": 13,
@@ -9,6 +9,28 @@
   "confirmed_faults": 0,
   "last_email": null,
   "location": "Statham, GA",
+  "current_obs": {
+    "as_of": "2026-06-13T12:06:05Z",
+    "stations": {
+      "Tempest": {
+        "temp": 72.1,
+        "rh": 97,
+        "wind": 0.7,
+        "pressure": 1016.8
+      },
+      "KWDR": {
+        "temp": 75.2,
+        "rh": 83,
+        "pressure": 1017.7
+      },
+      "KAHN": {
+        "temp": 75.9,
+        "rh": 85,
+        "wind": 5.8,
+        "pressure": 1016.7
+      }
+    }
+  },
   "anchors": [
     {
       "id": "KWDR",

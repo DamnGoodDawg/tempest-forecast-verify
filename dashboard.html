@@ -776,6 +776,14 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   "active_watches": 1,
   "confirmed_faults": 0,
   "last_email": "2026-06-11",
+  "current_obs": {
+    "as_of": "2026-06-12T10:23:00Z",
+    "stations": {
+      "Tempest": { "temp": 72.1, "rh": 97, "wind": 0.7, "pressure": 1016.8 },
+      "KWDR": { "temp": 75.2, "rh": 83, "pressure": 1017.7 },
+      "KAHN": { "temp": 75.9, "rh": 85, "wind": 5.8, "pressure": 1016.7 }
+    }
+  },
   "anchors": [
     { "id": "KWDR", "name": "Barrow Co. Airport", "type": "AWOS-3", "place": "Winder", "dir": "W", "miles": 6, "elev_ft": 919, "reporting": true, "variables": ["temp", "rh", "pressure"] },
     { "id": "KAHN", "name": "Athens–Ben Epps", "type": "ASOS", "place": "Athens", "dir": "E", "miles": 12, "elev_ft": 791, "reporting": true, "variables": ["temp", "rh", "wind", "pressure", "precip"] },
@@ -1398,11 +1406,9 @@ function renderHStatus(d) {
 
 /* ----- station reading helpers (Tempest is ground truth; anchor = Tempest − offset) ----- */
 function stationCurrent(d, stationId, varKey) {
-  const v = (d.variables || []).find(x => x.var === varKey);
-  if (!v || v.current == null) return null;
-  if (stationId === "Tempest") return v.current;
-  const off = (v.offsets_7d || {})[stationId];
-  return off == null ? null : v.current - off;
+  // latest INSTANTANEOUS reading per station (a real spot-check), not a 7-day mean
+  const st = (d.current_obs && d.current_obs.stations) ? d.current_obs.stations[stationId] : null;
+  return (st && st[varKey] != null) ? st[varKey] : null;
 }
 function ccUnit(varKey, val) {
   if (val == null) return null;
@@ -1439,10 +1445,12 @@ function renderCurrentConditions(d) {
       <div class="cc-sub">${subs || '<span class="none">—</span>'}</div>
     </div>`;
   }).join("");
-  const t = d.last_check ? new Date(d.last_check).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }) : "";
+  const stamp = (d.current_obs && d.current_obs.as_of) || d.last_check;
+  const t = stamp ? new Date(stamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }) : "";
   document.getElementById("hcurrent").innerHTML = `
-    <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">7-day mean · as of ${t} UTC</span></div>
-    <div class="cc-grid">${tiles}</div>`;
+    <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">latest reading${t ? ` · ${t} UTC` : ""}</span></div>
+    <div class="cc-grid">${tiles}</div>
+    <p class="var-key" style="margin-top:var(--s-3)">Latest station readings as of the most recent daily capture (WATUGA has no live feed). The offset analysis below uses 7-day means.</p>`;
 }
 
 /* ----- anchors card: metadata cards + per-variable offset gauges + chart ----- */
