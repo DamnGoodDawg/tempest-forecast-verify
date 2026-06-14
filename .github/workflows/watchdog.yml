@@ -1,0 +1,36 @@
+# .github/workflows/watchdog.yml — cloud dead-man's switch for the Tempest Mac.
+# Watches the publisher's current.json gist; emails if it goes stale (the Mac/listener is down,
+# so the LOCAL iMessage alerts can't report it). Runs in GitHub's cloud, independent of the Mac.
+# Repo secrets used: GMAIL_USER, GMAIL_APP_PASSWORD (same as the health warning email).
+name: tempest-watchdog
+on:
+  schedule:
+    - cron: "*/15 * * * *"     # every 15 min; publisher pushes ~every 3 min, stale threshold 30 min
+  workflow_dispatch: {}        # manual trigger for testing
+concurrency:
+  group: watchdog              # never let two runs race watchdog_state.json
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Check Mac liveness via the gist heartbeat
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    # raises the gist API rate limit (optional)
+        run: python watchdog.py
+
+      - name: Commit watchdog state (only changes on a transition)
+        if: always()
+        run: |
+          git config user.name "tempest-watchdog-bot"
+          git config user.email "actions@github.com"
+          git add watchdog_state.json
+          git commit -m "watchdog $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git pull --rebase --autostash || true
+          git push
