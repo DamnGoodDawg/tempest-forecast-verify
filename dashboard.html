@@ -2,6 +2,9 @@
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- Defense-in-depth: caps where the page may load/send data (self + the live gist). The
+     real XSS guard is esc() on every gist/LLM value before innerHTML; this is a backstop. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://gist.githubusercontent.com">
 <title>Tempest Guarantee Scoreboard</title>
 <style>
 /* ============================================================================
@@ -463,6 +466,19 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .explain .body .term { color: var(--text); font-weight: 650; }
 
 /* ============================================================================
+   COMPONENT — daily "plain-English read" (written by Claude on a daily routine)
+   ============================================================================ */
+.analysis { position: relative; overflow: hidden; padding-left: calc(var(--s-5) + 4px); }
+.analysis::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(180deg, var(--p-tempest), color-mix(in oklch, var(--p-tempest) 55%, var(--st-ahead))); }
+.analysis[hidden] { display: none; }
+.analysis .a-head { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-3); flex-wrap: wrap; }
+.analysis .a-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--p-tempest); }
+.analysis .a-eyebrow svg { width: 14px; height: 14px; }
+.analysis .a-when { margin-left: auto; font-size: var(--fs-micro); color: var(--text-3); font-family: var(--font-mono); white-space: nowrap; }
+.analysis .a-body p { font-size: var(--fs-base); color: var(--text); line-height: 1.6; margin: 0 0 var(--s-3); text-wrap: pretty; }
+.analysis .a-body p:last-child { margin-bottom: 0; }
+
+/* ============================================================================
    COMPONENT — sample-data banner (shown only when live scores.json failed to load)
    ============================================================================ */
 .sample-banner {
@@ -719,6 +735,9 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   <!-- ============ TAB 1 · GUARANTEE SCOREBOARD ============ -->
   <div class="tabpanel" id="tab-scoreboard" role="tabpanel" aria-labelledby="tab-btn-scoreboard">
 
+  <!-- 0 · daily plain-English read (written by Claude on a daily routine) -->
+  <section class="card analysis" id="analysisForecast" hidden></section>
+
   <!-- 1 · verdict banner -->
   <section class="card verdict" id="verdict" aria-labelledby="verdict-h"></section>
 
@@ -746,6 +765,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
       <span><b>Showing sample data.</b> Live health feed unavailable — values are illustrative.</span>
     </div>
     <p class="tab-lede">Is my station's data trustworthy? The station's own readings are the <em>ground truth</em> for forecast scoring — this tab is the independent evidence the truth source is behaving. Flags <em>annotate</em> the scoreboard; they never change or exclude scores.</p>
+    <section class="card analysis" id="analysisHealth" hidden></section>
     <section class="card hcurrent" id="hcurrent" aria-labelledby="hcurrent-h"></section>
     <section class="card hstatus" id="hstatus" aria-labelledby="hstatus-h"></section>
     <section class="card anchors-card" id="hanchors" aria-labelledby="hanchors-h"></section>
@@ -1430,7 +1450,41 @@ function loadFallback() {
   initTabs();
   fetchLiveCurrent();                       // overlay the live listener feed if reachable
   setInterval(fetchLiveCurrent, 90000);     // keep "Current conditions" fresh while open
+  fetchAnalysis();                          // daily plain-English read at the top of each tab
 })();
+
+/* Daily plain-English "read": a Claude CLI routine on the Mac writes one short analysis per
+   tab into analysis.json (same gist). Rendered at the top of each tab, escaped (the text is
+   LLM-authored, treated as untrusted), with the time it was generated. Absent → cards stay hidden. */
+const ANALYSIS_URL = "https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1/raw/analysis.json";
+const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.8L18 8.4l-4.4 1.6L12 15l-1.6-4.9L6 8.4l4.4-1.6L12 2zM5 14l.9 2.6L8.5 17.5 5.9 18.4 5 21l-.9-2.6L1.5 17.5 4.1 16.6 5 14zM19 13l.7 2.1 2.1.7-2.1.7L19 19l-.7-2.1-2.1-.7 2.1-.7L19 13z"/></svg>';
+function renderAnalysisCard(elId, text, generatedAt) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!text || typeof text !== "string" || !text.trim()) { el.hidden = true; return; }
+  const paras = text.trim().split(/\n{2,}/).map(p => p.replace(/\s*\n\s*/g, " ").trim()).filter(Boolean);
+  const when = generatedAt ? fmtETDateTime(generatedAt) : "";
+  // generatedAt is WHEN THIS CARD'S TEXT WAS WRITTEN (not the run time) — so if the routine
+  // failed and recycled yesterday's text, the stamp stays honest and goes amber once old.
+  const ageH = generatedAt ? (Date.now() - Date.parse(generatedAt)) / 3.6e6 : 0;
+  const staleNote = (generatedAt && ageH > 36) ? ` · <span style="color:var(--hl-warn)">may be stale</span>` : "";
+  el.innerHTML = `
+    <div class="a-head">
+      <span class="a-eyebrow">${SPARK}Daily read</span>
+      ${when ? `<span class="a-when">as of ${esc(when)}${staleNote}</span>` : ""}
+    </div>
+    <div class="a-body">${paras.map(p => `<p>${esc(p)}</p>`).join("")}</div>`;
+  el.hidden = false;
+}
+async function fetchAnalysis() {
+  try {
+    const r = await fetch(ANALYSIS_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const a = await r.json();
+    renderAnalysisCard("analysisForecast", a.forecast, a.forecast_at || a.generated_at);
+    renderAnalysisCard("analysisHealth", a.health, a.health_at || a.generated_at);
+  } catch (e) { /* not published yet / offline — cards stay hidden */ }
+}
 
 /* Live current conditions: the Mac listener publishes a tiny current.json to a gist every
    few minutes (no token in this public page, no daily-capture lag). On success it overrides
@@ -1523,9 +1577,12 @@ function renderHStatus(d) {
 
 /* ----- station reading helpers (Tempest is ground truth; anchor = Tempest − offset) ----- */
 function stationCurrent(d, stationId, varKey) {
-  // latest INSTANTANEOUS reading per station (a real spot-check), not a 7-day mean
+  // latest INSTANTANEOUS reading per station (a real spot-check), not a 7-day mean.
+  // Coerce to a finite number so a stray string/null from the gist degrades to "—" per cell
+  // instead of throwing inside the render (which would blank the whole live merge).
   const st = (d.current_obs && d.current_obs.stations) ? d.current_obs.stations[stationId] : null;
-  return (st && st[varKey] != null) ? st[varKey] : null;
+  const v = st && st[varKey] != null ? Number(st[varKey]) : null;
+  return Number.isFinite(v) ? v : null;
 }
 function ccUnit(varKey, val) {
   if (val == null) return null;
@@ -1566,7 +1623,10 @@ function renderComparison(d) {
   const head = `<tr><th>Station</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr>`;
   const body = order.map(id => {
     const s = c.stations[id];
-    const cells = COLS.map(([k, , fmt]) => s[k] == null ? `<td class="muted">—</td>` : `<td>${fmt(s[k])}</td>`).join("");
+    const cells = COLS.map(([k, , fmt]) => {
+      const n = s[k] == null ? null : Number(s[k]);
+      return Number.isFinite(n) ? `<td>${fmt(n)}</td>` : `<td class="muted">—</td>`;
+    }).join("");
     return `<tr class="${id === "Tempest" ? "row-tempest" : ""}"><td>${esc(id)}</td>${cells}</tr>`;
   }).join("");
   return `<div class="cmp">
