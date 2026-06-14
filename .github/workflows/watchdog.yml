@@ -6,7 +6,12 @@ name: tempest-watchdog
 on:
   schedule:
     - cron: "*/15 * * * *"     # every 15 min; publisher pushes ~every 3 min, stale threshold 30 min
-  workflow_dispatch: {}        # manual trigger for testing
+  workflow_dispatch:           # manual trigger for testing
+    inputs:
+      test_email:
+        description: "Send a labeled [TEST] email to verify the Gmail send path, then exit without touching gist/state"
+        type: boolean
+        default: false
 concurrency:
   group: watchdog              # never let two runs race watchdog_state.json
 jobs:
@@ -23,6 +28,8 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    # raises the gist API rate limit (optional)
+          # test_email=true short-circuits watchdog.py to a labeled [TEST] email (no gist/state I/O)
+          WATCHDOG_TEST_EMAIL: ${{ inputs.test_email && '1' || '' }}
         run: python watchdog.py
 
       - name: Commit watchdog state (only changes on a transition)

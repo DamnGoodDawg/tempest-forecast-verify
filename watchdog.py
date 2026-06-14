@@ -111,6 +111,17 @@ def send_email(subject, body):
 
 
 def main():
+    # Manual deliverability test (workflow_dispatch -f test_email=true -> WATCHDOG_TEST_EMAIL=1).
+    # Proves the Gmail send path works WITHOUT touching the gist or watchdog_state.json, so a test
+    # can never leave a false down/recovered state. Send a clearly-labeled email and return at once.
+    if os.environ.get("WATCHDOG_TEST_EMAIL"):
+        send_email(
+            "[TEST] Tempest watchdog — email path OK",
+            "This is a manual test of the watchdog email path (workflow_dispatch test_email=true).\n\n"
+            "If you received this, the Gmail App Password secrets work and the dead-man's-switch "
+            "alerts can actually send. No station state was read or changed by this test.")
+        return 0
+
     now = _now()
     try:
         epoch, stamp = fetch_published_epoch(GIST_ID, os.environ.get("GITHUB_TOKEN"))
