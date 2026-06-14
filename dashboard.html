@@ -438,6 +438,31 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 /* ============================================================================
+   COMPONENT — "In plain English" explainer (collapsible, per section)
+   Teaches the metric and interprets the current numbers. Collapsed by default so
+   the glance view stays calm; tap to learn.
+   ============================================================================ */
+.explain { margin-top: var(--s-4); border-top: 1px dashed var(--border); }
+.explain > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-3) 0 0; min-height: 40px;
+  font-size: var(--fs-sm); font-weight: 650; color: var(--p-tempest);
+}
+.explain > summary::-webkit-details-marker { display: none; }
+.explain > summary .ico {
+  width: 16px; height: 16px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid currentColor; font-size: 10px; font-weight: 700; font-style: italic;
+}
+.explain > summary .caret { margin-left: auto; transition: transform .2s var(--ease); color: var(--text-3); }
+.explain[open] > summary .caret { transform: rotate(90deg); }
+.explain > summary:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+.explain .body { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; padding: var(--s-2) 0 var(--s-1); text-wrap: pretty; }
+.explain .body p { margin: 0 0 var(--s-2); }
+.explain .body p:last-child { margin-bottom: 0; }
+.explain .body b { color: var(--text); font-weight: 650; }
+.explain .body .term { color: var(--text); font-weight: 650; }
+
+/* ============================================================================
    COMPONENT — sample-data banner (shown only when live scores.json failed to load)
    ============================================================================ */
 .sample-banner {
@@ -911,6 +936,13 @@ const fmtETTime = (s) => s ? new Date(s).toLocaleString("en-US", { hour: "numeri
 const fmtETDateTime = (s) => s ? new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York", timeZoneName: "short" }) : "";
 // human relative age of an ISO timestamp vs the viewer's clock (for "as of … · 7h ago")
 const agoStr = (s) => { if (!s) return ""; const h = (Date.now() - Date.parse(s)) / 3.6e6; if (h < 1.5) return Math.max(1, Math.round(h * 60)) + "m ago"; if (h < 48) return Math.round(h) + "h ago"; return Math.round(h / 24) + "d ago"; };
+// collapsible "In plain English" explainer appended to a section. `body` is trusted HTML
+// (literal teaching copy authored here, with already-escaped/numeric live values spliced in).
+const explain = (body) => `
+  <details class="explain">
+    <summary><span class="ico">i</span>In plain English<span class="caret"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></summary>
+    <div class="body">${body}</div>
+  </details>`;
 
 /* ---------------------------------------------------------------- 1 · VERDICT */
 function renderVerdict(d) {
@@ -931,7 +963,10 @@ function renderVerdict(d) {
       <span class="eyebrow">Forecast guarantee · ${esc(d.location || "Statham, GA")}</span>
     </div>
     <p class="headline" id="verdict-h">${formatHeadline(v.headline)}</p>
-    <div class="stats">${stats.join("")}</div>`;
+    <div class="stats">${stats.join("")}</div>
+    ${explain(`
+      <p><b>The bottom line.</b> This whole experiment asks one thing: is your Tempest's forecast actually more accurate than the big public forecasts — <b>NWS, NBM, ECMWF, GFS</b> — for Statham? Each is graded against what your station actually measured.</p>
+      <p>It currently reads <b>${esc(st.label)}</b> over <b>${v.n_days}</b> scored day${v.n_days === 1 ? "" : "s"}${v.best_public ? `, and <b>${esc(v.best_public)}</b> is the public forecast to beat` : ""}. It stays <span class="term">TOO EARLY</span> until about 30 days are scored (≈90 for a confident call). The <b>p-value</b> is the luck check — below 0.05 means a real difference, not random noise.</p>`)}`;
 }
 function formatHeadline(h) {
   // bold any "NN%" and "N°F" figures for glanceability
@@ -995,7 +1030,10 @@ function renderClock(d) {
       </div>
       <div class="labels">${labelHTML}</div>
     </div>
-    <p class="summary">${summary}</p>`;
+    <p class="summary">${summary}</p>
+    ${explain(`
+      <p><b>The schedule of the guarantee.</b> WeatherFlow's Better Forecast Guarantee is judged over a fixed window. <b>Install</b> is when your station went live; <b>Scoring opens</b> is when days start counting toward a claim; the <b>5-month</b> mark and <b>Claim deadline</b> are the checkpoints to decide and file.</p>
+      <p>The bar shows how far along that window we are and what's next — so you know whether it's still gathering data or time to act.</p>`)}`;
 }
 
 /* --------------------------------------------------------- 3 · STANDINGS */
@@ -1062,7 +1100,11 @@ function renderStandings(d) {
       </table>
     </div>
     <p class="foot">At <b>${LEAD_LABELS[currentLead]}</b> lead, Tempest ranks <b>${ordinal}</b> of ${rows.length} by mean absolute error. Lower MAE &amp; Brier are better; higher ≤3°F &amp; CSI are better.</p>
-    ${flagFootHTML()}`;
+    ${flagFootHTML()}
+    ${explain(`
+      <p><b>The leaderboard.</b> Each row is a forecaster ranked by <span class="term">MAE</span> — Mean Absolute Error, the average miss (in °F) between its forecast high/low and what your station actually recorded. <b>Lower is better.</b></p>
+      <p><b>≤3°F</b> is how often the forecast landed within 3°F (higher is better). <span class="term">Precip CSI</span> grades the rain yes/no calls, where 1.0 is perfect. The <b>1d · 2d · 3d</b> toggle is how far ahead the forecast was made — predicting 1 day out is far easier than 3.</p>
+      ${tempestRow ? `<p>Right now Tempest's ${LEAD_LABELS[currentLead]} forecast misses by about <b>${f2(tempestRow.mae)}°F</b> on average — <b>${ordinal}</b> of ${rows.length}.</p>` : ""}`)}`;
 
   document.querySelectorAll('#standings .seg button').forEach(b => {
     b.addEventListener("click", () => { currentLead = b.dataset.lead; renderStandings(DATA); });
@@ -1171,7 +1213,10 @@ function renderTrend(d) {
     </svg>
     ${srTable}
     <p class="gap-note">${gapTxt}</p>
-    <div class="legend" role="group" aria-label="Toggle providers">${legend}</div>`;
+    <div class="legend" role="group" aria-label="Toggle providers">${legend}</div>
+    ${explain(`
+      <p><b>Accuracy over time.</b> Each line is one forecaster's weekly <span class="term">MAE</span> (average miss in °F). A line trending <b>down</b> = that forecast is getting more accurate. Tempest is the bold teal line.</p>
+      <p>The shaded band is the gap between Tempest and the best public forecast each week — <b>thinner is better</b> for you. Tap a name in the legend to hide or show a line.</p>`)}`;
 
   document.querySelectorAll("#trend .legend button").forEach(b => {
     b.addEventListener("click", () => {
@@ -1268,6 +1313,10 @@ function renderDetails(d) {
         </table>
       </div>
       ${rainHTML}
+      ${explain(`
+        <p><b>Busts</b> are the biggest recent misses — who blew a high or low, and by how many degrees.</p>
+        <p><span class="term">Brier score</span> grades rain <i>probabilities</i>: if a forecaster says "70% chance," it should actually rain on ~70% of those days. <b>Lower Brier = better-calibrated.</b></p>
+        <p>The <b>rain table</b> checks your station's haptic rain gauge — which tends to under-read heavy rain — against the nearby CoCoRaHS manual gauge (raw vs RainCheck-corrected vs the gauge, which is treated as truth).</p>`)}
     </div>`;
 }
 
@@ -1330,7 +1379,10 @@ function renderHealth(d) {
       ${badge("Sensor faults", faultVal, faultState)}
       ${badge("Hub signal", rssi == null ? "n/a" : `${rssi}<small>dBm</small>`, rssiState)}
       ${badge("CoCoRaHS feed", cocoVal, cocoState)}
-    </div>`;
+    </div>
+    ${explain(`
+      <p><b>Is the data pipeline healthy?</b> These track whether readings are actually flowing. <b>Capture streak</b> = days in a row the daily job ran; <b>Last snapshot</b> = time since fresh data (over 48h turns red — the job may have stalled).</p>
+      <p><b>Battery</b> is the one to watch: below 2.355&nbsp;V the rain sensor silently quits, so it warns early at ≤2.40&nbsp;V. <b>Station online</b>, <b>Hub signal</b> and <b>CoCoRaHS feed</b> confirm the station and the backup rain gauge are reachable. All green = nothing to do.</p>`)}`;
 }
 
 /* ------------------------------------------------------------- ORCHESTRATE */
@@ -1463,7 +1515,10 @@ function renderHStatus(d) {
       <span class="eyebrow">Station health · ${esc(d.location || "Statham, GA")}</span>
     </div>
     <p class="summary" id="hstatus-h">${esc(d.summary || "")}</p>
-    <div class="meta">${meta.join("")}</div>`;
+    <div class="meta">${meta.join("")}</div>
+    ${explain(`
+      <p><b>One-glance health verdict.</b> <span class="term">LEARNING</span> = still building a baseline (first ~4 weeks); <span class="term">OK</span> = your station tracks the nearby anchors normally; <span class="term">WATCH</span> = drifting, keeping an eye on it; <span class="term">FLAG</span> = a likely sensor issue worth checking.</p>
+      <p>It currently reads <b>${esc(st.label)}</b>. A flag never changes your forecast scores — it just adds a ⚠ note so the record stays honest.</p>`)}`;
 }
 
 /* ----- station reading helpers (Tempest is ground truth; anchor = Tempest − offset) ----- */
@@ -1549,7 +1604,10 @@ function renderCurrentConditions(d) {
   document.getElementById("hcurrent").innerHTML = `
     <div class="card-head"><h2 id="hcurrent-h">Current conditions</h2><span class="meta">live · each tile shows its own time</span></div>
     <div class="cc-grid">${tiles}</div>
-    ${renderComparison(d)}`;
+    ${renderComparison(d)}
+    ${explain(`
+      <p><b>Why this matters.</b> Your Tempest is the "truth" the scoreboard grades every forecast against — so it's worth checking it's reading correctly. This compares it against three independent nearby stations.</p>
+      <p><b>Top cards</b> show each station's latest reading with its own freshness (Tempest is live; the airport METARs refresh roughly hourly). The <b>same-moment comparison</b> snaps everyone to one timestamp for a fair side-by-side. Small gaps are normal — they're 6–12 miles away — but big, persistent ones are what the section below flags.</p>`)}`;
 }
 
 /* ----- anchors card: metadata cards + per-variable offset gauges + chart ----- */
@@ -1615,7 +1673,10 @@ function renderAnchorsCard(d) {
     <p class="var-key">Each bar plots an anchor's 7-day offset (<b>●</b>) against the shaded <b>normal band</b>; the grey figure is that anchor's own reading. A dot outside the band turns <b>red</b>.</p>
     <div class="varcards">${varCards}</div>
     ${renderOffsetChartSVG(d)}
-    <p class="offset-explain"><b>How a flag is decided:</b> a stable offset is microclimate, not error. Tempest must drift outside the normal band <b>in the same direction vs ≥2 of 3 anchors</b> for 3+ consecutive days (temp/humidity) before a watch opens — single-anchor divergence is logged as weather across 6–12 miles, not a fault.</p>`;
+    <p class="offset-explain"><b>How a flag is decided:</b> a stable offset is microclimate, not error. Tempest must drift outside the normal band <b>in the same direction vs ≥2 of 3 anchors</b> for 3+ consecutive days (temp/humidity) before a watch opens — single-anchor divergence is logged as weather across 6–12 miles, not a fault.</p>
+    ${explain(`
+      <p><b>What "offset" means.</b> Offset = your station's reading minus an anchor's, averaged over 7 days. A steady offset is just <i>microclimate</i> — your yard genuinely runs a touch warmer or calmer than an airport. That's fine; it's baked into the <span class="term">normal band</span> (the grey range each dot should sit in).</p>
+      <p><b>What's a problem:</b> the offset <i>drifting</i> out of that band — and only if it drifts the same way versus 2+ anchors at once (one anchor disagreeing is real weather, not a fault). <b>Wind is trend-only</b>: a fence post always reads lower than a 33-ft tower, so only a change in that gap matters, never the raw number.</p>`)}`;
 }
 
 /* ----- offset trend chart (temp), mirrors the Tab 1 trend chart idiom ----- */
@@ -1708,7 +1769,10 @@ function renderFlagLog(d) {
         <thead><tr><th scope="col">Opened</th><th scope="col">Variable</th><th scope="col">What happened</th><th scope="col">Action taken</th><th scope="col">Status</th></tr></thead>
         <tbody>${body}</tbody>
       </table>
-    </div>`;
+    </div>
+    ${explain(`
+      <p><b>The paper trail.</b> Every time a variable opened a watch or flag — or a divergence was looked at and ruled <i>weather, not fault</i> — it's logged here with the date, what happened, and what was done. "Active" means it's still open.</p>
+      <p>This is the credibility record: if you ever file a guarantee claim, it shows your station's data was monitored and behaving the whole time.</p>`)}`;
 }
 
 /* ----- scoreboard-annotation explainer ----- */
