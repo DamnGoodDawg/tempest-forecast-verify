@@ -147,6 +147,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
+  /* contain off-screen absolutely-positioned content (e.g. the sr-only chart tables) so it
+     can't extend the document width and make a phone zoom out / render content half-width */
+  position: relative;
+  overflow-x: clip;
 }
 @media (min-width: 600px) { .wrap { padding: var(--s-6) var(--s-6) var(--s-9); gap: var(--s-5); } }
 
