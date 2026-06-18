@@ -426,6 +426,24 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .hbadge .hv small { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
 .hbadge.warn { border-color: color-mix(in oklch, var(--hl-warn) 45%, transparent); background: oklch(0.70 0.14 75 / 0.07); }
 .hbadge.fail { border-color: color-mix(in oklch, var(--hl-fail) 45%, transparent); background: var(--tint-behind); }
+
+/* COMPONENT — Storms tab (v3) */
+.stormstats .sgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s-3); margin-top: var(--s-3); }
+.sstat { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-3); }
+.sstat .sl { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); }
+.sstat .sv { font-family: var(--font-mono); font-size: var(--fs-lg); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.sstat .sv small { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
+.sstat .sm { font-size: var(--fs-micro); color: var(--text-3); margin-top: 2px; }
+.storm-scroll { overflow-x: auto; }
+.storm-tbl { width: 100%; border-collapse: collapse; min-width: 560px; }
+.storm-tbl th { text-align: right; font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-3); padding: 0 0 var(--s-2) var(--s-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.storm-tbl th:first-child, .storm-tbl td:first-child { text-align: left; padding-left: 0; }
+.storm-tbl td { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--text); padding: var(--s-2) 0 var(--s-2) var(--s-3); border-top: 1px solid var(--border); white-space: nowrap; }
+.storm-tbl td .em { color: var(--text-3); font-size: var(--fs-micro); }
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 40px; margin-top: var(--s-3); }
+.spark .bar { flex: 1 1 0; background: var(--p-tempest); border-radius: 2px 2px 0 0; min-height: 2px; opacity: 0.85; }
+.spark .bar.zero { background: var(--border); opacity: 0.5; }
+.spark-axis { display: flex; justify-content: space-between; font-size: var(--fs-micro); color: var(--text-3); margin-top: 4px; }
 .dot.ok { background: var(--hl-ok); } .dot.warn { background: var(--hl-warn); } .dot.fail { background: var(--hl-fail); }
 .health .alert { margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 600; line-height: 1.45; }
 .health .alert.lvl-fail { background: var(--tint-behind); border: 1px solid color-mix(in oklch, var(--hl-fail) 45%, transparent); color: var(--st-behind); }
@@ -730,6 +748,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   <nav class="tabs" role="tablist" aria-label="Dashboard views">
     <button class="tab" id="tab-btn-scoreboard" role="tab" type="button" aria-selected="true" aria-controls="tab-scoreboard">Guarantee Scoreboard</button>
     <button class="tab" id="tab-btn-health" role="tab" type="button" aria-selected="false" aria-controls="tab-health">Station Health<span class="tab-dot" id="healthDot" hidden aria-hidden="true"></span></button>
+    <button class="tab" id="tab-btn-storms" role="tab" type="button" aria-selected="false" aria-controls="tab-storms">Storms<span class="tab-dot" id="stormsDot" hidden aria-hidden="true"></span></button>
   </nav>
 
   <!-- ============ TAB 1 · GUARANTEE SCOREBOARD ============ -->
@@ -772,6 +791,17 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <section class="card flaglog" id="hflaglog" aria-labelledby="hflaglog-h"></section>
     <section class="card hexplain" id="hexplain" aria-labelledby="hexplain-h"></section>
   </div><!-- /tab-health -->
+
+  <!-- ============ TAB 3 · STORMS ============ -->
+  <div class="tabpanel" id="tab-storms" role="tabpanel" aria-labelledby="tab-btn-storms" hidden>
+    <div class="fallback-banner" id="stormsFallback" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span><b>Showing sample data.</b> Live storm log unavailable — values are illustrative.</span>
+    </div>
+    <p class="tab-lede">Every lightning storm the station's own sensor has logged — clustered into events (a new event after 60+ min quiet), with the rain, wind and pressure each one brought. <em>This is your station's storm history, straight off the hardware — not a forecast.</em></p>
+    <section class="card stormstats" id="stormStats" aria-labelledby="stormStats-h"></section>
+    <section class="card stormlist" id="stormList" aria-labelledby="stormList-h"></section>
+  </div><!-- /tab-storms -->
 
   <p class="pagefoot" id="pagefoot"></p>
 </div>
@@ -908,6 +938,27 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
       "action": "Scoreboard annotated", "resolved": "2026-03-16" }
   ],
   "scoreboard_annotations": [ { "from": "2026-06-09", "to": null, "var": "temp" } ]
+}
+</script>
+
+<!-- baked-in sample storm data: Storms tab renders standalone if the live gist is unreachable -->
+<script type="application/json" id="fallback-storms">
+{
+  "generated_at": "2026-06-18T21:24:42Z",
+  "storms": [
+    { "id": 10, "date": "2026-06-18", "window": "1:52 PM–5:12 PM", "duration_min": 200, "n_strikes": 41, "n_suspect": 3, "n_real": 38, "min_mi": 0.6, "within_10mi": 30, "peak_per_10min": 10, "n_cells": 4, "peak_gust_mph": 9, "rain_in": 0.09, "class": "Overhead", "active": true },
+    { "id": 3, "date": "2026-06-14", "window": "7:36 PM–9:10 PM", "duration_min": 94, "n_strikes": 78, "n_suspect": 0, "n_real": 78, "min_mi": 3.7, "within_10mi": 61, "peak_per_10min": 36, "n_cells": 2, "peak_gust_mph": 22, "rain_in": 0.41, "class": "Nearby", "active": false },
+    { "id": 2, "date": "2026-06-14", "window": "1:51 PM–2:01 PM", "duration_min": 10, "n_strikes": 5, "n_suspect": 0, "n_real": 5, "min_mi": 5.0, "within_10mi": 1, "peak_per_10min": 2, "n_cells": 1, "peak_gust_mph": 8, "rain_in": 0.02, "class": "Nearby", "active": false }
+  ],
+  "stats": {
+    "since": "2026-06-13", "total_storms": 10, "total_strikes": 135, "total_real_strikes": 124,
+    "closest_mi": 0.6, "closest_date": "2026-06-16", "biggest_strikes": 78, "biggest_date": "2026-06-14",
+    "record_gust_mph": 22, "most_active_date": "2026-06-14", "most_active_strikes": 83,
+    "strikes_by_day": [
+      { "date": "2026-06-13", "n": 1 }, { "date": "2026-06-14", "n": 83 }, { "date": "2026-06-15", "n": 5 },
+      { "date": "2026-06-16", "n": 2 }, { "date": "2026-06-17", "n": 2 }, { "date": "2026-06-18", "n": 31 }
+    ]
+  }
 }
 </script>
 
@@ -1450,6 +1501,8 @@ function loadFallback() {
   initTabs();
   fetchLiveCurrent();                       // overlay the live listener feed if reachable
   setInterval(fetchLiveCurrent, 90000);     // keep "Current conditions" fresh while open
+  fetchStorms();                            // the Storms tab: live storm log from the gist
+  setInterval(fetchStorms, 180000);         // refresh storms (and the LIVE dot) while open
   fetchAnalysis();                          // daily plain-English read at the top of each tab
 })();
 
@@ -1874,24 +1927,120 @@ function renderHealthTab(d) {
   if (DATA) renderStandings(DATA); // refresh footnote now HEALTH exists
 }
 
-/* ----- tab switching (deep-linkable via #health / #scoreboard) ----- */
+/* ============================================================================
+   STORMS TAB (v3) — the station's own lightning history (live gist storms.json)
+   ============================================================================ */
+let STORMS = null;
+const STORMS_URL = "https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1/raw/storms.json";
+const CLASS_CHIP = { Severe: "fail", Overhead: "fail", Nearby: "warn", Distant: "learning" };
+
+function loadStormsFallback() {
+  try { return JSON.parse(document.getElementById("fallback-storms").textContent); }
+  catch (e) { console.error("storms fallback parse failed", e); return null; }
+}
+
+async function fetchStorms() {
+  let data = null;
+  try {
+    const r = await fetch(STORMS_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (r.ok) data = await r.json();
+  } catch (e) { /* offline / CORS / file:// — fall back to baked sample */ }
+  const usingFallback = !data || !Array.isArray(data.storms);
+  const banner = document.getElementById("stormsFallback");
+  if (banner) banner.hidden = !usingFallback;
+  if (usingFallback) data = loadStormsFallback();
+  if (data) renderStormsTab(data);
+}
+
+const fmtMi = (v) => v == null ? "—" : (v < 10 ? v.toFixed(1) : String(Math.round(v))) + " mi";
+
+function renderStormStats(s) {
+  if (!s) return;
+  const tiles = [
+    { l: "Storms logged", v: s.total_storms, m: s.since ? "since " + fmtMD(s.since) : "" },
+    { l: "Strikes", v: s.total_strikes, m: s.total_real_strikes != null ? s.total_real_strikes + " confirmed" : "" },
+    { l: "Closest ever", v: fmtMi(s.closest_mi), m: s.closest_date ? fmtMD(s.closest_date) : "" },
+    { l: "Biggest storm", v: s.biggest_strikes != null ? String(s.biggest_strikes) : "—", u: "strikes", m: s.biggest_date ? fmtMD(s.biggest_date) : "" },
+    { l: "Peak gust", v: s.record_gust_mph != null ? String(s.record_gust_mph) : "—", u: "mph", m: "all-time" },
+    { l: "Most active day", v: s.most_active_strikes != null ? String(s.most_active_strikes) : "—", u: "strikes", m: s.most_active_date ? fmtMD(s.most_active_date) : "" }
+  ];
+  const grid = tiles.map(t =>
+    `<div class="sstat"><div class="sl">${esc(t.l)}</div>` +
+    `<div class="sv">${esc(String(t.v))}${t.u ? ` <small>${esc(t.u)}</small>` : ""}</div>` +
+    (t.m ? `<div class="sm">${esc(t.m)}</div>` : "") + `</div>`).join("");
+  const days = s.strikes_by_day || [];
+  const max = Math.max(1, ...days.map(d => d.n || 0));
+  let spark = "";
+  if (days.length) {
+    const bars = days.map(d =>
+      `<div class="bar${d.n ? "" : " zero"}" style="height:${Math.max(2, Math.round((d.n / max) * 40))}px" title="${esc(fmtMD(d.date))}: ${d.n}"></div>`).join("");
+    spark = `<div class="spark" role="img" aria-label="Strikes per day, last ${days.length} days">${bars}</div>` +
+      `<div class="spark-axis"><span>${esc(fmtMD(days[0].date))}</span><span>strikes / day</span><span>${esc(fmtMD(days[days.length - 1].date))}</span></div>`;
+  }
+  document.getElementById("stormStats").innerHTML =
+    `<div class="card-head"><h2 id="stormStats-h">Lightning record</h2></div>` +
+    `<div class="sgrid">${grid}</div>${spark}`;
+}
+
+function renderStormList(storms) {
+  storms = storms || [];
+  const rows = storms.map(s => {
+    const chip = CLASS_CHIP[s.class] || "learning";
+    const live = s.active ? ` <span class="chip chip--warn"><span class="dot"></span>LIVE</span>` : "";
+    const emi = s.n_suspect ? ` <span class="em">(${s.n_suspect} EMI)</span>` : "";
+    const cells = (s.n_cells && s.n_cells > 1) ? ` <span class="em">· ${s.n_cells} cells</span>` : "";
+    const gust = s.peak_gust_mph != null ? String(s.peak_gust_mph) : "—";
+    const rain = (s.rain_in != null ? s.rain_in : 0).toFixed(2);
+    return `<tr>
+      <td>${esc(fmtMD(s.date))}</td>
+      <td>${esc(s.window || "")}<span class="em"> · ${esc(String(s.duration_min))}m</span></td>
+      <td>${esc(String(s.n_real != null ? s.n_real : s.n_strikes))}${emi}${cells}</td>
+      <td>${fmtMi(s.min_mi)}</td>
+      <td>${esc(String(s.peak_per_10min != null ? s.peak_per_10min : "—"))}</td>
+      <td>${esc(gust)}</td>
+      <td>${esc(rain)}"</td>
+      <td><span class="chip chip--${chip}"><span class="dot"></span>${esc(s.class || "—")}</span>${live}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted" style="padding:var(--s-3) 0">No storms logged yet.</td></tr>`;
+  const active = storms.filter(s => s.active).length;
+  document.getElementById("stormList").innerHTML = `
+    <div class="card-head"><h2 id="stormList-h">Recent storms</h2><span class="meta">${storms.length} logged${active ? " · " + active + " active" : ""}</span></div>
+    <div class="storm-scroll">
+      <table class="storm-tbl">
+        <thead><tr><th scope="col">Date</th><th scope="col">Window</th><th scope="col">Strikes</th><th scope="col">Closest</th><th scope="col">Peak/10m</th><th scope="col">Gust</th><th scope="col">Rain</th><th scope="col">Type</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${explain(`
+      <p><b>Your station's lightning log.</b> Each row is a storm event the Tempest's electric-field sensor detected directly — confirmed strikes (with likely-EMI false positives filtered out), how close the nearest one came, the peak rate, and the gust + rain in that window. A storm stays one event until 60+ min of quiet; the cell count shows how many bursts it came in.</p>
+      <p><b>LIVE</b> means lightning is still active right now. Distances are the sensor's own estimate (it tends to under-report very heavy <i>rain</i>, not lightning).</p>`)}`;
+}
+
+function renderStormsTab(d) {
+  if (!d) return;
+  STORMS = d;
+  renderStormStats(d.stats);
+  renderStormList(d.storms);
+  const dot = document.getElementById("stormsDot");
+  if (dot) dot.hidden = !(d.storms || []).some(s => s.active);
+}
+
+/* ----- tab switching (deep-linkable via #scoreboard / #health / #storms) ----- */
+const TAB_NAMES = ["scoreboard", "health", "storms"];
 function showTab(name) {
-  const isHealth = name === "health";
-  document.getElementById("tab-scoreboard").hidden = isHealth;
-  document.getElementById("tab-health").hidden = !isHealth;
-  document.getElementById("tab-btn-scoreboard").setAttribute("aria-selected", String(!isHealth));
-  document.getElementById("tab-btn-health").setAttribute("aria-selected", String(isHealth));
-  const hash = isHealth ? "#health" : "#scoreboard";
+  if (!TAB_NAMES.includes(name)) name = "scoreboard";
+  TAB_NAMES.forEach(t => {
+    document.getElementById("tab-" + t).hidden = (t !== name);
+    document.getElementById("tab-btn-" + t).setAttribute("aria-selected", String(t === name));
+  });
+  const hash = "#" + name;
   if (history.replaceState) history.replaceState(null, "", hash); else location.hash = hash;
 }
 function initTabs() {
-  document.getElementById("tab-btn-scoreboard").addEventListener("click", () => showTab("scoreboard"));
-  document.getElementById("tab-btn-health").addEventListener("click", () => showTab("health"));
-  window.addEventListener("hashchange", () => {
-    if (location.hash === "#health") showTab("health");
-    else if (location.hash === "#scoreboard") showTab("scoreboard");
-  });
-  if (location.hash === "#health") showTab("health");
+  TAB_NAMES.forEach(t => document.getElementById("tab-btn-" + t).addEventListener("click", () => showTab(t)));
+  const fromHash = () => { const h = location.hash.replace("#", ""); if (TAB_NAMES.includes(h)) showTab(h); };
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
 }
 
 function loadHealthFallback() {
