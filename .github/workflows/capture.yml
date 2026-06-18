@@ -59,7 +59,7 @@ jobs:
         run: |
           git config user.name "forecast-capture-bot"
           git config user.email "actions@github.com"
-          git add data/ scores.json health.json anchors.csv health_state.json anchors_backfill.json
+          git add data/ scores.json health.json anchors.csv health_state.json anchors_backfill.json history/
           git add health_emailed.json 2>/dev/null || true   # only exists after the first warning email
           git commit -m "capture $(date -u +%F)" || echo "nothing to commit"
           git pull --rebase --autostash || true

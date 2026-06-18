@@ -1,0 +1,179 @@
+{
+  "generated_at": "2026-06-13T15:03:39Z",
+  "last_check": "2026-06-13T15:03:39Z",
+  "next_check": "2026-06-14T15:03:39Z",
+  "overall": "OK",
+  "summary": "All variables within their normal range vs the verified anchors.",
+  "days_monitored": 13,
+  "active_watches": 0,
+  "confirmed_faults": 0,
+  "last_email": null,
+  "location": "Statham, GA",
+  "current_obs": {
+    "as_of": "2026-06-13T12:06:05Z",
+    "stations": {
+      "Tempest": {
+        "temp": 72.1,
+        "rh": 97,
+        "wind": 0.7,
+        "pressure": 1016.8,
+        "as_of": "2026-06-13T12:06:05Z"
+      },
+      "KWDR": {
+        "as_of": "2026-06-13T11:55:00Z",
+        "temp": 75.2,
+        "rh": 83,
+        "pressure": 1017.7
+      },
+      "KAHN": {
+        "as_of": "2026-06-13T11:51:00Z",
+        "temp": 75.9,
+        "rh": 85,
+        "wind": 5.8,
+        "pressure": 1016.7
+      }
+    }
+  },
+  "anchors": [
+    {
+      "id": "KWDR",
+      "name": "Barrow Co. Airport",
+      "type": "AWOS-3",
+      "place": "Winder",
+      "dir": "W",
+      "miles": 6,
+      "elev_ft": 919,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "pressure"
+      ]
+    },
+    {
+      "id": "KAHN",
+      "name": "Athens-Ben Epps",
+      "type": "ASOS",
+      "place": "Athens",
+      "dir": "E",
+      "miles": 12,
+      "elev_ft": 791,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "wind",
+        "pressure"
+      ]
+    },
+    {
+      "id": "WATUGA",
+      "name": "UGA Watkinsville",
+      "type": "UGA AEMN",
+      "place": "Watkinsville",
+      "dir": "SE",
+      "miles": 12,
+      "elev_ft": 760,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "wind"
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "var": "temp",
+      "label": "Temperature",
+      "unit": "\u00b0F",
+      "state": "LEARNING",
+      "days_in_state": 0,
+      "current": 76.7,
+      "offsets_7d": {
+        "KWDR": 0.65,
+        "KAHN": -0.34,
+        "WATUGA": 4.25
+      },
+      "band": null,
+      "trend": [
+        {
+          "week": "2026-05-25",
+          "KAHN": -1.12
+        },
+        {
+          "week": "2026-06-01",
+          "KWDR": -1.02,
+          "KAHN": -0.74
+        },
+        {
+          "week": "2026-06-08",
+          "KWDR": 0.98,
+          "KAHN": -0.15,
+          "WATUGA": 4.25
+        }
+      ],
+      "trend_only": false
+    },
+    {
+      "var": "rh",
+      "label": "Humidity",
+      "unit": "pts",
+      "state": "LEARNING",
+      "days_in_state": 0,
+      "current": 80.0,
+      "offsets_7d": {
+        "KWDR": -0.2,
+        "KAHN": 0.38,
+        "WATUGA": -11.53
+      },
+      "band": null,
+      "trend": [],
+      "trend_only": false
+    },
+    {
+      "var": "wind",
+      "label": "Wind",
+      "unit": "mph",
+      "state": "LEARNING",
+      "days_in_state": 0,
+      "current": 1.6,
+      "offsets_7d": {
+        "KAHN": -0.23,
+        "WATUGA": -0.18
+      },
+      "band": null,
+      "trend": [],
+      "trend_only": true
+    },
+    {
+      "var": "pressure",
+      "label": "Pressure",
+      "unit": "mb",
+      "state": "LEARNING",
+      "days_in_state": 0,
+      "current": 1015.2,
+      "offsets_7d": {
+        "KWDR": -4.08,
+        "KAHN": -3.2
+      },
+      "band": null,
+      "trend": [],
+      "trend_only": false
+    },
+    {
+      "var": "rain",
+      "label": "Rain",
+      "unit": "in",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": null,
+      "offsets_7d": {},
+      "band": null,
+      "cross_check": "CoCoRaHS GA-OC-20",
+      "trend": []
+    }
+  ],
+  "flags": [],
+  "scoreboard_annotations": []
+}

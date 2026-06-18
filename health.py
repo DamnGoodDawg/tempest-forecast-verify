@@ -48,6 +48,7 @@ OUT = os.path.join(BASE, "health.json")
 ANCHORS_CSV = os.path.join(BASE, "anchors.csv")
 STATE_FILE = os.path.join(BASE, "health_state.json")
 EMAILED_FILE = os.path.join(BASE, "health_emailed.json")
+HISTORY_DIR = os.path.join(BASE, "history")
 PENDING_EMAIL = os.path.join(BASE, "pending_email.json")
 ANCHOR_BACKFILL = os.path.join(BASE, "anchors_backfill.json")
 NY = ZoneInfo("America/New_York")
@@ -556,6 +557,19 @@ def minimal_health(note=""):
     }
 
 
+def archive_daily(payload, day):
+    """Write an immutable per-day copy of the full health snapshot (history/health-YYYY-MM-DD.json)
+    so a future 'replay this day' feature has the complete record — states, bands, live readings,
+    flags — not just the offsets in anchors.csv. Keyed by the snapshot's generated date; same-day
+    re-runs overwrite (idempotent). Non-fatal: never crash or trip the daily recovery path."""
+    try:
+        os.makedirs(HISTORY_DIR, exist_ok=True)
+        with open(os.path.join(HISTORY_DIR, "health-%s.json" % day), "w") as f:
+            f.write(payload)
+    except Exception as e:                                 # noqa: BLE001
+        print("[warn] history archive failed (non-fatal): %s" % e)
+
+
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
 
@@ -683,6 +697,7 @@ def main():
     payload = json.dumps(out, indent=2, allow_nan=False)
     with open(OUT, "w") as f:
         f.write(payload)
+    archive_daily(payload, out["generated_at"][:10])      # immutable per-day snapshot copy
     print("[ok] health.json  overall=%s  vars=%d  anchor_days=%s  offsets=%d  ref=%s"
           % (overall, len(variables),
              {sid: len(anchors[sid]) for sid in ANCHOR_IDS}, len(csv_rows), ref_date))
