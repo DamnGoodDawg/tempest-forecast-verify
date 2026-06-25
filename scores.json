@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-24T12:31:18Z",
+  "generated_at": "2026-06-25T12:35:06Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -8,8 +8,8 @@
   },
   "verdict": {
     "status": "TOO EARLY",
-    "headline": "Only 19 scored days so far \u2014 need ~11 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
-    "n_days": 19,
+    "headline": "Only 20 scored days so far \u2014 need ~10 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
+    "n_days": 20,
     "dm_p_value": null,
     "best_public": "NBM"
   },
@@ -17,149 +17,149 @@
     "lead1": [
       {
         "source": "NBM",
-        "mae": 1.98,
-        "pct_within_3f": 79,
+        "mae": 1.97,
+        "pct_within_3f": 80,
         "csi": 0.4,
-        "brier": 0.191
+        "brier": 0.182
       },
       {
         "source": "NWS",
-        "mae": 1.99,
-        "pct_within_3f": 82,
+        "mae": 2.01,
+        "pct_within_3f": 80,
         "csi": 0.4,
-        "brier": 0.184
+        "brier": 0.175
       },
       {
         "source": "Tempest",
-        "mae": 2.18,
-        "pct_within_3f": 71,
+        "mae": 2.17,
+        "pct_within_3f": 72,
         "csi": 0.9,
-        "brier": 0.134
+        "brier": 0.128
       },
       {
         "source": "GFS",
-        "mae": 2.26,
-        "pct_within_3f": 74,
+        "mae": 2.2,
+        "pct_within_3f": 75,
         "csi": 0.4,
-        "brier": 0.191
+        "brier": 0.182
       },
       {
         "source": "ECMWF",
-        "mae": 2.42,
-        "pct_within_3f": 71,
+        "mae": 2.36,
+        "pct_within_3f": 72,
         "csi": 0.91,
-        "brier": 0.075
+        "brier": 0.071
       }
     ],
     "lead2": [
       {
         "source": "NWS",
-        "mae": 1.88,
-        "pct_within_3f": 83,
+        "mae": 1.99,
+        "pct_within_3f": 79,
         "csi": 0.5,
-        "brier": 0.166
+        "brier": 0.158
       },
       {
         "source": "NBM",
-        "mae": 2.3,
-        "pct_within_3f": 72,
+        "mae": 2.38,
+        "pct_within_3f": 68,
         "csi": 0.6,
-        "brier": 0.156
+        "brier": 0.148
       },
       {
         "source": "Tempest",
-        "mae": 2.34,
-        "pct_within_3f": 69,
+        "mae": 2.43,
+        "pct_within_3f": 66,
         "csi": 0.4,
-        "brier": 0.196
+        "brier": 0.186
       },
       {
         "source": "ECMWF",
         "mae": 2.49,
         "pct_within_3f": 61,
         "csi": 0.55,
-        "brier": 0.189
+        "brier": 0.179
       },
       {
         "source": "GFS",
-        "mae": 2.83,
-        "pct_within_3f": 72,
+        "mae": 2.89,
+        "pct_within_3f": 71,
         "csi": 0.6,
-        "brier": 0.156
+        "brier": 0.148
       }
     ],
     "lead3": [
       {
         "source": "NWS",
-        "mae": 1.99,
-        "pct_within_3f": 91,
+        "mae": 2.18,
+        "pct_within_3f": 86,
         "csi": 0.5,
-        "brier": 0.179
+        "brier": 0.17
       },
       {
         "source": "Tempest",
-        "mae": 2.37,
-        "pct_within_3f": 65,
+        "mae": 2.49,
+        "pct_within_3f": 64,
         "csi": 0.36,
-        "brier": 0.216
+        "brier": 0.207
       },
       {
         "source": "NBM",
-        "mae": 2.43,
-        "pct_within_3f": 68,
+        "mae": 2.54,
+        "pct_within_3f": 67,
         "csi": 0.3,
-        "brier": 0.209
+        "brier": 0.199
       },
       {
         "source": "ECMWF",
-        "mae": 2.62,
-        "pct_within_3f": 62,
+        "mae": 2.67,
+        "pct_within_3f": 61,
         "csi": 0.42,
-        "brier": 0.194
+        "brier": 0.183
       },
       {
         "source": "GFS",
-        "mae": 3.07,
-        "pct_within_3f": 68,
+        "mae": 3.1,
+        "pct_within_3f": 67,
         "csi": 0.3,
-        "brier": 0.209
+        "brier": 0.199
       }
     ],
     "blend": [
       {
         "source": "NWS",
-        "mae": 1.95,
-        "pct_within_3f": 85,
+        "mae": 2.06,
+        "pct_within_3f": 82,
         "csi": 0.47,
-        "brier": 0.176
+        "brier": 0.168
       },
       {
         "source": "NBM",
-        "mae": 2.23,
-        "pct_within_3f": 73,
+        "mae": 2.28,
+        "pct_within_3f": 72,
         "csi": 0.43,
-        "brier": 0.185
+        "brier": 0.176
       },
       {
         "source": "Tempest",
-        "mae": 2.29,
-        "pct_within_3f": 69,
+        "mae": 2.36,
+        "pct_within_3f": 68,
         "csi": 0.55,
-        "brier": 0.181
+        "brier": 0.172
       },
       {
         "source": "ECMWF",
-        "mae": 2.51,
+        "mae": 2.5,
         "pct_within_3f": 65,
         "csi": 0.62,
-        "brier": 0.15
+        "brier": 0.142
       },
       {
         "source": "GFS",
-        "mae": 2.7,
+        "mae": 2.71,
         "pct_within_3f": 71,
         "csi": 0.43,
-        "brier": 0.185
+        "brier": 0.176
       }
     ]
   },
@@ -190,11 +190,11 @@
     },
     {
       "week": "2026-06-22",
-      "Tempest": 2.88,
-      "NBM": 2.87,
-      "NWS": 2.38,
-      "ECMWF": 1.43,
-      "GFS": 1.68
+      "Tempest": 2.58,
+      "NBM": 2.47,
+      "NWS": 2.42,
+      "ECMWF": 1.35,
+      "GFS": 1.5
     }
   ],
   "busts": [
@@ -221,13 +221,6 @@
     }
   ],
   "rain_compare": [
-    {
-      "date": "2026-06-03",
-      "tempest_raw": 0.0,
-      "tempest_corrected": 0.0,
-      "cocorahs": null,
-      "flag": null
-    },
     {
       "date": "2026-06-04",
       "tempest_raw": 0.0,
@@ -367,12 +360,19 @@
       "tempest_corrected": 0.068,
       "cocorahs": null,
       "flag": null
+    },
+    {
+      "date": "2026-06-24",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null,
+      "flag": null
     }
   ],
   "data_health": {
-    "capture_days": 21,
+    "capture_days": 22,
     "capture_misses": 0,
-    "station_online_streak": 21,
+    "station_online_streak": 22,
     "hub_online": true,
     "cocorahs_ok": true,
     "last_snapshot_hours_ago": 0,
