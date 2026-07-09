@@ -444,6 +444,22 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .spark .bar { flex: 1 1 0; background: var(--p-tempest); border-radius: 2px 2px 0 0; min-height: 2px; opacity: 0.85; }
 .spark .bar.zero { background: var(--border); opacity: 0.5; }
 .spark-axis { display: flex; justify-content: space-between; font-size: var(--fs-micro); color: var(--text-3); margin-top: 4px; }
+/* Storms tab — per-storm detail page (#storms/<id>) */
+.storm-tbl tbody tr.click { cursor: pointer; }
+.storm-tbl tbody tr.click:hover td { background: color-mix(in oklch, var(--p-tempest) 7%, transparent); }
+.sdlink { color: var(--text); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.sdlink:hover { text-decoration-color: var(--p-tempest); }
+.stormdetail .sdback { display: inline-block; font-size: var(--fs-sm); color: var(--text-2); text-decoration: none; margin-bottom: var(--s-3); }
+.stormdetail .sdback:hover { color: var(--text); }
+.stormdetail .sdhead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.stormdetail .sdtitle { font-size: var(--fs-lg); font-weight: 650; color: var(--text); }
+.stormdetail .sdwin { font-family: var(--font-mono); color: var(--text-2); font-size: var(--fs-sm); }
+.stormdetail .sgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--s-3); margin-top: var(--s-4); }
+.stormdetail .sd-analysis { margin-top: var(--s-4); padding: var(--s-3) var(--s-4); border: 1px solid var(--border); border-radius: var(--r-md); }
+.stormdetail .schart { margin-top: var(--s-5); }
+.stormdetail .schart h3 { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); margin: 0 0 var(--s-2); }
+.stormdetail .schart svg { display: block; width: 100%; height: auto; }
+.stormdetail .schart .keynote { font-size: var(--fs-micro); color: var(--text-3); margin-top: 2px; }
 .dot.ok { background: var(--hl-ok); } .dot.warn { background: var(--hl-warn); } .dot.fail { background: var(--hl-fail); }
 .health .alert { margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 600; line-height: 1.45; }
 .health .alert.lvl-fail { background: var(--tint-behind); border: 1px solid color-mix(in oklch, var(--hl-fail) 45%, transparent); color: var(--st-behind); }
@@ -798,9 +814,10 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
       <span><b>Showing sample data.</b> Live storm log unavailable — values are illustrative.</span>
     </div>
-    <p class="tab-lede">Every lightning storm the station's own sensor has logged — clustered into events (a new event after 60+ min quiet), with the rain, wind and pressure each one brought. <em>This is your station's storm history, straight off the hardware — not a forecast.</em></p>
+    <p class="tab-lede">Every <b>confirmed</b> lightning storm the station's own sensor has logged — EMI-only false events are filtered out with the same significance gate the storm alerts use (≥5 real strikes, or real lightning corroborated by rain/gust/pressure). Click a storm for the full play-by-play. <em>This is your station's storm history, straight off the hardware — not a forecast.</em></p>
     <section class="card stormstats" id="stormStats" aria-labelledby="stormStats-h"></section>
     <section class="card stormlist" id="stormList" aria-labelledby="stormList-h"></section>
+    <section class="card stormdetail" id="stormDetail" hidden></section>
   </div><!-- /tab-storms -->
 
   <p class="pagefoot" id="pagefoot"></p>
@@ -946,9 +963,10 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 {
   "generated_at": "2026-06-18T21:24:42Z",
   "storms": [
-    { "id": 10, "date": "2026-06-18", "window": "1:52 PM–5:12 PM", "duration_min": 200, "n_strikes": 41, "n_suspect": 3, "n_real": 38, "min_mi": 0.6, "within_10mi": 30, "peak_per_10min": 10, "n_cells": 4, "peak_gust_mph": 9, "rain_in": 0.09, "class": "Overhead", "active": true },
-    { "id": 3, "date": "2026-06-14", "window": "7:36 PM–9:10 PM", "duration_min": 94, "n_strikes": 78, "n_suspect": 0, "n_real": 78, "min_mi": 3.7, "within_10mi": 61, "peak_per_10min": 36, "n_cells": 2, "peak_gust_mph": 22, "rain_in": 0.41, "class": "Nearby", "active": false },
-    { "id": 2, "date": "2026-06-14", "window": "1:51 PM–2:01 PM", "duration_min": 10, "n_strikes": 5, "n_suspect": 0, "n_real": 5, "min_mi": 5.0, "within_10mi": 1, "peak_per_10min": 2, "n_cells": 1, "peak_gust_mph": 8, "rain_in": 0.02, "class": "Nearby", "active": false }
+    { "id": 11, "date": "2026-06-18", "window": "5:40 PM–5:41 PM", "duration_min": 1, "n_strikes": 1, "n_suspect": 0, "n_real": 1, "min_mi": 9.2, "within_10mi": 1, "peak_per_10min": 1, "n_cells": 1, "peak_gust_mph": 6, "rain_in": 0.0, "class": "Nearby", "active": true, "confirmed": false },
+    { "id": 10, "date": "2026-06-18", "window": "1:52 PM–5:12 PM", "duration_min": 200, "n_strikes": 41, "n_suspect": 3, "n_real": 38, "min_mi": 0.6, "within_10mi": 30, "peak_per_10min": 10, "n_cells": 4, "peak_gust_mph": 9, "rain_in": 0.09, "class": "Overhead", "active": false, "confirmed": true },
+    { "id": 3, "date": "2026-06-14", "window": "7:36 PM–9:10 PM", "duration_min": 94, "n_strikes": 78, "n_suspect": 0, "n_real": 78, "min_mi": 3.7, "within_10mi": 61, "peak_per_10min": 36, "n_cells": 2, "peak_gust_mph": 22, "rain_in": 0.41, "class": "Nearby", "active": false, "confirmed": true },
+    { "id": 2, "date": "2026-06-14", "window": "1:51 PM–2:01 PM", "duration_min": 10, "n_strikes": 5, "n_suspect": 0, "n_real": 5, "min_mi": 5.0, "within_10mi": 1, "peak_per_10min": 2, "n_cells": 1, "peak_gust_mph": 8, "rain_in": 0.02, "class": "Nearby", "active": false, "confirmed": true }
   ],
   "stats": {
     "since": "2026-06-13", "total_storms": 10, "total_strikes": 135, "total_real_strikes": 124,
@@ -958,6 +976,53 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
       { "date": "2026-06-13", "n": 1 }, { "date": "2026-06-14", "n": 83 }, { "date": "2026-06-15", "n": 5 },
       { "date": "2026-06-16", "n": 2 }, { "date": "2026-06-17", "n": 2 }, { "date": "2026-06-18", "n": 31 }
     ]
+  }
+}
+</script>
+
+<!-- baked-in sample per-storm detail (storm id 10): the click-through page renders standalone
+     when the storm list itself is on fallback (file:// / offline demo) -->
+<script type="application/json" id="fallback-storm-detail">
+{
+  "id": 10, "generated_at": "2026-06-18T21:24:42Z", "date": "2026-06-18",
+  "window": "1:52 PM–5:12 PM", "start_epoch": 1781805120, "end_epoch": 1781817120,
+  "active": false, "confirmed": true, "class": "Overhead",
+  "summary": {
+    "n_strikes": 41, "n_suspect": 3, "n_real": 38, "min_mi": 0.6, "within_10mi": 30,
+    "peak_per_10min": 10, "n_cells": 4, "duration_min": 200, "peak_gust_mph": 9,
+    "rain_in": 0.09, "min_pressure_mb": 1006.8, "max_pressure_drop_mb_per_hr": -2.4,
+    "temp_drop_f_30min": 6.0
+  },
+  "strikes": [
+    { "t": 1781805200, "mi": 8.7, "suspect": 0 }, { "t": 1781805900, "mi": 7.5, "suspect": 0 },
+    { "t": 1781806500, "mi": 12.4, "suspect": 1 }, { "t": 1781807100, "mi": 5.6, "suspect": 0 },
+    { "t": 1781807700, "mi": 4.3, "suspect": 0 }, { "t": 1781808600, "mi": 3.1, "suspect": 0 },
+    { "t": 1781809500, "mi": 1.9, "suspect": 0 }, { "t": 1781810100, "mi": 0.6, "suspect": 0 },
+    { "t": 1781810700, "mi": 1.2, "suspect": 0 }, { "t": 1781811600, "mi": 12.4, "suspect": 1 },
+    { "t": 1781812500, "mi": 3.7, "suspect": 0 }, { "t": 1781813400, "mi": 5.0, "suspect": 0 },
+    { "t": 1781814600, "mi": 6.8, "suspect": 0 }, { "t": 1781815800, "mi": 12.4, "suspect": 1 },
+    { "t": 1781816700, "mi": 9.3, "suspect": 0 }
+  ],
+  "series": [
+    { "t": 1781804820, "gust": 4.5, "wind": 2.1, "dir": 210, "rain": 0.00, "pres": 1010.2, "temp": 88.1 },
+    { "t": 1781805720, "gust": 5.2, "wind": 2.4, "dir": 215, "rain": 0.00, "pres": 1009.9, "temp": 88.3 },
+    { "t": 1781806620, "gust": 6.1, "wind": 2.9, "dir": 220, "rain": 0.00, "pres": 1009.5, "temp": 87.6 },
+    { "t": 1781807520, "gust": 7.4, "wind": 3.6, "dir": 232, "rain": 0.01, "pres": 1009.0, "temp": 86.2 },
+    { "t": 1781808420, "gust": 9.0, "wind": 4.8, "dir": 245, "rain": 0.02, "pres": 1008.3, "temp": 84.0 },
+    { "t": 1781809320, "gust": 8.6, "wind": 4.1, "dir": 250, "rain": 0.04, "pres": 1007.6, "temp": 82.1 },
+    { "t": 1781810220, "gust": 7.8, "wind": 3.5, "dir": 248, "rain": 0.06, "pres": 1006.9, "temp": 81.0 },
+    { "t": 1781811120, "gust": 6.5, "wind": 2.8, "dir": 240, "rain": 0.08, "pres": 1006.8, "temp": 80.6 },
+    { "t": 1781812020, "gust": 5.9, "wind": 2.2, "dir": 236, "rain": 0.09, "pres": 1007.1, "temp": 80.9 },
+    { "t": 1781812920, "gust": 5.1, "wind": 1.9, "dir": 230, "rain": 0.09, "pres": 1007.5, "temp": 81.4 },
+    { "t": 1781813820, "gust": 4.4, "wind": 1.6, "dir": 228, "rain": 0.09, "pres": 1007.9, "temp": 82.0 },
+    { "t": 1781814720, "gust": 4.0, "wind": 1.5, "dir": 225, "rain": 0.09, "pres": 1008.2, "temp": 82.6 },
+    { "t": 1781815620, "gust": 3.8, "wind": 1.4, "dir": 224, "rain": 0.09, "pres": 1008.6, "temp": 83.1 },
+    { "t": 1781816520, "gust": 3.5, "wind": 1.3, "dir": 222, "rain": 0.09, "pres": 1008.9, "temp": 83.5 },
+    { "t": 1781817420, "gust": 3.2, "wind": 1.2, "dir": 220, "rain": 0.09, "pres": 1009.2, "temp": 83.8 }
+  ],
+  "analysis": {
+    "text": "• The closest strike at 0.6 mi means this cell passed directly over the station.\n• A 6°F temperature crash in 30 minutes is the storm's cold downdraft reaching the ground.\n• Pressure dipped then snapped back — the classic \"mesolow\" signature of a passing cell.\n• Only 0.09\" of rain fell; the haptic sensor tends to under-catch heavy bursts.",
+    "generated_at": "2026-06-18T21:30:00Z", "model": "claude-cli"
   }
 }
 </script>
@@ -1931,8 +1996,12 @@ function renderHealthTab(d) {
    STORMS TAB (v3) — the station's own lightning history (live gist storms.json)
    ============================================================================ */
 let STORMS = null;
-const STORMS_URL = "https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1/raw/storms.json";
+const GIST_RAW = "https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1/raw/";
+const STORMS_URL = GIST_RAW + "storms.json";
+const stormDetailURL = (id) => GIST_RAW + "storm-" + encodeURIComponent(id) + ".json";
 const CLASS_CHIP = { Severe: "fail", Overhead: "fail", Nearby: "warn", Distant: "learning" };
+let CURRENT_DETAIL = null;              // storm id (string) while the detail page is open
+const DETAIL_CACHE = new Map();         // id -> {data, at}
 
 function loadStormsFallback() {
   try { return JSON.parse(document.getElementById("fallback-storms").textContent); }
@@ -1950,6 +2019,10 @@ async function fetchStorms() {
   if (banner) banner.hidden = !usingFallback;
   if (usingFallback) data = loadStormsFallback();
   if (data) renderStormsTab(data);
+  // an open detail page follows the poll: a LIVE storm self-refreshes (cache is bypassed for
+  // active storms); a closed one re-renders from cache — and picks up its list entry if the
+  // list loaded after a deep link
+  if (CURRENT_DETAIL) openStormDetail(CURRENT_DETAIL);
 }
 
 const fmtMi = (v) => v == null ? "—" : (v < 10 ? v.toFixed(1) : String(Math.round(v))) + " mi";
@@ -1987,21 +2060,22 @@ function renderStormList(storms) {
   const rows = storms.map(s => {
     const chip = CLASS_CHIP[s.class] || "learning";
     const live = s.active ? ` <span class="chip chip--warn"><span class="dot"></span>LIVE</span>` : "";
+    const unconf = (s.active && s.confirmed === false) ? ` <span class="em">unconfirmed</span>` : "";
     const emi = s.n_suspect ? ` <span class="em">(${s.n_suspect} EMI)</span>` : "";
     const cells = (s.n_cells && s.n_cells > 1) ? ` <span class="em">· ${s.n_cells} cells</span>` : "";
     const gust = s.peak_gust_mph != null ? String(s.peak_gust_mph) : "—";
     const rain = (s.rain_in != null ? s.rain_in : 0).toFixed(2);
-    return `<tr>
-      <td>${esc(fmtMD(s.date))}</td>
+    return `<tr data-id="${esc(String(s.id))}" class="click" tabindex="0" aria-label="Open storm detail for ${esc(fmtMD(s.date))}">
+      <td><a class="sdlink" href="#storms/${esc(String(s.id))}">${esc(fmtMD(s.date))}</a></td>
       <td>${esc(s.window || "")}<span class="em"> · ${esc(String(s.duration_min))}m</span></td>
       <td>${esc(String(s.n_real != null ? s.n_real : s.n_strikes))}${emi}${cells}</td>
       <td>${fmtMi(s.min_mi)}</td>
       <td>${esc(String(s.peak_per_10min != null ? s.peak_per_10min : "—"))}</td>
       <td>${esc(gust)}</td>
       <td>${esc(rain)}"</td>
-      <td><span class="chip chip--${chip}"><span class="dot"></span>${esc(s.class || "—")}</span>${live}</td>
+      <td><span class="chip chip--${chip}"><span class="dot"></span>${esc(s.class || "—")}</span>${live}${unconf}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted" style="padding:var(--s-3) 0">No storms logged yet.</td></tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted" style="padding:var(--s-3) 0">No confirmed storms logged yet.</td></tr>`;
   const active = storms.filter(s => s.active).length;
   document.getElementById("stormList").innerHTML = `
     <div class="card-head"><h2 id="stormList-h">Recent storms</h2><span class="meta">${storms.length} logged${active ? " · " + active + " active" : ""}</span></div>
@@ -2012,20 +2086,224 @@ function renderStormList(storms) {
       </table>
     </div>
     ${explain(`
-      <p><b>Your station's lightning log.</b> Each row is a storm event the Tempest's electric-field sensor detected directly — confirmed strikes (with likely-EMI false positives filtered out), how close the nearest one came, the peak rate, and the gust + rain in that window. A storm stays one event until 60+ min of quiet; the cell count shows how many bursts it came in.</p>
-      <p><b>LIVE</b> means lightning is still active right now. Distances are the sensor's own estimate (it tends to under-report very heavy <i>rain</i>, not lightning).</p>`)}`;
+      <p><b>Your station's lightning log.</b> Each row is a storm event the Tempest's electric-field sensor detected directly — confirmed strikes (with likely-EMI false positives filtered out), how close the nearest one came, the peak rate, and the gust + rain in that window. A storm stays one event until 60+ min of quiet; the cell count shows how many bursts it came in. <b>Only confirmed storms are listed</b> — an event that turns out to be all EMI never appears. <b>Click any row</b> for the strike-by-strike detail.</p>
+      <p><b>LIVE</b> means lightning is still active right now — a live storm shows up as soon as it has one real strike, before it's confirmed. Distances are the sensor's own estimate (it tends to under-report very heavy <i>rain</i>, not lightning).</p>`)}`;
 }
+
+// one delegated click/keyboard handler on the section (survives innerHTML re-renders)
+(function initStormListNav() {
+  const list = document.getElementById("stormList");
+  if (!list) return;
+  const go = (e) => {
+    if (e.target.closest("a")) return;            // the date anchor navigates on its own
+    const tr = e.target.closest("tr[data-id]");
+    if (tr) location.hash = "#storms/" + tr.dataset.id;
+  };
+  list.addEventListener("click", go);
+  list.addEventListener("keydown", (e) => { if (e.key === "Enter") go(e); });
+})();
 
 function renderStormsTab(d) {
   if (!d) return;
   STORMS = d;
-  renderStormStats(d.stats);
-  renderStormList(d.storms);
+  renderStormStats(d.stats);   // renders into the (possibly hidden) sections; only
+  renderStormList(d.storms);   // open/closeStormDetail toggle their visibility
   const dot = document.getElementById("stormsDot");
   if (dot) dot.hidden = !(d.storms || []).some(s => s.active);
 }
 
-/* ----- tab switching (deep-linkable via #scoreboard / #health / #storms) ----- */
+/* ---- per-storm detail page (#storms/<id>) ---- */
+function closeStormDetail() {
+  CURRENT_DETAIL = null;
+  const box = document.getElementById("stormDetail");
+  box.hidden = true; box.innerHTML = "";
+  document.getElementById("stormStats").hidden = false;
+  document.getElementById("stormList").hidden = false;
+}
+
+async function openStormDetail(id) {
+  id = String(id);
+  CURRENT_DETAIL = id;
+  const box = document.getElementById("stormDetail");
+  document.getElementById("stormStats").hidden = true;
+  document.getElementById("stormList").hidden = true;
+  box.hidden = false;
+  if (!box.innerHTML) box.innerHTML =
+    `<a class="sdback" href="#storms">← All storms</a><p class="muted">Loading storm…</p>`;
+  const cached = DETAIL_CACHE.get(id);
+  let detail = (cached && !cached.data.active && (Date.now() - cached.at) < 180000) ? cached.data : null;
+  if (!detail) {
+    try {
+      const r = await fetch(stormDetailURL(id) + "?t=" + Date.now(), { cache: "no-store" });
+      if (r.ok) detail = await r.json();
+    } catch (e) { /* offline / file:// */ }
+    if (!detail) {
+      // when the list itself is on the baked sample, serve the baked detail (file:// demo)
+      const banner = document.getElementById("stormsFallback");
+      if (banner && !banner.hidden) {
+        try {
+          const fb = JSON.parse(document.getElementById("fallback-storm-detail").textContent);
+          if (String(fb.id) === id) detail = fb;
+        } catch (e) { /* ignore */ }
+      }
+    }
+    if (detail) DETAIL_CACHE.set(id, { data: detail, at: Date.now() });
+  }
+  if (CURRENT_DETAIL !== id) return;             // navigated away mid-fetch
+  renderStormDetail(detail, ((STORMS && STORMS.storms) || []).find(s => String(s.id) === id), id);
+}
+
+function renderStormDetail(detail, listEntry, id) {
+  const box = document.getElementById("stormDetail");
+  const src = detail || listEntry;
+  if (!src) {
+    box.innerHTML = `<a class="sdback" href="#storms">← All storms</a>
+      <p class="muted">Storm ${esc(String(id))} isn't in the log — it may have rolled off the recent list.</p>`;
+    return;
+  }
+  const sum = detail ? detail.summary : listEntry;   // list rows carry the same field names
+  const chip = CLASS_CHIP[src.class] || "learning";
+  const live = src.active ? ` <span class="chip chip--warn"><span class="dot"></span>LIVE</span>` : "";
+  const unconf = src.confirmed === false ? ` <span class="chip chip--learning"><span class="dot"></span>UNCONFIRMED</span>` : "";
+  const tiles = [
+    { l: "Real strikes", v: sum.n_real != null ? String(sum.n_real) : "—" },
+    { l: "EMI filtered", v: String(sum.n_suspect || 0) },
+    { l: "Closest", v: fmtMi(sum.min_mi) },
+    { l: "Peak / 10 min", v: sum.peak_per_10min != null ? String(sum.peak_per_10min) : "—" },
+    { l: "Cells", v: sum.n_cells != null ? String(sum.n_cells) : "—" },
+    { l: "Peak gust", v: sum.peak_gust_mph != null ? String(sum.peak_gust_mph) : "—", u: "mph" },
+    { l: "Rain", v: (sum.rain_in != null ? sum.rain_in : 0).toFixed(2), u: "in" },
+    { l: "Duration", v: String(sum.duration_min || "—"), u: "min" }
+  ];
+  const grid = tiles.map(t =>
+    `<div class="sstat"><div class="sl">${esc(t.l)}</div>` +
+    `<div class="sv">${esc(t.v)}${t.u ? ` <small>${esc(t.u)}</small>` : ""}</div></div>`).join("");
+  let analysisHTML = "";
+  if (detail && detail.analysis && detail.analysis.text) {
+    const paras = detail.analysis.text.trim().split(/\n+/).map(p => p.trim()).filter(Boolean);
+    const when = detail.analysis.generated_at ? fmtETDateTime(detail.analysis.generated_at) : "";
+    analysisHTML = `<div class="analysis sd-analysis">
+      <div class="a-head"><span class="a-eyebrow">${SPARK}Storm read</span>
+      ${when ? `<span class="a-when">as of ${esc(when)}</span>` : ""}</div>
+      <div class="a-body">${paras.map(p => `<p>${esc(p)}</p>`).join("")}</div></div>`;
+  }
+  const note = detail ? "" :
+    `<p class="muted" style="font-size:var(--fs-sm);margin-top:var(--s-3)">Per-storm detail isn't available for this one (not published yet, or you're offline) — showing the summary stats.</p>`;
+  box.innerHTML = `
+    <a class="sdback" href="#storms">← All storms</a>
+    <div class="sdhead">
+      <span class="sdtitle">${esc(fmtMD(src.date))}</span>
+      <span class="sdwin">${esc(src.window || "")}${sum.duration_min ? ` · ${esc(String(sum.duration_min))} min` : ""}</span>
+      <span class="chip chip--${chip}"><span class="dot"></span>${esc(src.class || "—")}</span>${live}${unconf}
+    </div>
+    <div class="sgrid">${grid}</div>
+    ${analysisHTML}
+    ${note}
+    ${detail ? stormChartsHTML(detail) : ""}`;
+}
+
+/* Detail charts — same hand-rolled inline-SVG idiom as renderTrend: CSS-var colors only,
+   so the theme toggle restyles them live with no re-render. */
+function stormChartsHTML(d) {
+  const series = d.series || [], strikes = d.strikes || [];
+  const tAll = series.map(p => p.t).concat(strikes.map(s => s.t));
+  if (!tAll.length) return `<p class="muted" style="font-size:var(--fs-sm)">No timeline data was captured for this storm.</p>`;
+  const t0 = Math.min(...tAll), t1 = Math.max(...tAll, t0 + 60);
+  const W = 680, PAD = { t: 14, r: 46, b: 26, l: 46 };
+  const xOf = (t) => PAD.l + ((t - t0) / (t1 - t0)) * (W - PAD.l - PAD.r);
+  const fmtT = (e) => new Date(e * 1000).toLocaleTimeString("en-US",
+    { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  const xAxis = (H) => {
+    let out = "";
+    for (let i = 0; i <= 4; i++) {
+      const t = t0 + (i / 4) * (t1 - t0);
+      out += `<line x1="${xOf(t).toFixed(1)}" y1="${PAD.t}" x2="${xOf(t).toFixed(1)}" y2="${H - PAD.b}" stroke="var(--border)" stroke-width="1"/>
+        <text x="${xOf(t).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${fmtT(t)}</text>`;
+    }
+    return out;
+  };
+  const ylab = (x, y, txt, anchor) =>
+    `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${txt}</text>`;
+  const pathNS = (pts, xf, yf) => {   // null-gap-safe line path
+    let path = "", pen = false;
+    pts.forEach(p => {
+      if (p.v == null) { pen = false; return; }
+      path += (pen ? "L" : "M") + xf(p.t).toFixed(1) + "," + yf(p.v).toFixed(1);
+      pen = true;
+    });
+    return path;
+  };
+  let html = "";
+
+  // 1 · strike timeline (distance over time; closer = lower; EMI hollow)
+  const smi = strikes.filter(s => s.mi != null);
+  if (smi.length) {
+    const H = 220, ymax = Math.max(10, ...smi.map(s => s.mi)) + 2;
+    const yOf = (mi) => PAD.t + (1 - mi / ymax) * (H - PAD.t - PAD.b);
+    let grid = "";
+    for (let m = 0; m <= ymax; m += 5) grid +=
+      `<line x1="${PAD.l}" y1="${yOf(m).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(m).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>` +
+      ylab(PAD.l - 6, yOf(m) + 3.5, m + " mi", "end");
+    const ten = ymax > 10 ? `<line x1="${PAD.l}" y1="${yOf(10).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(10).toFixed(1)}" stroke="var(--hl-warn)" stroke-width="1" stroke-dasharray="4 4" stroke-opacity="0.6"/>` : "";
+    const dots = smi.map(s => s.suspect
+      ? `<circle cx="${xOf(s.t).toFixed(1)}" cy="${yOf(s.mi).toFixed(1)}" r="3" fill="none" stroke="var(--text-3)" stroke-width="1.4"/>`
+      : `<circle cx="${xOf(s.t).toFixed(1)}" cy="${yOf(s.mi).toFixed(1)}" r="3.5" fill="var(--p-tempest)" fill-opacity="0.85"/>`).join("");
+    const nR = smi.filter(s => !s.suspect).length;
+    html += `<div class="schart"><h3>Strike timeline</h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Lightning strikes over time: ${nR} real (filled dots) and ${smi.length - nR} EMI-flagged (hollow). Distance in miles — closer strikes sit lower.">
+      ${grid}${xAxis(H)}${ten}${dots}</svg>
+      <p class="keynote">● real strike · ○ EMI-flagged (filtered) · closer = lower${ymax > 10 ? " · dashed = 10 mi" : ""}</p></div>`;
+  }
+
+  // 2 · wind (gust bold + avg thin)
+  const wvals = series.flatMap(p => [p.gust, p.wind]).filter(v => v != null);
+  if (wvals.length) {
+    const H = 180, ymax = Math.max(5, Math.ceil(Math.max(...wvals) * 1.15));
+    const yOf = (v) => PAD.t + (1 - v / ymax) * (H - PAD.t - PAD.b);
+    let grid = "";
+    [0, Math.round(ymax / 2), ymax].forEach(v => { grid +=
+      `<line x1="${PAD.l}" y1="${yOf(v).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(v).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>` +
+      ylab(PAD.l - 6, yOf(v) + 3.5, v, "end"); });
+    html += `<div class="schart"><h3>Wind · mph</h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Wind during the storm: bold line is gusts, thin line is average wind, in miles per hour.">
+      ${grid}${xAxis(H)}
+      <path d="${pathNS(series.map(p => ({ t: p.t, v: p.wind })), xOf, yOf)}" fill="none" stroke="var(--text-3)" stroke-width="1.5" stroke-linejoin="round" stroke-opacity="0.8"/>
+      <path d="${pathNS(series.map(p => ({ t: p.t, v: p.gust })), xOf, yOf)}" fill="none" stroke="var(--p-tempest)" stroke-width="2.5" stroke-linejoin="round"/></svg>
+      <p class="keynote">bold = gust · thin = average wind</p></div>`;
+  }
+
+  // 3 · rain (cumulative area, left axis) + pressure (line, right axis)
+  const hasRain = series.some(p => p.rain != null && p.rain > 0);
+  const pvals = series.filter(p => p.pres != null).map(p => p.pres);
+  if (hasRain || pvals.length) {
+    const H = 180;
+    let rainHTML = "", presHTML = "", leftLab = "", rightLab = "";
+    if (hasRain) {
+      const rmax = Math.max(...series.map(p => p.rain || 0)) * 1.15 || 0.1;
+      const yR = (v) => PAD.t + (1 - v / rmax) * (H - PAD.t - PAD.b);
+      const pts = series.filter(p => p.rain != null);
+      const top = pts.map(p => `${xOf(p.t).toFixed(1)},${yR(p.rain).toFixed(1)}`).join(" ");
+      const base = `${xOf(pts[pts.length - 1].t).toFixed(1)},${yR(0).toFixed(1)} ${xOf(pts[0].t).toFixed(1)},${yR(0).toFixed(1)}`;
+      rainHTML = `<polygon points="${top} ${base}" fill="var(--p-tempest)" fill-opacity="0.15"/>
+        <path d="${pathNS(pts.map(p => ({ t: p.t, v: p.rain })), xOf, yR)}" fill="none" stroke="var(--p-tempest)" stroke-width="2"/>`;
+      leftLab = ylab(PAD.l - 6, yR(rmax / 1.15) + 3.5, (rmax / 1.15).toFixed(2) + '"', "end") + ylab(PAD.l - 6, yR(0) + 3.5, '0"', "end");
+    }
+    if (pvals.length) {
+      const pmin = Math.min(...pvals) - 0.5, pmax = Math.max(...pvals) + 0.5;
+      const yP = (v) => PAD.t + (1 - (v - pmin) / (pmax - pmin)) * (H - PAD.t - PAD.b);
+      presHTML = `<path d="${pathNS(series.map(p => ({ t: p.t, v: p.pres })), xOf, yP)}" fill="none" stroke="var(--text-2)" stroke-width="1.75" stroke-dasharray="5 3"/>`;
+      rightLab = ylab(W - PAD.r + 6, yP(pmax) + 3.5, pmax.toFixed(1), "start") + ylab(W - PAD.r + 6, yP(pmin) + 3.5, pmin.toFixed(1), "start");
+    }
+    const border = `<line x1="${PAD.l}" y1="${H - PAD.b}" x2="${W - PAD.r}" y2="${H - PAD.b}" stroke="var(--border)" stroke-width="1"/>`;
+    html += `<div class="schart"><h3>${hasRain && pvals.length ? "Rain (cumulative) + pressure" : (hasRain ? "Rain · cumulative inches" : "Pressure · mb")}</h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasRain ? "Cumulative rainfall (shaded area, inches)" : ""}${hasRain && pvals.length ? " and " : ""}${pvals.length ? "station pressure (dashed line, millibars)" : ""} during the storm.">
+      ${border}${xAxis(H)}${rainHTML}${presHTML}${leftLab}${rightLab}</svg>
+      ${hasRain && pvals.length ? `<p class="keynote">shaded = rain (cumulative, left) · dashed = pressure (mb, right)</p>` : ""}</div>`;
+  }
+  return html;
+}
+
+/* ----- tab switching (deep-linkable via #scoreboard / #health / #storms / #storms/<id>) ----- */
 const TAB_NAMES = ["scoreboard", "health", "storms"];
 function showTab(name) {
   if (!TAB_NAMES.includes(name)) name = "scoreboard";
@@ -2033,14 +2311,28 @@ function showTab(name) {
     document.getElementById("tab-" + t).hidden = (t !== name);
     document.getElementById("tab-btn-" + t).setAttribute("aria-selected", String(t === name));
   });
-  const hash = "#" + name;
+  // preserve an open storm-detail sub-route instead of clobbering it
+  const hash = "#" + name + (name === "storms" && CURRENT_DETAIL ? "/" + CURRENT_DETAIL : "");
   if (history.replaceState) history.replaceState(null, "", hash); else location.hash = hash;
 }
 function initTabs() {
-  TAB_NAMES.forEach(t => document.getElementById("tab-btn-" + t).addEventListener("click", () => showTab(t)));
-  const fromHash = () => { const h = location.hash.replace("#", ""); if (TAB_NAMES.includes(h)) showTab(h); };
-  window.addEventListener("hashchange", fromHash);
-  fromHash();
+  TAB_NAMES.forEach(t => document.getElementById("tab-btn-" + t).addEventListener("click", () => {
+    if (t === "storms" && CURRENT_DETAIL) closeStormDetail();   // tab button returns to the list
+    showTab(t);
+  }));
+  const routeFromHash = () => {
+    const [tab, sub] = location.hash.replace("#", "").split("/");
+    if (tab === "storms" && sub) {
+      CURRENT_DETAIL = String(sub);      // set BEFORE showTab so the hash write keeps the sub-route
+      showTab("storms");
+      openStormDetail(sub);
+      return;
+    }
+    if (CURRENT_DETAIL) closeStormDetail();
+    if (TAB_NAMES.includes(tab)) showTab(tab);
+  };
+  window.addEventListener("hashchange", routeFromHash);
+  routeFromHash();
 }
 
 function loadHealthFallback() {
