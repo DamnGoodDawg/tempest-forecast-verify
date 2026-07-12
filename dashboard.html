@@ -529,10 +529,27 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .sample-banner svg { width: 18px; height: 18px; flex: none; }
 .sample-banner .b-sub { font-weight: 500; color: var(--text-2); }
 
+/* COMPONENT — Rain Equity tab (v4) */
+.rq-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.rq-sub { color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
+.rq-cols { display: grid; gap: var(--s-4); grid-template-columns: 1fr; margin-top: var(--s-4); }
+@media (min-width: 700px) { .rq-cols { grid-template-columns: auto 1fr; align-items: center; column-gap: var(--s-6, 32px); } }
+.rq-big { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 6vw, 3rem); font-weight: 650; line-height: 1; color: var(--text); white-space: nowrap; }
+.rq-big small { font-size: 0.4em; color: var(--text-2); font-weight: 500; font-family: var(--font-sans, inherit); }
+.rq-prog { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.rq-prog > div { height: 100%; border-radius: 999px; background: var(--p-tempest); }
+.rq-note { font-size: var(--fs-micro); color: var(--text-3); margin-top: var(--s-2); line-height: 1.5; }
+.rq-how p { margin: 0 0 var(--s-3); line-height: 1.6; font-size: var(--fs-sm); color: var(--text-2); text-wrap: pretty; }
+.rq-how p b { color: var(--text); }
+.rq-how p:last-child { margin-bottom: 0; }
+.rq-reads summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); }
+.rq-reads .rr { margin-top: var(--s-3); font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; }
+.rq-reads .rr b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+
 /* ============================================================================
    COMPONENT — tab bar  (v2)
    ============================================================================ */
-.tabs { display: flex; gap: var(--s-1); border-bottom: 1px solid var(--border); }
+.tabs { display: flex; flex-wrap: wrap; gap: var(--s-1); border-bottom: 1px solid var(--border); }
 .tab {
   appearance: none; background: transparent; border: none; cursor: pointer;
   font-family: var(--font-sans); font-size: var(--fs-base); font-weight: 600; color: var(--text-3);
@@ -765,6 +782,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <button class="tab" id="tab-btn-scoreboard" role="tab" type="button" aria-selected="true" aria-controls="tab-scoreboard">Guarantee Scoreboard</button>
     <button class="tab" id="tab-btn-health" role="tab" type="button" aria-selected="false" aria-controls="tab-health">Station Health<span class="tab-dot" id="healthDot" hidden aria-hidden="true"></span></button>
     <button class="tab" id="tab-btn-storms" role="tab" type="button" aria-selected="false" aria-controls="tab-storms">Storms<span class="tab-dot" id="stormsDot" hidden aria-hidden="true"></span></button>
+    <button class="tab" id="tab-btn-rain" role="tab" type="button" aria-selected="false" aria-controls="tab-rain">Rain Equity</button>
   </nav>
 
   <!-- ============ TAB 1 · GUARANTEE SCOREBOARD ============ -->
@@ -819,6 +837,18 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <section class="card stormlist" id="stormList" aria-labelledby="stormList-h"></section>
     <section class="card stormdetail" id="stormDetail" hidden></section>
   </div><!-- /tab-storms -->
+
+  <!-- ============ TAB 4 · RAIN EQUITY ============ -->
+  <div class="tabpanel" id="tab-rain" role="tabpanel" aria-labelledby="tab-btn-rain" hidden>
+    <p class="tab-lede">Does this yard really get <em>less rain</em> than the neighbors' — do cells fade right over the house? This tab tests that theory with real gauges: the station's own rain vs. every volunteer CoCoRaHS gauge within 15 miles, scored every day against a rule that was locked in up front. <em>The data decides, not the view from the porch.</em></p>
+    <section class="card" id="rainVerdict" aria-labelledby="rainVerdict-h"></section>
+    <section class="card analysis" id="rainRead" hidden></section>
+    <section class="card" id="rainStats" aria-labelledby="rainStats-h" hidden></section>
+    <section class="card" id="rainChart" aria-labelledby="rainChart-h" hidden></section>
+    <section class="card" id="rainDays" aria-labelledby="rainDays-h" hidden></section>
+    <section class="card" id="rainRing" aria-labelledby="rainRing-h" hidden></section>
+    <section class="card rq-how" id="rainHow" aria-labelledby="rainHow-h"></section>
+  </div><!-- /tab-rain -->
 
   <p class="pagefoot" id="pagefoot"></p>
 </div>
@@ -1568,6 +1598,7 @@ function loadFallback() {
   setInterval(fetchLiveCurrent, 90000);     // keep "Current conditions" fresh while open
   fetchStorms();                            // the Storms tab: live storm log from the gist
   setInterval(fetchStorms, 180000);         // refresh storms (and the LIVE dot) while open
+  fetchRainEquity();                        // the Rain Equity tab: daily feed, once per load
   fetchAnalysis();                          // daily plain-English read at the top of each tab
 })();
 
@@ -2303,8 +2334,206 @@ function stormChartsHTML(d) {
   return html;
 }
 
+/* ============================================================================
+   RAIN EQUITY TAB (v4) — the "is my yard rain-cursed?" experiment (gist rain_equity.json)
+   ============================================================================ */
+const RAIN_URL = GIST_RAW + "rain_equity.json";
+const RQ_STATUS = {
+  collecting: { chip: "learning", label: "Collecting evidence",
+    sub: "Too early to rule — the verdict locks after enough measurable rain days." },
+  confirmed:  { chip: "warn", label: "Theory CONFIRMED",
+    sub: "The yard really is coming up short vs. the neighbors. Vindication (of a sort)." },
+  busted:     { chip: "ok", label: "Myth BUSTED",
+    sub: "The house gets a normal share of the neighborhood's rain — it just never feels that way." },
+  blessed:    { chip: "ok", label: "Rain-BLESSED",
+    sub: "Plot twist: the house is getting MORE rain than the typical nearby gauge." },
+};
+
+async function fetchRainEquity() {
+  let d = null;
+  try {
+    const r = await fetch(RAIN_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (r.ok) d = await r.json();
+  } catch (e) { /* offline / not published yet */ }
+  renderRainTab(d);
+}
+
+function renderRainTab(d) {
+  renderRainHow(d && d.params);
+  const v = d && d.verdict;
+  if (!v) {
+    document.getElementById("rainVerdict").innerHTML =
+      `<div class="card-head"><h2 id="rainVerdict-h">The verdict</h2></div>
+       <p class="muted" style="font-size:var(--fs-sm)">No data yet — the Mac publishes the first
+       snapshot at 9:45 AM ET (after the volunteer gauges file their morning reports).</p>`;
+    return;
+  }
+  const meta = RQ_STATUS[v.status] || RQ_STATUS.collecting;
+  const pct = v.matched_ratio != null ? Math.round(v.matched_ratio * 100) : null;
+  const p = d.params || {};
+  const lockLo = Math.round((p.confirm_below || 0.8) * 100);
+  const lockHi = Math.round((p.blessed_above || 1.2) * 100);
+  const prog = Math.min(100, Math.round((v.event_days / (v.needed || 20)) * 100));
+  document.getElementById("rainVerdict").innerHTML = `
+    <div class="card-head"><h2 id="rainVerdict-h">The verdict</h2>
+      <span class="meta">since ${esc(fmtMD(p.epoch || "2026-06-14"))}${d.generated_at ? " · updated " + esc(fmtETDateTime(d.generated_at)) : ""}</span></div>
+    <div class="rq-status">
+      <span class="chip chip--${meta.chip}"><span class="dot"></span>${esc(meta.label)}</span>
+      <span class="rq-sub">${esc(meta.sub)}</span>
+    </div>
+    <div class="rq-cols">
+      <div>
+        <div class="rq-big">${pct != null ? pct + "%" : "—"}<small> of the neighbors' rain</small></div>
+        <div class="rq-note">house matched-day total ÷ typical nearby gauge (median of ${esc(String(v.n_ratio_stations || 0))} qualifying gauges)</div>
+      </div>
+      <div>
+        <div class="rq-prog" role="img" aria-label="${esc(String(v.event_days))} of ${esc(String(v.needed))} measurable days logged"><div style="width:${prog}%"></div></div>
+        <div class="rq-note"><b class="num">${esc(String(v.event_days))} of ${esc(String(v.needed))}</b> measurable rain days logged — the verdict locks at ${esc(String(v.needed))}.
+        Pre-registered rule: under ${lockLo}% = theory confirmed · ${lockLo}–${lockHi}% = busted (normal luck) · over ${lockHi}% = rain-blessed.</div>
+      </div>
+    </div>`;
+  renderRainRead(d.reads);
+  renderRainStats(d, v);
+  renderRainChart(d.daily || []);
+  renderRainDays(d.daily || []);
+  renderRainRing(d.stations || [], d.airports || {}, p);
+}
+
+function renderRainRead(reads) {
+  const el = document.getElementById("rainRead");
+  if (!el) return;
+  if (!reads || !reads.length || !reads[0].text) { el.hidden = true; return; }
+  const r = reads[0];
+  const paras = String(r.text).trim().split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const hist = reads.slice(1).filter(x => x.text);
+  el.innerHTML = `
+    <div class="a-head"><span class="a-eyebrow">${SPARK}${r.inaugural ? "Inaugural read" : "Daily read"}</span>
+      ${r.generated_at ? `<span class="a-when">as of ${esc(fmtETDateTime(r.generated_at))}</span>` : ""}</div>
+    <div class="a-body">${paras.map(s => `<p>${esc(s)}</p>`).join("")}</div>
+    ${hist.length ? `<details class="rq-reads"><summary>Previous days (${hist.length})</summary>
+      ${hist.map(x => `<div class="rr"><b>${esc(fmtMD(x.date))}</b> — ${esc(String(x.text).replace(/\n+/g, " "))}</div>`).join("")}
+    </details>` : ""}`;
+  el.hidden = false;
+}
+
+function renderRainStats(d, v) {
+  const el = document.getElementById("rainStats");
+  const daily = d.daily || [];
+  const best = daily.reduce((a, r) => (r.house > (a ? a.house : 0) ? r : a), null);
+  const tiles = [
+    { l: "House since " + fmtMD((d.params || {}).epoch || "2026-06-14"), v: v.house_total_in != null ? v.house_total_in.toFixed(2) : "—", u: "in" },
+    { l: "Typical nearby gauge", v: v.ring_median_total_in != null ? v.ring_median_total_in.toFixed(2) : "—", u: "in", m: "median of qualifying gauges" },
+    { l: "House vs neighbors", v: v.matched_ratio != null ? Math.round(v.matched_ratio * 100) + "%" : "—", m: "matched days only" },
+    { l: "Neighborhood rank", v: v.rank_n ? `${v.wetter_than} of ${v.rank_n}` : "—", m: "gauges the house out-rained" },
+    { l: "Measurable days", v: `${v.event_days}`, u: "of " + v.needed, m: "verdict locks at " + v.needed },
+    { l: "Best day at the house", v: best && best.house ? best.house.toFixed(2) : "—", u: "in", m: best && best.house ? fmtMD(best.d) : "" },
+  ];
+  el.innerHTML = `<div class="card-head"><h2 id="rainStats-h">Running score</h2></div>
+    <div class="sgrid">${tiles.map(t =>
+      `<div class="sstat"><div class="sl">${esc(t.l)}</div>` +
+      `<div class="sv">${esc(String(t.v))}${t.u ? ` <small>${esc(t.u)}</small>` : ""}</div>` +
+      (t.m ? `<div class="sm">${esc(t.m)}</div>` : "") + `</div>`).join("")}</div>`;
+  el.hidden = false;
+}
+
+/* cumulative house-vs-ring chart — same hand-rolled SVG idiom as the storm charts */
+function renderRainChart(daily) {
+  const el = document.getElementById("rainChart");
+  if (!daily.length) { el.hidden = true; return; }
+  let ch = 0, cr = 0;
+  const pts = daily.map(r => ({ d: r.d, h: (ch += r.house || 0), r: (cr += r.med || 0) }));
+  const W = 680, H = 220, PAD = { t: 14, r: 50, b: 26, l: 40 };
+  const ymax = Math.max(0.5, ch, cr) * 1.12;
+  const xOf = (i) => PAD.l + (i / Math.max(1, pts.length - 1)) * (W - PAD.l - PAD.r);
+  const yOf = (v) => PAD.t + (1 - v / ymax) * (H - PAD.t - PAD.b);
+  let grid = "";
+  const step = ymax > 6 ? 2 : (ymax > 2.5 ? 1 : 0.5);
+  for (let g = 0; g <= ymax; g += step) grid +=
+    `<line x1="${PAD.l}" y1="${yOf(g).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(g).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>` +
+    `<text x="${PAD.l - 6}" y="${(yOf(g) + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${g}"</text>`;
+  let ticks = "";
+  const nT = Math.min(5, pts.length);
+  for (let i = 0; i < nT; i++) {
+    const idx = Math.round((i / Math.max(1, nT - 1)) * (pts.length - 1));
+    ticks += `<text x="${xOf(idx).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(pts[idx].d))}</text>`;
+  }
+  const path = (key) => pts.map((p, i) => (i ? "L" : "M") + xOf(i).toFixed(1) + "," + yOf(p[key]).toFixed(1)).join("");
+  const endLab = (key, txt) =>
+    `<text x="${W - PAD.r + 5}" y="${(yOf(pts[pts.length - 1][key]) + 3.5).toFixed(1)}" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${txt}</text>`;
+  el.innerHTML = `<div class="card-head"><h2 id="rainChart-h">The race · cumulative inches</h2></div>
+    <div class="schart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative rain since the experiment started: the house (bold line, ${ch.toFixed(2)} inches) vs the ring median (dashed line, ${cr.toFixed(2)} inches).">
+      ${grid}${ticks}
+      <path d="${path("r")}" fill="none" stroke="var(--text-2)" stroke-width="1.75" stroke-dasharray="5 3"/>
+      <path d="${path("h")}" fill="none" stroke="var(--p-tempest)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${endLab("h", "house")}${endLab("r", "ring")}
+    </svg>
+    <p class="keynote">bold = the house · dashed = that day's ring median, accumulated · flat stretches are dry spells</p></div>`;
+  el.hidden = false;
+}
+
+function renderRainDays(daily) {
+  const el = document.getElementById("rainDays");
+  const events = daily.filter(r => r.event).slice().reverse();
+  const rows = events.map(r => `<tr>
+      <td style="text-align:left">${esc(fmtMD(r.d))}</td>
+      <td>${r.house.toFixed(2)}"</td>
+      <td>${r.med != null ? r.med.toFixed(2) + '"' : "—"}</td>
+      <td>${r.max != null ? r.max.toFixed(2) + '"' : "—"}</td>
+      <td>${esc(String(r.n))}</td>
+      <td>${r.pctl != null ? "P" + r.pctl : "—"}</td>
+    </tr>`).join("") ||
+    `<tr><td colspan="6" class="muted" style="padding:var(--s-3) 0">No measurable rain days yet.</td></tr>`;
+  el.innerHTML = `<div class="card-head"><h2 id="rainDays-h">Measurable days</h2><span class="meta">${events.length} logged</span></div>
+    <div class="storm-scroll"><table class="storm-tbl">
+      <thead><tr><th scope="col" style="text-align:left">Gauge day</th><th scope="col">House</th><th scope="col">Ring median</th><th scope="col">Ring max</th><th scope="col">Gauges</th><th scope="col">House rank</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    ${explain(`
+      <p><b>A "gauge day" runs 7 AM to 7 AM Eastern</b> — the window CoCoRaHS volunteers actually measure — and the station's minute-by-minute rain is summed over the exact same window, so an evening storm never lands on different calendar days for different gauges.</p>
+      <p><b>House rank</b> is a percentile among that day's reporting gauges: P0 = the driest spot in the ring, P100 = the wettest, P50 = dead middle. A day only counts toward the verdict ("measurable") when the house or the ring median saw at least 0.05".</p>`)}`;
+  el.hidden = false;
+}
+
+function renderRainRing(stations, airports, p) {
+  const el = document.getElementById("rainRing");
+  const srows = stations.map(s => `<tr>
+      <td style="text-align:left">${esc(s.name)}<span class="em"> · ${esc(s.id)}</span></td>
+      <td>${s.mi != null ? s.mi.toFixed(1) : "—"}</td>
+      <td>${esc(String(s.days))}${s.ratio == null ? `<span class="em"> (${Math.round((s.cov || 0) * 100)}%)</span>` : ""}</td>
+      <td>${s.total.toFixed(2)}"</td>
+      <td>${s.ratio != null ? "×" + s.ratio.toFixed(2) : "—"}</td>
+    </tr>`).join("");
+  const arows = Object.entries(airports).map(([icao, a]) => `<tr>
+      <td style="text-align:left">${esc(a.name)}<span class="em"> · ${esc(icao)} airport (reference)</span></td>
+      <td>${a.mi != null ? a.mi.toFixed(1) : "—"}</td>
+      <td class="em">daily</td>
+      <td>${a.total_in != null ? a.total_in.toFixed(2) + '"' : "—"}</td>
+      <td>—</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="card-head"><h2 id="rainRing-h">The neighborhood</h2><span class="meta">${stations.length} gauges within 15 mi</span></div>
+    <div class="storm-scroll"><table class="storm-tbl">
+      <thead><tr><th scope="col" style="text-align:left">Gauge</th><th scope="col">Miles</th><th scope="col">Days</th><th scope="col">Total</th><th scope="col">House ÷ gauge</th></tr></thead>
+      <tbody>${srows}${arows}</tbody></table></div>
+    ${explain(`
+      <p><b>These are CoCoRaHS gauges</b> — hand-read 4" cylinders checked by volunteers every morning, the same network the National Weather Service leans on for ground truth. Each row shows its total since the experiment started and <b>house ÷ gauge</b>: the house's rain on the days that gauge reported, divided by the gauge's own total. ×0.90 means the house caught 90% of what that neighbor caught on the same days.</p>
+      <p>A gauge only joins the verdict math when it reported at least ${Math.round(((p && p.min_coverage) || 0.8) * 100)}% of days (the % shown next to spotty reporters) and has caught at least a quarter-inch — otherwise a vacationing volunteer or a nearly-dry sample would skew the score. The two airports are automated stations shown for reference; they use midnight-to-midnight days, so they don't join the gauge-day math.</p>`)}`;
+  el.hidden = false;
+}
+
+function renderRainHow(p) {
+  p = p || {};
+  const lockLo = Math.round((p.confirm_below || 0.8) * 100);
+  const lockHi = Math.round((p.blessed_above || 1.2) * 100);
+  document.getElementById("rainHow").innerHTML = `
+    <div class="card-head"><h2 id="rainHow-h">How this experiment works</h2></div>
+    <p><b>The claim on trial:</b> this yard gets robbed of rain — storms weaken or split as they cross the property, and the totals run short of everyone nearby. It's one of the most common backyard-weather beliefs in existence, and it's almost never tested. This tab tests it.</p>
+    <p><b>The instruments:</b> the station's own rain sensor vs. every volunteer CoCoRaHS manual gauge within ${esc(String(p.ring_miles || 15))} miles (about two dozen hand-read cylinders — the gold standard for point rainfall), plus the Athens and Winder airport stations as automated reference points. Everyone is compared over the same 7 AM–7 AM "gauge day" the volunteers use.</p>
+    <p><b>The score:</b> for each neighbor gauge, take the house's rain on the days that gauge actually reported and divide by the gauge's total — then take the median across all qualifying gauges. That "matched-day" trick means a gauge that skips days can never tilt the result, and using the median means one leaky funnel or one soaker-magnet hilltop can't either.</p>
+    <p><b>The rule (locked in before the data could argue):</b> after ${esc(String(p.min_event_days || 20))} measurable rain days — under ${lockLo}% of the neighborhood median, the theory is <b>confirmed</b>; ${lockLo}–${lockHi}% and it's <b>busted</b> (that's just what normal rain luck feels like); over ${lockHi}% and the yard is secretly <b>blessed</b>. Pre-registering the rule matters: it's the only thing stopping anyone from moving the goalposts once the numbers start rolling in.</p>
+    <p><b>Honest caveats:</b> the Tempest's haptic sensor tends to slightly under-read heavy rain, which biases <i>against</i> busting the myth — a "confirmed" verdict sitting barely under ${lockLo}% deserves a squint. Summer thunderstorms are a spatial lottery, which is exactly why the verdict waits for a real sample instead of calling it after two storms. And this only tests <i>totals</i> — whether cells visibly weaken overhead is a separate radar question for a future phase.</p>`;
+}
+
 /* ----- tab switching (deep-linkable via #scoreboard / #health / #storms / #storms/<id>) ----- */
-const TAB_NAMES = ["scoreboard", "health", "storms"];
+const TAB_NAMES = ["scoreboard", "health", "storms", "rain"];
 function showTab(name) {
   if (!TAB_NAMES.includes(name)) name = "scoreboard";
   TAB_NAMES.forEach(t => {
