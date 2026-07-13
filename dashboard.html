@@ -545,6 +545,9 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .rq-reads summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); }
 .rq-reads .rr { margin-top: var(--s-3); font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; }
 .rq-reads .rr b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+.storm-tbl tr.rq-me td { font-weight: 700; color: var(--text); border-top: 1px solid color-mix(in oklch, var(--p-tempest) 45%, transparent); border-bottom: 1px solid color-mix(in oklch, var(--p-tempest) 45%, transparent); }
+.rq-years { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--text-2); }
+.rq-years b { color: var(--text); font-weight: 650; }
 
 /* ============================================================================
    COMPONENT — tab bar  (v2)
@@ -840,10 +843,12 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 
   <!-- ============ TAB 4 · RAIN EQUITY ============ -->
   <div class="tabpanel" id="tab-rain" role="tabpanel" aria-labelledby="tab-btn-rain" hidden>
-    <p class="tab-lede">Does this yard really get <em>less rain</em> than the neighbors' — do cells fade right over the house? This tab tests that theory with real gauges: the station's own rain vs. every volunteer CoCoRaHS gauge within 15 miles, scored every day against a rule that was locked in up front. <em>The data decides, not the view from the porch.</em></p>
+    <p class="tab-lede">Does the <em>Statham area</em> really get less rain than Winder, Watkinsville, and Athens — do storms fade before they get here? This tab tests that theory two ways: the station's own gauge vs. every volunteer CoCoRaHS gauge within 15 miles (scored daily against a rule locked in up front), and <em>eleven warm seasons of 1-km NOAA radar rainfall</em> over every town. <em>The data decides, not the view from the porch.</em></p>
     <section class="card" id="rainVerdict" aria-labelledby="rainVerdict-h"></section>
     <section class="card analysis" id="rainRead" hidden></section>
     <section class="card" id="rainStats" aria-labelledby="rainStats-h" hidden></section>
+    <section class="card" id="rainTowns" aria-labelledby="rainTowns-h" hidden></section>
+    <section class="card" id="rainRadar" aria-labelledby="rainRadar-h" hidden></section>
     <section class="card" id="rainChart" aria-labelledby="rainChart-h" hidden></section>
     <section class="card" id="rainDays" aria-labelledby="rainDays-h" hidden></section>
     <section class="card" id="rainRing" aria-labelledby="rainRing-h" hidden></section>
@@ -1599,6 +1604,7 @@ function loadFallback() {
   fetchStorms();                            // the Storms tab: live storm log from the gist
   setInterval(fetchStorms, 180000);         // refresh storms (and the LIVE dot) while open
   fetchRainEquity();                        // the Rain Equity tab: daily feed, once per load
+  fetchRainRadar();                         // Phase 2: MRMS town-box radar climatology
   fetchAnalysis();                          // daily plain-English read at the top of each tab
 })();
 
@@ -2394,9 +2400,79 @@ function renderRainTab(d) {
     </div>`;
   renderRainRead(d.reads);
   renderRainStats(d, v);
+  renderRainTowns(d.clusters || []);
   renderRainChart(d.daily || []);
   renderRainDays(d.daily || []);
   renderRainRing(d.stations || [], d.airports || {}, p);
+}
+
+function renderRainTowns(clusters) {
+  const el = document.getElementById("rainTowns");
+  if (!clusters.length) { el.hidden = true; return; }
+  const rows = clusters.map(c => `<tr>
+      <td style="text-align:left">${esc(c.town)}</td>
+      <td>${c.mi != null ? c.mi.toFixed(1) : "—"}</td>
+      <td>${esc(String(c.n))}${c.n_qual < c.n ? `<span class="em"> (${esc(String(c.n_qual))} qual.)</span>` : ""}</td>
+      <td>${c.total != null ? c.total.toFixed(2) + '"' : "—"}</td>
+      <td>${c.ratio != null ? Math.round(c.ratio * 100) + "%" : "—"}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="card-head"><h2 id="rainTowns-h">Town vs town · gauges</h2><span class="meta">since the experiment started</span></div>
+    <div class="storm-scroll"><table class="storm-tbl">
+      <thead><tr><th scope="col" style="text-align:left">Town</th><th scope="col">Miles</th><th scope="col">Gauges</th><th scope="col">Town median</th><th scope="col">House vs town</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    ${explain(`
+      <p><b>The theory stated the way it's actually felt</b> — not "vs the street over" but vs each town as a group. <b>House vs town</b> divides the house's matched-day rain by the town's typical (median) gauge: 100% = dead even, 75% = that town is out-collecting the house by a third. Only qualifying gauges (steady reporters with real rain in the sample) join a town's number; a town whose volunteers skip too many days shows "—" here — the radar table below covers every town regardless.</p>`)}`;
+  el.hidden = false;
+}
+
+/* ---- Phase 2: MRMS radar town-box climatology (gist rain_radar.json) ---- */
+const RADAR_URL = GIST_RAW + "rain_radar.json";
+
+async function fetchRainRadar() {
+  let d = null;
+  try {
+    const r = await fetch(RADAR_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (r.ok) d = await r.json();
+  } catch (e) { /* not published yet */ }
+  renderRainRadar(d);
+}
+
+function renderRainRadar(d) {
+  const el = document.getElementById("rainRadar");
+  if (!d || !d.progress) { el.hidden = true; return; }
+  const prog = d.progress;
+  const progLine = prog.complete ? "" :
+    `<p class="rq-note">⏳ History backfill in progress — <b class="num">${esc(String(prog.processed))}</b> of ${esc(String(prog.expected))} warm-season days processed (${esc(String(prog.pct))}%). Numbers firm up as the archive fills in.</p>`;
+  let headline = "", table = "", years = "";
+  const at = d.alltime;
+  if (at && at.towns) {
+    const entries = Object.entries(at.towns).sort((a, b) => b[1].total_per_season - a[1].total_per_season);
+    const med = entries.map(e => e[1].total_per_season).sort((a, b) => a - b)[Math.floor(entries.length / 2)];
+    const statham = "Statham (house)";
+    headline = `<div class="rq-status" style="margin-bottom:var(--s-3)">
+      <span class="rq-sub">Across <b>${esc(String(at.seasons))}</b> complete warm seasons, the Statham box caught <b>${esc(String(at.statham_pct))}%</b> of the region's typical rain — <b>#${esc(String(at.statham_rank_dry))} driest</b> of ${esc(String(at.n_towns))} town boxes.</span></div>`;
+    table = `<div class="storm-scroll"><table class="storm-tbl">
+      <thead><tr><th scope="col" style="text-align:left">Town box</th><th scope="col">Rain / season</th><th scope="col">Wet days</th><th scope="col">1"+ days</th><th scope="col">vs region</th></tr></thead>
+      <tbody>${entries.map(([town, t]) => `<tr${town === statham ? ' class="rq-me"' : ""}>
+        <td style="text-align:left">${esc(town)}</td>
+        <td>${t.total_per_season.toFixed(1)}"</td>
+        <td>${t.wet_per_season.toFixed(0)}</td>
+        <td>${t.heavy_per_season.toFixed(0)}</td>
+        <td>${med ? Math.round(100 * t.total_per_season / med) + "%" : "—"}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+    const ylist = (d.years || []).filter(y => y.statham_pct != null);
+    if (ylist.length) years = `<div class="rq-years">${ylist.map(y =>
+      `<span>${esc(String(y.year))}${y.partial ? "*" : ""} <b>${esc(String(y.statham_pct))}%</b></span>`).join("")}</div>
+      <p class="rq-note">Statham as % of the towns' median, per warm season · * = partial season</p>`;
+  } else {
+    table = `<p class="muted" style="font-size:var(--fs-sm)">First complete seasons are still processing — check back shortly.</p>`;
+  }
+  el.innerHTML = `<div class="card-head"><h2 id="rainRadar-h">Radar · is the Statham area a dry hole?</h2><span class="meta">NOAA MRMS 1-km · warm seasons (Apr–Oct) ${esc(d.span ? d.span.start.slice(0, 4) : "2015")}–${esc(d.span ? d.span.end.slice(0, 4) : "")}</span></div>
+    ${headline}${progLine}${table}${years}
+    ${explain(`
+      <p><b>This settles the town-vs-town question without volunteers.</b> NOAA's MRMS system blends every radar (plus rain gauges since late 2020) into a 1-km rainfall grid covering all towns identically. Each town's number is the average over a ~3-mile box centered on it, every warm-season day back to 2015 — no skipped readings, no vacation weeks, no instrument quirks favoring anyone.</p>
+      <p><b>Reading it:</b> "vs region" compares each town's per-season rain to the median town. A genuine dry hole would sit persistently below ~95% year after year AND show fewer wet days; a town bouncing between 90% and 110% by year is just weather being weather. Days before Oct 2020 are radar-only (slight low bias everywhere, which cancels out in town-vs-town comparisons). The <em>official</em> experiment verdict stays with the pre-registered gauge rule above — this table answers the longer-run climate question.</p>`)}`;
+  el.hidden = false;
 }
 
 function renderRainRead(reads) {
@@ -2525,11 +2601,12 @@ function renderRainHow(p) {
   const lockHi = Math.round((p.blessed_above || 1.2) * 100);
   document.getElementById("rainHow").innerHTML = `
     <div class="card-head"><h2 id="rainHow-h">How this experiment works</h2></div>
-    <p><b>The claim on trial:</b> this yard gets robbed of rain — storms weaken or split as they cross the property, and the totals run short of everyone nearby. It's one of the most common backyard-weather beliefs in existence, and it's almost never tested. This tab tests it.</p>
-    <p><b>The instruments:</b> the station's own rain sensor vs. every volunteer CoCoRaHS manual gauge within ${esc(String(p.ring_miles || 15))} miles (about two dozen hand-read cylinders — the gold standard for point rainfall), plus the Athens and Winder airport stations as automated reference points. Everyone is compared over the same 7 AM–7 AM "gauge day" the volunteers use.</p>
+    <p><b>The claim on trial:</b> the Statham area gets robbed of rain — storms weaken or split before they arrive, and the local totals run short of Winder, Watkinsville, Athens, and the rest of the neighbors. It's one of the most common local-weather beliefs in existence, and it's almost never tested. This tab tests it.</p>
+    <p><b>The instruments:</b> the station's own rain sensor vs. every volunteer CoCoRaHS manual gauge within ${esc(String(p.ring_miles || 15))} miles (about two dozen hand-read cylinders — the gold standard for point rainfall), grouped by town, plus the Athens and Winder airports as automated reference points. Everyone is compared over the same 7 AM–7 AM "gauge day" the volunteers use. And because volunteers skip days and some towns barely have gauges, there's a second, tie-breaking instrument: <b>NOAA MRMS radar rainfall</b> — a 1-km grid built from every radar in range — averaged over a ~3-mile box on each town, every warm-season day back to 2015.</p>
     <p><b>The score:</b> for each neighbor gauge, take the house's rain on the days that gauge actually reported and divide by the gauge's total — then take the median across all qualifying gauges. That "matched-day" trick means a gauge that skips days can never tilt the result, and using the median means one leaky funnel or one soaker-magnet hilltop can't either.</p>
     <p><b>The rule (locked in before the data could argue):</b> after ${esc(String(p.min_event_days || 20))} measurable rain days — under ${lockLo}% of the neighborhood median, the theory is <b>confirmed</b>; ${lockLo}–${lockHi}% and it's <b>busted</b> (that's just what normal rain luck feels like); over ${lockHi}% and the yard is secretly <b>blessed</b>. Pre-registering the rule matters: it's the only thing stopping anyone from moving the goalposts once the numbers start rolling in.</p>
-    <p><b>Honest caveats:</b> the Tempest's haptic sensor tends to slightly under-read heavy rain, which biases <i>against</i> busting the myth — a "confirmed" verdict sitting barely under ${lockLo}% deserves a squint. Summer thunderstorms are a spatial lottery, which is exactly why the verdict waits for a real sample instead of calling it after two storms. And this only tests <i>totals</i> — whether cells visibly weaken overhead is a separate radar question for a future phase.</p>`;
+    <p><b>Honest caveats:</b> the Tempest's haptic sensor tends to slightly under-read heavy rain, which biases <i>against</i> busting the myth — a "confirmed" verdict sitting barely under ${lockLo}% deserves a squint. Summer thunderstorms are a spatial lottery, which is exactly why the gauge verdict waits for a real sample and the radar table gets eleven seasons instead of one.</p>
+    <p><b>About that heat dome:</b> a real heat dome is a continent-scale ridge — no neighborhood has a personal one. What <i>can</i> exist at town scale: Atlanta's urban heat island genuinely reshapes where storms fire and die downwind (documented enhancement northeast of the city), land-surface differences nudge afternoon convection, and storms crossing this longitude in the evening are often dying of natural causes anyway (losing daytime heating) — which looks exactly like "they fade when they reach us." If the radar table shows a persistent Statham minimum, <i>then</i> we go mechanism-hunting. If it doesn't, the sky was never out to get anyone.</p>`;
 }
 
 /* ----- tab switching (deep-linkable via #scoreboard / #health / #storms / #storms/<id>) ----- */
