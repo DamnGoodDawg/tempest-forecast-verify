@@ -116,6 +116,8 @@ def diebold_mariano(err_a, err_b, h=1):
         gk = sum((d[i]-dbar)*(d[i-k]-dbar) for i in range(k,n))/n
         var += 2*gk
     if var <= 0: var = gamma0
+    if var <= 0:   # constant loss differential (identical forecasts) — no sampling variance
+        return {"n": n, "mean_loss_diff": round(dbar,3), "note": "zero-variance loss differential"}
     dm = dbar/math.sqrt(var/n)
     # Harvey-Leybourne-Newbold correction + Student-t reference distribution.
     adj = math.sqrt(max((n + 1 - 2*h + h*(h-1)/n) / n, 0.0))

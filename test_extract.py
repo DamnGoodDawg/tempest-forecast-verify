@@ -107,6 +107,173 @@ class TestNaNGuard(unittest.TestCase):
         json.dumps(row, allow_nan=False)   # must not raise
 
 
+def _temp_days(source, dates, high, low, actual_high, actual_low, records, actuals):
+    """Helper: append lead-1 high/low records + actuals for each date."""
+    for dte in dates:
+        records += [
+            {"date": dte, "lead": 1, "source": source, "var": "high", "value": high},
+            {"date": dte, "lead": 1, "source": source, "var": "low", "value": low},
+        ]
+        actuals[(dte, "high")] = actual_high
+        actuals[(dte, "low")] = actual_low
+
+
+class TestWindows(unittest.TestCase):
+    """v2 windowed scoring: rolling-90 carries the verdict; since-epoch + rolling-28 (trend
+    only) + all-time (context); the deliberate rolling-90 == all-time early state is labeled."""
+
+    def _fixture(self, n=35, start="2026-06-05"):
+        import datetime as dt
+        records, actuals = [], {}
+        dates = [(dt.date.fromisoformat(start) + dt.timedelta(days=i)).isoformat()
+                 for i in range(n)]
+        _temp_days("Tempest", dates, 80, 60, 82, 61, records, actuals)   # per-date loss 1.5
+        _temp_days("NWS", dates, 81, 60, 82, 61, records, actuals)       # per-date loss 1.0
+        return records, actuals, {}
+
+    def test_filter_by_dates(self):
+        records, actuals, wet = self._fixture(n=10)
+        recs, acts, _ = extract.filter_by_dates(records, actuals, wet, "2026-06-08", "2026-06-10")
+        self.assertEqual(sorted({r["date"] for r in recs}),
+                         ["2026-06-08", "2026-06-09", "2026-06-10"])
+        self.assertTrue(all("2026-06-08" <= k[0] <= "2026-06-10" for k in acts))
+
+    def test_rolling90_equals_all_time_until_divergence(self):
+        records, actuals, wet = self._fixture(n=35)
+        w = extract.build_windows(records, actuals, wet)
+        self.assertTrue(w["rolling90"]["equals_all_time"])
+        self.assertEqual(w["rolling90"]["n_days"], w["all_time"]["n_days"])
+        # diverges 90 days after the FIRST scored day
+        self.assertEqual(w["rolling90"]["diverges_after"], "2026-09-03")
+
+    def test_rolling90_diverges_past_90_days(self):
+        records, actuals, wet = self._fixture(n=100)
+        w = extract.build_windows(records, actuals, wet)
+        self.assertFalse(w["rolling90"]["equals_all_time"])
+        self.assertEqual(w["rolling90"]["n_days"], 90)
+        self.assertEqual(w["all_time"]["n_days"], 100)
+
+    def test_rolling28_is_trend_only_no_verdict(self):
+        records, actuals, wet = self._fixture(n=35)
+        w = extract.build_windows(records, actuals, wet)
+        self.assertTrue(w["rolling28"]["trend_only"])
+        self.assertNotIn("verdict", w["rolling28"])   # explicitly no verdict/p by design
+        self.assertNotIn("winners", w["rolling28"])
+        self.assertEqual(w["rolling28"]["n_days"], 28)
+
+    def test_since_epoch_window_and_too_early(self):
+        records, actuals, wet = self._fixture(n=35)   # ends 2026-07-09, before the epoch
+        w = extract.build_windows(records, actuals, wet)
+        self.assertEqual(w["since_epoch"]["epoch"], extract.EPOCH)
+        self.assertEqual(w["since_epoch"]["n_days"], 0)
+        self.assertEqual(w["since_epoch"]["verdict"]["status"], "TOO EARLY")
+
+    def test_headline_names_the_window(self):
+        records, actuals, wet = self._fixture(n=35)
+        w = extract.build_windows(records, actuals, wet)
+        self.assertIn("over the last 90 days", w["rolling90"]["verdict"]["headline"])
+        _, verdict, _, _, _, _ = extract.build(records, actuals, wet)
+        # the headline verdict IS the rolling-90 verdict
+        self.assertEqual(verdict, w["rolling90"]["verdict"])
+
+
+class TestWinnersPanel(unittest.TestCase):
+    L1 = [
+        {"source": "NWS",     "mae": 2.02, "pct_within_3f": 79, "csi": 0.41, "brier": 0.22},
+        {"source": "Tempest", "mae": 2.35, "pct_within_3f": 72, "csi": 0.60, "brier": 0.186},
+        {"source": "ECMWF",   "mae": 2.64, "pct_within_3f": 65, "csi": 0.69, "brier": 0.157},
+    ]
+
+    def test_per_variable_winners_and_rival(self):
+        w = extract.winners_panel(self.L1, "NWS")
+        self.assertEqual(w["temp"]["leader"], "NWS")
+        self.assertFalse(w["temp"]["tempest_wins_rival"])
+        # CSI: higher is better — ECMWF leads the field, Tempest beats the headline rival
+        self.assertEqual(w["precip_occurrence"]["leader"], "ECMWF")
+        self.assertTrue(w["precip_occurrence"]["tempest_wins_rival"])
+        self.assertTrue(w["pop_calibration"]["tempest_wins_rival"])
+
+    def test_missing_metric_dropped(self):
+        l1 = [{"source": "Tempest", "mae": 2.0, "pct_within_3f": 80, "csi": None, "brier": None},
+              {"source": "NWS", "mae": 2.1, "pct_within_3f": 78, "csi": None, "brier": None}]
+        w = extract.winners_panel(l1, "NWS")
+        self.assertIn("temp", w)
+        self.assertNotIn("precip_occurrence", w)
+        self.assertNotIn("pop_calibration", w)
+        json.dumps(w, allow_nan=False)
+
+
+class TestVerdictHistory(unittest.TestCase):
+    def setUp(self):
+        import tempfile, os
+        self._orig = extract.HISTORY_OUT
+        self._tmp = tempfile.mkdtemp()
+        extract.HISTORY_OUT = os.path.join(self._tmp, "verdict_history.json")
+
+    def tearDown(self):
+        import shutil
+        extract.HISTORY_OUT = self._orig
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    WIN90 = {"n_days": 62,
+             "verdict": {"status": "TEMPEST BEHIND", "best_public": "NWS", "dm_p_value": 0.02},
+             "standings_lead1": [{"source": "NWS", "mae": 2.02},
+                                 {"source": "Tempest", "mae": 2.35}]}
+
+    def test_appends_one_row_per_day_idempotent(self):
+        rows = extract.update_verdict_history(self.WIN90)
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        self.assertEqual((r["window_n"], r["tempest_mae"], r["best_public"], r["best_mae"],
+                          r["dm_p"], r["status"]),
+                         (62, 2.35, "NWS", 2.02, 0.02, "TEMPEST BEHIND"))
+        # same-day re-run overwrites its own row, never duplicates
+        rows = extract.update_verdict_history(self.WIN90)
+        self.assertEqual(len(rows), 1)
+        persisted = json.load(open(extract.HISTORY_OUT))
+        self.assertEqual(len(persisted), 1)
+
+    def test_empty_window_no_row(self):
+        self.assertEqual(extract.update_verdict_history({}), [])
+        self.assertEqual(extract.update_verdict_history(None), [])
+
+
+class TestNbmTwin(unittest.TestCase):
+    def _recs(self, pairs):
+        """pairs: list of (date, tempest_err, nbm_err) with actual high fixed at 90."""
+        records, actuals = [], {}
+        for dte, te, ne in pairs:
+            records.append({"date": dte, "lead": 1, "source": "Tempest", "var": "high",
+                            "value": 90 + te})
+            records.append({"date": dte, "lead": 1, "source": "NBM", "var": "high",
+                            "value": 90 + ne})
+            actuals[(dte, "high")] = 90
+        return records, actuals
+
+    def test_lockstep_errors_give_r_1(self):
+        pairs = [(f"2026-07-{i+1:02d}", e, e) for i, e in enumerate([-3, -1, 0, 2, -2, 1])]
+        records, actuals = self._recs(pairs)
+        t = extract.nbm_twin(records, actuals)
+        self.assertEqual(t["n_days"], 6)
+        self.assertAlmostEqual(t["r_all_time"], 1.0)
+        self.assertAlmostEqual(t["bias_all_time"]["tempest"], t["bias_all_time"]["nbm"])
+        self.assertTrue(t["weekly"])
+        json.dumps(t, allow_nan=False)
+
+    def test_bias_series_signed_not_absolute(self):
+        pairs = [("2026-07-06", -2, -3), ("2026-07-07", -2, -3), ("2026-07-08", -2, -3)]
+        records, actuals = self._recs(pairs)
+        t = extract.nbm_twin(records, actuals)
+        self.assertAlmostEqual(t["bias_all_time"]["tempest"], -2.0)
+        self.assertAlmostEqual(t["bias_all_time"]["nbm"], -3.0)
+        # constant errors -> correlation undefined -> clean None, never NaN
+        self.assertIsNone(t["r_all_time"])
+
+    def test_too_few_days_returns_none(self):
+        records, actuals = self._recs([("2026-07-06", 1, 1)])
+        self.assertIsNone(extract.nbm_twin(records, actuals))
+
+
 class TestDieboldMariano(unittest.TestCase):
     def test_per_date_collapse(self):
         records = []

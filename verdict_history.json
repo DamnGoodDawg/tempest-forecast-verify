@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-08-08",
+    "window_n": 62,
+    "tempest_mae": 2.35,
+    "best_public": "NWS",
+    "best_mae": 2.02,
+    "dm_p": 0.0198,
+    "status": "TEMPEST BEHIND"
+  }
+]

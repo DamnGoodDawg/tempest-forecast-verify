@@ -17,7 +17,7 @@ TOO EARLY, and any source/section with no data is simply omitted. This script mu
 NEVER crash the daily run -- on any unexpected error it still writes a minimal,
 valid TOO EARLY scores.json and exits 0.
 """
-import json, os, sys, glob, csv, io, datetime as dt
+import json, os, sys, glob, csv, io, math, datetime as dt
 from collections import defaultdict
 from zoneinfo import ZoneInfo
 
@@ -26,10 +26,20 @@ import verify
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, "data")
 OUT = os.path.join(BASE, "scores.json")
+HISTORY_OUT = os.path.join(BASE, "verdict_history.json")
 NY = ZoneInfo("America/New_York")
 
 INSTALL_DATE = "2026-05-31"
 MILESTONES = {"window_opens": "2026-08-01", "five_month": "2026-10-31", "claim_deadline": "2027-01-25"}
+# Dashboard v2 windows (2026-08-08 design): rolling-90 carries the verdict (the guarantee's own
+# "3-month period immediately preceding your request" claim window); EPOCH = 2026-08-01, when
+# WeatherFlow's claimed post-60-day forecast advantage opened — every earlier day is warm-up by
+# their own framing; rolling-28 is TREND ONLY (weekly MAE swings ~4x the gap under test, so a
+# 28-day verdict would flicker on noise — explicitly no verdict/p-value); all-time is demoted
+# to context. Windows are calendar-day spans anchored to the latest SCORED date, not wall clock.
+EPOCH = "2026-08-01"
+ROLL90, ROLL28 = 90, 28
+VERDICT_HISTORY_EMBED = 180   # most recent history rows embedded in scores.json
 LEADS = [1, 2, 3]
 MIN_VERDICT_N = 30          # README: DM verdicts once cumulative n >= 30 (definitive at 90)
 WET = 0.01                  # inches; matches NWS PoP definition
@@ -354,15 +364,28 @@ def standings_for(records, actuals, wet, leads):
     return rows
 
 
-# ---------------------------------------------------------------- assemble
-def build(records, actuals, wet):
-    standings = {f"lead{L}": standings_for(records, actuals, wet, L) for L in LEADS}
-    standings["blend"] = standings_for(records, actuals, wet, LEADS)
+# ---------------------------------------------------------------- windows (v2)
+def scored_dates(records, actuals):
+    """Sorted lead-1 target dates with a scored temp actual (the verdict's date universe)."""
+    return sorted({r["date"] for r in records
+                   if r["lead"] == 1 and r["var"] in ("high", "low")
+                   and (r["date"], r["var"]) in actuals})
 
-    # verdict from lead1 MAE + Diebold-Mariano (Tempest vs best public)
-    l1 = standings["lead1"]
-    _, t_dates = temp_errors(records, actuals, "Tempest", 1)
-    n_days = len(t_dates)
+
+def filter_by_dates(records, actuals, wet, lo, hi):
+    """Restrict the scoring inputs to target dates lo <= date <= hi (ISO; None = unbounded)."""
+    def in_win(ds):
+        return (lo is None or ds >= lo) and (hi is None or ds <= hi)
+    recs = [r for r in records if in_win(r["date"])]
+    acts = {k: v for k, v in actuals.items() if in_win(k[0])}
+    w = {ds: v for ds, v in wet.items() if in_win(ds)}
+    return recs, acts, w
+
+
+def temp_verdict(records, actuals, l1, n_days, window_phrase="so far"):
+    """Lead-1 temp verdict: MAE ranking + paired Diebold-Mariano (Tempest vs best public).
+    `window_phrase` names the window being judged — v2 design: headline copy must say which
+    window it speaks for, never an unlabeled pooled average."""
     tempest = next((r for r in l1 if r["source"] == "Tempest"), None)
     publics = [r for r in l1 if r["source"] != "Tempest"]
     best = publics[0] if publics else None   # l1 already sorted by mae
@@ -387,12 +410,192 @@ def build(records, actuals, wet):
             verdict["status"] = "TIED"
         verb = {"TEMPEST AHEAD": "ahead of", "TEMPEST BEHIND": "behind", "TIED": "statistically tied with"}[verdict["status"]]
         verdict["headline"] = (f"Tempest is within 3°F on {tempest['pct_within_3f']}% of days vs "
-                               f"{best['source']}'s {best['pct_within_3f']}% — {verb} the best public forecast so far.")
+                               f"{best['source']}'s {best['pct_within_3f']}% — {verb} the best public forecast {window_phrase}.")
     else:
         need = max(0, MIN_VERDICT_N - n_days)
-        verdict["headline"] = (f"Only {n_days} scored day{'s' if n_days != 1 else ''} so far — "
+        verdict["headline"] = (f"Only {n_days} scored day{'s' if n_days != 1 else ''} {window_phrase} — "
                                f"need ~{need} more for a first verdict (90 for a definitive one). "
                                f"Capture is running; check back as data accrues.")
+    return verdict
+
+
+def winners_panel(l1, best_public):
+    """Dual verdict, per-variable winners (equal weight, NO composite — weighting is arguable
+    and weakens a claim). For each metric: the field `leader` across every source, plus the
+    Tempest-vs-`rival` comparison, where rival = the headline verdict's best public (the
+    forecast the claim is actually judged against). Facts only — both are shown."""
+    def entry(metric, better_high, extras=()):
+        have = [r for r in l1 if r.get(metric) is not None]
+        if not have:
+            return None
+        lead = max(have, key=lambda r: r[metric]) if better_high else min(have, key=lambda r: r[metric])
+        t = next((r for r in l1 if r["source"] == "Tempest"), None)
+        rv = next((r for r in l1 if r["source"] == best_public), None)
+        tv = t.get(metric) if t else None
+        rvv = rv.get(metric) if rv else None
+        e = {"metric": metric, "better": "high" if better_high else "low",
+             "leader": lead["source"], "leader_value": lead[metric],
+             "tempest": tv, "rival": best_public, "rival_value": rvv}
+        if tv is not None and rvv is not None:
+            e["tempest_wins_rival"] = (tv > rvv) if better_high else (tv < rvv)
+        for x in extras:
+            e["tempest_" + x] = t.get(x) if t else None
+            e["rival_" + x] = rv.get(x) if rv else None
+        return e
+    out = {"temp": entry("mae", False, extras=("pct_within_3f",)),
+           "precip_occurrence": entry("csi", True),
+           "pop_calibration": entry("brier", False)}
+    return {k: v for k, v in out.items() if v}
+
+
+def window_block(records, actuals, wet, lo, hi, key, label, with_verdict=True,
+                 verdict_phrase="so far"):
+    """Score one date window into a self-describing block. rolling28 passes
+    with_verdict=False BY DESIGN — trend display only, no verdict, no p-value."""
+    recs, acts, w = filter_by_dates(records, actuals, wet, lo, hi)
+    l1 = standings_for(recs, acts, w, 1)
+    win_dates = scored_dates(recs, acts)
+    block = {"key": key, "label": label,
+             "start": win_dates[0] if win_dates else lo,
+             "end": win_dates[-1] if win_dates else hi,
+             "n_days": len(win_dates), "standings_lead1": l1}
+    if with_verdict:
+        block["verdict"] = temp_verdict(recs, acts, l1, len(win_dates), verdict_phrase)
+        block["winners"] = winners_panel(l1, block["verdict"]["best_public"])
+    return block
+
+
+def build_windows(records, actuals, wet):
+    """The v2 `windows` block. All spans are calendar days ending at the latest scored date."""
+    dates = scored_dates(records, actuals)
+    if not dates:
+        return {}
+    first, hi = dates[0], dates[-1]
+    r90_lo = (d(hi) - dt.timedelta(days=ROLL90 - 1)).isoformat()
+    r28_lo = (d(hi) - dt.timedelta(days=ROLL28 - 1)).isoformat()
+    windows = {
+        "rolling90": window_block(records, actuals, wet, r90_lo, hi, "rolling90",
+                                  "Rolling 90 days", verdict_phrase="over the last 90 days"),
+        "since_epoch": window_block(records, actuals, wet, EPOCH, hi, "since_epoch",
+                                    "Since Aug 1 · advantage window",
+                                    verdict_phrase="since the advantage window opened Aug 1"),
+        "rolling28": window_block(records, actuals, wet, r28_lo, hi, "rolling28",
+                                  "Last 28 days · trend only", with_verdict=False),
+        "all_time": window_block(records, actuals, wet, None, hi, "all_time",
+                                 "All-time · context", verdict_phrase="over all scored days"),
+    }
+    windows["since_epoch"]["epoch"] = EPOCH
+    windows["rolling28"]["trend_only"] = True
+    # Deliberate early state (labeled, so it can't render like a bug): until the first scored
+    # day ages out of the 90-day span, rolling-90 IS all-time. The dashboard shows the honest
+    # "currently identical to all-time" note and the date the windows start to diverge.
+    windows["rolling90"]["equals_all_time"] = (
+        windows["rolling90"]["n_days"] == windows["all_time"]["n_days"])
+    windows["rolling90"]["diverges_after"] = (d(first) + dt.timedelta(days=ROLL90)).isoformat()
+    return windows
+
+
+def _pearson(xs, ys):
+    n = len(xs)
+    if n < 3:
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sx = math.sqrt(sum((x - mx) ** 2 for x in xs))
+    sy = math.sqrt(sum((y - my) ** 2 for y in ys))
+    if sx == 0 or sy == 0:
+        return None
+    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
+
+
+def nbm_twin(records, actuals):
+    """Facts-only NBM-twin panel: is Tempest's HIGH forecast just NBM wearing a hat?
+    Paired lead-1 signed high errors: correlation (all-time + last 28 days) and the two
+    weekly bias series. If WeatherFlow's assimilation ever kicks in, this is where it
+    becomes visible — Tempest's bias line decouples from NBM's. No editorial."""
+    errs = {}
+    for src in ("Tempest", "NBM"):
+        errs[src] = {r["date"]: r["value"] - actuals[(r["date"], "high")]
+                     for r in records
+                     if r["source"] == src and r["lead"] == 1 and r["var"] == "high"
+                     and (r["date"], "high") in actuals}
+    common = sorted(set(errs["Tempest"]) & set(errs["NBM"]))
+    if len(common) < 3:
+        return None
+    te = [errs["Tempest"][k] for k in common]
+    ne = [errs["NBM"][k] for k in common]
+    r28_lo = (d(common[-1]) - dt.timedelta(days=ROLL28 - 1)).isoformat()
+    c28 = [k for k in common if k >= r28_lo]
+    weekly = defaultdict(lambda: {"Tempest": [], "NBM": []})
+    for k in common:
+        weekly[monday_of(k)]["Tempest"].append(errs["Tempest"][k])
+        weekly[monday_of(k)]["NBM"].append(errs["NBM"][k])
+    series = [{"week": wk,
+               "tempest_bias": round(mean_of(v["Tempest"]), 2),
+               "nbm_bias": round(mean_of(v["NBM"]), 2)}
+              for wk, v in sorted(weekly.items())]
+    return {
+        "n_days": len(common),
+        "r_all_time": _finite(_pearson(te, ne), 2),
+        "r_28d": _finite(_pearson([errs["Tempest"][k] for k in c28],
+                                  [errs["NBM"][k] for k in c28]), 2) if len(c28) >= 3 else None,
+        "bias_all_time": {"tempest": round(mean_of(te), 2), "nbm": round(mean_of(ne), 2)},
+        "bias_28d": ({"tempest": round(mean_of([errs["Tempest"][k] for k in c28]), 2),
+                      "nbm": round(mean_of([errs["NBM"][k] for k in c28]), 2)}
+                     if c28 else None),
+        "weekly": series,
+    }
+
+
+def mean_of(xs):
+    return sum(xs) / len(xs)
+
+
+def update_verdict_history(win90):
+    """Append today's rolling-90 verdict row to verdict_history.json (committed by the
+    workflow = the durable evidence record) and return the recent rows for embedding.
+    One row per calendar day; a same-day re-run overwrites its own row (idempotent), so a
+    filing date can be chosen against STABILITY, not one good morning."""
+    if not win90:
+        return []
+    hist = load(HISTORY_OUT)
+    if not isinstance(hist, list):
+        hist = []
+    v = win90.get("verdict") or {}
+    l1 = win90.get("standings_lead1") or []
+    t = next((r for r in l1 if r["source"] == "Tempest"), None)
+    best = next((r for r in l1 if r["source"] == v.get("best_public")), None)
+    today = dt.datetime.now(NY).date().isoformat()
+    row = {"date": today,
+           "window_n": win90.get("n_days"),
+           "tempest_mae": t["mae"] if t else None,
+           "best_public": v.get("best_public"),
+           "best_mae": best["mae"] if best else None,
+           "dm_p": v.get("dm_p_value"),
+           "status": v.get("status")}
+    hist = [h for h in hist if isinstance(h, dict) and h.get("date") != today] + [row]
+    hist.sort(key=lambda h: h.get("date", ""))
+    try:
+        with open(HISTORY_OUT, "w") as f:
+            f.write(json.dumps(hist, indent=2, allow_nan=False))
+    except Exception as e:                                 # noqa: BLE001 — history is additive,
+        print(f"[warn] verdict history write failed (non-fatal): {e}", file=sys.stderr)
+    return hist[-VERDICT_HISTORY_EMBED:]
+
+
+# ---------------------------------------------------------------- assemble
+def build(records, actuals, wet):
+    standings = {f"lead{L}": standings_for(records, actuals, wet, L) for L in LEADS}
+    standings["blend"] = standings_for(records, actuals, wet, LEADS)
+
+    l1 = standings["lead1"]
+    _, t_dates = temp_errors(records, actuals, "Tempest", 1)
+    n_days = len(t_dates)
+
+    # v2: the windows block; ROLLING-90 CARRIES THE HEADLINE VERDICT (it is the guarantee's
+    # own claim window). The pooled all-time verdict lives on in windows.all_time as context.
+    windows = build_windows(records, actuals, wet)
+    verdict = ((windows.get("rolling90") or {}).get("verdict")
+               or temp_verdict(records, actuals, l1, n_days))
 
     # weekly MAE trend per provider at lead1
     trend = {}
@@ -422,7 +625,7 @@ def build(records, actuals, wet):
     cand.sort(key=lambda x: -x[0])
     busts = [c[1] for c in cand[:3] if c[0] >= 3]   # only list genuine misses (>=3 F off)
 
-    return standings, verdict, trend_rows, busts, n_days
+    return standings, verdict, trend_rows, busts, n_days, windows
 
 
 def data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds):
@@ -508,6 +711,7 @@ def empty_scores(note=""):
                     "n_days": 0, "dm_p_value": None, "best_public": None},
         "standings": {"lead1": [], "lead2": [], "lead3": [], "blend": []},
         "trend": [], "busts": [], "rain_compare": [],
+        "windows": {}, "verdict_history": [], "nbm_twin": None,
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
                         "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
                         "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
@@ -600,12 +804,16 @@ def main():
             "flag": flag,
         })
 
-    standings, verdict, trend, busts, n_days = build(records, actuals, wet)
+    standings, verdict, trend, busts, n_days, windows = build(records, actuals, wet)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "install_date": INSTALL_DATE, "milestones": MILESTONES,
         "verdict": verdict, "standings": standings, "trend": trend, "busts": busts,
         "rain_compare": rain_compare,
+        # v2 additive keys (never-break: the pre-v2 dashboard ignores them cleanly)
+        "windows": windows,
+        "verdict_history": update_verdict_history(windows.get("rolling90")),
+        "nbm_twin": nbm_twin(records, actuals),
         "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
     # A3: serialize to a string with allow_nan=False FIRST, so a stray NaN/inf raises
