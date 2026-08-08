@@ -83,6 +83,27 @@ VARS = [
 ]
 WIND_ANCHORS = ["KAHN", "WATUGA"]   # only wind-capable anchors (KWDR has no wind group)
 
+# Daily-HIGH truth check (dashboard v2, 2026-08-08 design item 5). The scoreboard's ground
+# truth is the station's own daily MAX temp; a passive radiation shield's classic failure
+# regime is STRONG SUN + LIGHT WIND. If the station's highs read hot vs the two aspirated
+# airport sensors on calm-sunny days but agree on windy days, that split is consistent with
+# shield over-read — which would inflate "actual" highs and manufacture forecast cold bias
+# by construction. ANNOTATE-ONLY, flag-never-override: no days excluded, no scores changed.
+HIGH_ANCHOR_IDS = ["KAHN", "KWDR"]  # aspirated airport anchors only (WATUGA excluded)
+# Calm/windy are terciles of the STATION'S OWN daily-mean-wind distribution, not fixed mph:
+# fence-post siting reads far below the 33-ft towers (observed daily means 1-4 mph), so any
+# absolute threshold would put every day in one bucket and the split could never report.
+HIGH_CALM_PCT = 33                  # daily mean wind at/below this percentile -> calm
+HIGH_WINDY_PCT = 67                 # at/above this percentile -> windy control (between = excluded)
+HIGH_MIN_WIND_SPREAD = 0.2          # mph between the two cuts, else the split is meaningless
+HIGH_SUNNY_WM2 = 700.0              # daily peak solar at/above this -> strong-sun day
+HIGH_MIN_SPLIT_DAYS = 5             # each regime needs this many days before the split reports
+HIGH_SPLIT_NOTE_F = 1.0             # calm-sunny minus windy gap (°F) that earns the annotation
+# temp_max needs real midday coverage — a partial (evening-only) METAR day would report a
+# false "daily high". Require a healthy obs count AND at least one ob in the max-heat window.
+HIGH_METAR_MIN_OBS = 12
+HIGH_METAR_MIDDAY = (11, 18)        # local hours; the true max virtually always falls here
+
 STATE = {"LEARNING": 0, "OK": 1, "WATCH": 2, "FLAG": 3}
 STATE_NAME = {v: k for k, v in STATE.items()}
 
@@ -151,13 +172,16 @@ def cell(row, i):
 
 
 # ----------------------------------------------------------------- Tempest daily aggregates
-# obs_st positional array (METRIC): 2=wind avg m/s, 6=station pressure mb, 7=air temp C, 8=RH %.
-OBS_WIND, OBS_PRES, OBS_TEMP, OBS_RH = 2, 6, 7, 8
+# obs_st positional array (METRIC): 2=wind avg m/s, 6=station pressure mb, 7=air temp C,
+# 8=RH %, 11=solar radiation W/m².
+OBS_WIND, OBS_PRES, OBS_TEMP, OBS_RH, OBS_SOLAR = 2, 6, 7, 8, 11
 MS_TO_MPH = 2.2369362921
 
 def tempest_daily(device_json):
     """Per-minute device obs (obs_st) -> one day's {var: aggregate} keyed by for_date.
-    temp = daily MEAN °F; rh = mean %; wind = mean mph; pressure = mean sea-level mb."""
+    temp = daily MEAN °F; rh = mean %; wind = mean mph; pressure = mean sea-level mb.
+    Also carries `high` (daily MAX °F) + `solar_max` (peak W/m²) for the daily-HIGH truth
+    check — those keys never enter the offset/flag machinery (it iterates a fixed var list)."""
     if not device_json:
         return None, None
     date = device_json.get("for_date")
@@ -167,6 +191,7 @@ def tempest_daily(device_json):
     temps_f = [c_to_f(t) for t in (cell(r, OBS_TEMP) for r in obs) if isinstance(t, (int, float))]
     rhs = [r for r in (cell(o, OBS_RH) for o in obs) if isinstance(r, (int, float))]
     winds = [w * MS_TO_MPH for w in (cell(r, OBS_WIND) for r in obs) if isinstance(w, (int, float))]
+    solars = [s for s in (cell(r, OBS_SOLAR) for r in obs) if isinstance(s, (int, float))]
     slps = []
     for r in obs:
         slp = station_to_slp(cell(r, OBS_PRES), cell(r, OBS_TEMP))
@@ -175,10 +200,13 @@ def tempest_daily(device_json):
     agg = {}
     if temps_f:
         agg["temp"] = mean(temps_f)
+        agg["high"] = max(temps_f)
     if rhs:
         agg["rh"] = mean(rhs)
     if winds:
         agg["wind"] = mean(winds)
+    if solars:
+        agg["solar_max"] = max(solars)
     if slps:
         agg["pressure"] = mean(slps)
     return date, (agg or None)
@@ -273,12 +301,14 @@ def metar_daily(metar_json):
         if ts is None:
             continue
         try:
-            day = dt.datetime.fromtimestamp(int(ts), NY).date().isoformat()
+            local = dt.datetime.fromtimestamp(int(ts), NY)
+            day = local.date().isoformat()
         except Exception:
             continue
         t, td = o.get("temp"), o.get("dewp")
         if isinstance(t, (int, float)):
             out[sid][day]["temp"].append(c_to_f(t))
+            out[sid][day]["temp_t"].append((local.hour, c_to_f(t)))   # hour-tagged, for temp_max
         rh = rh_from_t_td(t, td)
         if rh is not None:
             out[sid][day]["rh"].append(rh)
@@ -295,8 +325,14 @@ def metar_daily(metar_json):
         for day, vmap in days.items():
             agg = {}
             for var, vals in vmap.items():
-                if len(vals) >= 4:
+                if var != "temp_t" and len(vals) >= 4:
                     agg[var] = mean(vals)
+            # daily MAX temp (HIGH truth check): only from a day with real midday coverage —
+            # a partial evening-only day (missed capture) would report a false "high".
+            tt = vmap.get("temp_t", [])
+            if (len(tt) >= HIGH_METAR_MIN_OBS
+                    and any(HIGH_METAR_MIDDAY[0] <= h <= HIGH_METAR_MIDDAY[1] for h, _ in tt)):
+                agg["temp_max"] = max(v for _, v in tt)
             if agg:
                 daily[sid][day] = agg
     return daily
@@ -487,6 +523,86 @@ def weekly_trend(offsets_by_anchor, capable, ref_date, weeks=12):
     return rows
 
 
+# ----------------------------------------------------------------- daily-HIGH truth check
+def _high_regime(tagg, calm_cut, windy_cut):
+    """Classify a Tempest day: 'calm_sunny' (the shield's failure regime), 'windy' (control),
+    or None (in-between / unclassifiable — excluded from the split for a clean contrast).
+    The cuts are terciles of the station's own daily-mean-wind distribution."""
+    wind = tagg.get("wind")
+    if wind is None:
+        return None
+    if wind >= windy_cut:
+        return "windy"
+    solar = tagg.get("solar_max")
+    if wind <= calm_cut and solar is not None and solar >= HIGH_SUNNY_WM2:
+        return "calm_sunny"
+    return None
+
+
+def high_truth_check(tempest, anchors):
+    """Station daily HIGH vs the aspirated airport anchors' daily highs, split calm-sunny vs
+    windy. Returns the health.json `high_check` block (annotate-only — this NEVER touches the
+    variable states, the flag log, or the scoreboard numbers), or None with no paired days."""
+    winds = sorted(a["wind"] for a in tempest.values() if isinstance(a.get("wind"), (int, float)))
+    calm_cut = percentile(winds, HIGH_CALM_PCT)
+    windy_cut = percentile(winds, HIGH_WINDY_PCT)
+    spread_ok = (calm_cut is not None and windy_cut is not None
+                 and (windy_cut - calm_cut) >= HIGH_MIN_WIND_SPREAD)
+    per_anchor = {}
+    deltas = []
+    n_days = 0
+    for sid in HIGH_ANCHOR_IDS:
+        days = anchors.get(sid, {})
+        offs, cs, wd = [], [], []
+        for date, tagg in tempest.items():
+            aagg = days.get(date)
+            if not aagg or "high" not in tagg or "temp_max" not in aagg:
+                continue
+            off = tagg["high"] - aagg["temp_max"]
+            offs.append(off)
+            regime = _high_regime(tagg, calm_cut, windy_cut) if spread_ok else None
+            if regime == "calm_sunny":
+                cs.append(off)
+            elif regime == "windy":
+                wd.append(off)
+        if not offs:
+            continue
+        a = {"n": len(offs), "all": round(mean(offs), 2),
+             "n_calm_sunny": len(cs), "n_windy": len(wd),
+             "calm_sunny": round(mean(cs), 2) if len(cs) >= HIGH_MIN_SPLIT_DAYS else None,
+             "windy": round(mean(wd), 2) if len(wd) >= HIGH_MIN_SPLIT_DAYS else None}
+        if a["calm_sunny"] is not None and a["windy"] is not None:
+            a["split_delta"] = round(a["calm_sunny"] - a["windy"], 2)
+            deltas.append(a["split_delta"])
+        per_anchor[sid] = a
+        n_days = max(n_days, len(offs))
+    if not per_anchor:
+        return None
+    split_delta = round(mean(deltas), 2) if deltas else None
+    suspect = None if split_delta is None else (split_delta >= HIGH_SPLIT_NOTE_F)
+    if not spread_ok:
+        note = ("The station's day-to-day wind spread is too narrow to separate calm from "
+                "windy days yet — the split reports once the distribution widens.")
+    elif split_delta is None:
+        note = ("Building the calm-sunny vs windy sample — the split reports once each regime "
+                "has at least %d paired days per anchor." % HIGH_MIN_SPLIT_DAYS)
+    elif suspect:
+        note = ("Calm-sunny highs read %+.1f°F further above the aspirated airport highs than "
+                "windy days do — a pattern consistent with radiation-shield over-read on hot, "
+                "still afternoons. Annotate-only: no days are excluded, no scores are changed."
+                % split_delta)
+    else:
+        note = ("Daily highs track the aspirated airport highs about the same on calm-sunny "
+                "and windy days (split %+.1f°F) — no radiation-shield signature." % split_delta)
+    return {"n_days": n_days, "anchors": per_anchor, "split_delta": split_delta,
+            "suspect": suspect, "note": note,
+            "thresholds": {"calm_at_or_below_mph": round(calm_cut, 2) if calm_cut is not None else None,
+                           "windy_at_or_above_mph": round(windy_cut, 2) if windy_cut is not None else None,
+                           "calm_pct": HIGH_CALM_PCT, "windy_pct": HIGH_WINDY_PCT,
+                           "sunny_wm2": HIGH_SUNNY_WM2, "min_days": HIGH_MIN_SPLIT_DAYS,
+                           "note_split_f": HIGH_SPLIT_NOTE_F}}
+
+
 # ----------------------------------------------------------------- flag log + email
 def load_state():
     s = load(STATE_FILE) or {}
@@ -553,7 +669,7 @@ def minimal_health(note=""):
         "anchors": [{"id": a["id"], "name": a["name"], "type": a["type"], "place": a["place"],
                      "dir": a["dir"], "miles": a["miles"], "elev_ft": a["elev_ft"],
                      "reporting": False, "variables": a["vars"]} for a in ANCHORS],
-        "variables": [], "flags": [], "scoreboard_annotations": [],
+        "variables": [], "high_check": None, "flags": [], "scoreboard_annotations": [],
     }
 
 
@@ -577,19 +693,31 @@ def main():
     tempest = {}
     anchors = defaultdict(dict)
     reporting = {sid: False for sid in ANCHOR_IDS}
+    # METAR obs are pooled ACROSS captures (deduped by station+obsTime) and aggregated once.
+    # The old per-capture aggregate-then-overwrite meant the D+2 capture's evening-only slice
+    # of day D clobbered the D+1 capture's full-day aggregate — every anchor daily mean was
+    # quietly evening-biased, and a daily MAX from such a slice would be flatly wrong.
+    metar_rows, metar_seen = [], set()
     for dd in day_dirs:
         date, agg = tempest_daily(load(os.path.join(dd, "tempest_device_yesterday.json")))
         if date and agg:
             tempest[date] = agg
-        md = metar_daily(load(os.path.join(dd, "anchors_metar.json")))
-        for sid, days in md.items():
-            anchors[sid].update(days)
-            if days:
-                reporting[sid] = True
+        mj = load(os.path.join(dd, "anchors_metar.json"))
+        for o in (mj or {}).get("data") or []:
+            if not isinstance(o, dict):
+                continue
+            key = (o.get("icaoId"), o.get("obsTime"))
+            if key[0] in METAR_IDS and key[1] is not None and key not in metar_seen:
+                metar_seen.add(key)
+                metar_rows.append(o)
         wd = watuga_daily(load(os.path.join(dd, "watuga.html")), date)
         if wd:
             anchors["WATUGA"].update(wd)
             reporting["WATUGA"] = True
+    for sid, days in metar_daily({"data": metar_rows}).items():
+        anchors[sid].update(days)
+        if days:
+            reporting[sid] = True
     for bf in sorted(glob.glob(os.path.join(BASE, "backfill", "*.json"))):
         date, agg = tempest_daily(load(bf))
         if date and agg:
@@ -691,6 +819,8 @@ def main():
                      "dir": a["dir"], "miles": a["miles"], "elev_ft": a["elev_ft"],
                      "reporting": bool(reporting[a["id"]]), "variables": a["vars"]} for a in ANCHORS],
         "variables": [_clean_var(v) for v in variables],
+        # v2: daily-HIGH truth check (annotate-only; additive key, old dashboards ignore it)
+        "high_check": high_truth_check(tempest, anchors),
         "flags": flags,
         "scoreboard_annotations": annotations,
     }

@@ -137,6 +137,118 @@ class TestMetar(unittest.TestCase):
         self.assertFalse(out.get("KAHN"))   # <4 obs -> no aggregate
 
 
+class TestHighTruthCheck(unittest.TestCase):
+    """v2 daily-HIGH truth check: calm-sunny vs windy split vs the airport anchors.
+    Annotate-only — it must never touch the offset/flag machinery."""
+
+    def _tempest(self, dates, high, wind, solar):
+        return {dt_: {"temp": high - 8, "high": high, "wind": wind, "solar_max": solar}
+                for dt_ in dates}
+
+    def _days(self, n, start="2026-07-01"):
+        return [(dt.date.fromisoformat(start) + dt.timedelta(days=i)).isoformat()
+                for i in range(n)]
+
+    def test_regime_classification(self):
+        # cuts come from the station's own wind terciles (fence-post siting -> low absolute mph)
+        self.assertEqual(health._high_regime({"wind": 1.4, "solar_max": 900}, 1.5, 2.5), "calm_sunny")
+        self.assertEqual(health._high_regime({"wind": 3.0, "solar_max": 900}, 1.5, 2.5), "windy")
+        self.assertIsNone(health._high_regime({"wind": 2.0, "solar_max": 900}, 1.5, 2.5))  # between
+        self.assertIsNone(health._high_regime({"wind": 1.0, "solar_max": 300}, 1.5, 2.5))  # calm, dim
+        self.assertIsNone(health._high_regime({"wind": None}, 1.5, 2.5))
+        self.assertIsNone(health._high_regime({"wind": 1.0}, 1.5, 2.5))                    # no solar
+
+    def test_split_detected_when_calm_sunny_reads_hot(self):
+        cs_days, wd_days = self._days(6), self._days(6, "2026-07-10")
+        tempest = {}
+        tempest.update(self._tempest(cs_days, 95.0, 1.5, 900))   # calm-sunny: reads +3 vs anchor
+        tempest.update(self._tempest(wd_days, 92.0, 3.5, 900))   # windy: reads even
+        anchors = {"KAHN": {d_: {"temp_max": 92.0} for d_ in cs_days + wd_days}}
+        hc = health.high_truth_check(tempest, anchors)
+        a = hc["anchors"]["KAHN"]
+        self.assertAlmostEqual(a["calm_sunny"], 3.0)
+        self.assertAlmostEqual(a["windy"], 0.0)
+        self.assertAlmostEqual(hc["split_delta"], 3.0)
+        self.assertTrue(hc["suspect"])
+        self.assertIn("radiation-shield", hc["note"])
+
+    def test_no_split_reads_clean(self):
+        cs_days, wd_days = self._days(6), self._days(6, "2026-07-10")
+        tempest = {}
+        tempest.update(self._tempest(cs_days, 92.5, 1.5, 900))
+        tempest.update(self._tempest(wd_days, 92.5, 3.5, 900))
+        anchors = {"KWDR": {d_: {"temp_max": 92.0} for d_ in cs_days + wd_days}}
+        hc = health.high_truth_check(tempest, anchors)
+        self.assertFalse(hc["suspect"])
+        self.assertAlmostEqual(hc["split_delta"], 0.0)
+
+    def test_thin_regimes_report_building(self):
+        # wind spread exists (terciles separate) but only 3 calm-sunny days -> no split yet
+        days = self._days(3) + self._days(3, "2026-07-10")
+        tempest = {}
+        tempest.update(self._tempest(self._days(3), 95.0, 1.5, 900))
+        tempest.update(self._tempest(self._days(3, "2026-07-10"), 93.0, 3.5, 900))
+        anchors = {"KAHN": {d_: {"temp_max": 92.0} for d_ in days}}
+        hc = health.high_truth_check(tempest, anchors)
+        self.assertIsNone(hc["split_delta"])
+        self.assertIsNone(hc["suspect"])
+        self.assertIsNone(hc["anchors"]["KAHN"]["calm_sunny"])
+        self.assertIn("Building", hc["note"])
+
+    def test_degenerate_wind_spread_reports_honestly(self):
+        days = self._days(8)
+        tempest = self._tempest(days, 95.0, 2.0, 900)   # every day identical wind
+        anchors = {"KAHN": {d_: {"temp_max": 92.0} for d_ in days}}
+        hc = health.high_truth_check(tempest, anchors)
+        self.assertIsNone(hc["split_delta"])
+        self.assertIn("too narrow", hc["note"])
+
+    def test_no_paired_days_returns_none(self):
+        self.assertIsNone(health.high_truth_check({}, {}))
+        # anchor days without temp_max (e.g. the backfill) contribute nothing
+        tempest = self._tempest(self._days(3), 95.0, 2.0, 900)
+        anchors = {"KAHN": {d_: {"temp": 90.0} for d_ in self._days(3)}}
+        self.assertIsNone(health.high_truth_check(tempest, anchors))
+
+    def test_watuga_never_consulted(self):
+        days = self._days(6)
+        tempest = self._tempest(days, 95.0, 2.0, 900)
+        anchors = {"WATUGA": {d_: {"temp_max": 90.0} for d_ in days}}
+        self.assertIsNone(health.high_truth_check(tempest, anchors))   # airports only
+
+    def test_tempest_daily_carries_high_and_solar(self):
+        def row(tc, wind_ms, solar):
+            r = [0] * 22
+            r[health.OBS_TEMP] = tc
+            r[health.OBS_WIND] = wind_ms
+            r[health.OBS_RH] = 50
+            r[health.OBS_PRES] = 985.0
+            r[health.OBS_SOLAR] = solar
+            return r
+        dev = {"for_date": "2026-07-01", "data": {"obs": [row(20.0, 1.0, 100), row(35.0, 2.0, 880)]}}
+        date, agg = health.tempest_daily(dev)
+        self.assertEqual(date, "2026-07-01")
+        self.assertAlmostEqual(agg["high"], 95.0)        # max temp, 35C -> 95F
+        self.assertAlmostEqual(agg["solar_max"], 880)
+        # the offset machinery's fixed var list must be unaffected by the extra keys
+        offs, rows = health.build_offsets({date: agg}, {"KAHN": {date: {"temp": 90.0}}})
+        self.assertNotIn("high", offs)
+        self.assertNotIn("solar_max", offs)
+
+    def test_metar_daily_max_requires_midday_coverage(self):
+        from zoneinfo import ZoneInfo
+        midnight = int(dt.datetime(2026, 6, 10, 0, 51, tzinfo=ZoneInfo("America/New_York")).timestamp())
+        full = [{"icaoId": "KAHN", "obsTime": midnight + h * 3600, "temp": 20 + (h if h <= 14 else 28 - h),
+                 "dewp": 10, "wspd": 5, "altim": 1015} for h in range(24)]
+        out = health.metar_daily({"data": full})
+        agg = out["KAHN"]["2026-06-10"]
+        self.assertAlmostEqual(agg["temp_max"], health.c_to_f(34), places=1)   # peak at 14:51
+        # an evening-only partial day (a missed capture's leftover slice) must NOT report a max
+        evening = [r for r in full if r["obsTime"] >= midnight + 19 * 3600]
+        out = health.metar_daily({"data": evening})
+        self.assertNotIn("temp_max", out["KAHN"].get("2026-06-10", {}))
+
+
 class TestPhysics(unittest.TestCase):
     def test_slp_reduction_adds_about_30mb(self):
         slp = health.station_to_slp(984.6, 22.9)

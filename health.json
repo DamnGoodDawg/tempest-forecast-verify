@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-08T10:55:41Z",
-  "last_check": "2026-08-08T10:55:41Z",
-  "next_check": "2026-08-09T10:55:41Z",
+  "generated_at": "2026-08-08T22:34:22Z",
+  "last_check": "2026-08-08T22:34:22Z",
+  "next_check": "2026-08-09T22:34:22Z",
   "overall": "OK",
   "summary": "All variables within their normal range vs the verified anchors.",
   "days_monitored": 69,
@@ -89,13 +89,13 @@
       "days_in_state": 0,
       "current": 75.9,
       "offsets_7d": {
-        "KWDR": 2.61,
-        "KAHN": 1.99,
+        "KWDR": 1.06,
+        "KAHN": 0.96,
         "WATUGA": -3.35
       },
       "band": [
-        -5.14,
-        6.02
+        -5.59,
+        3.19
       ],
       "trend": [
         {
@@ -109,50 +109,50 @@
         },
         {
           "week": "2026-06-08",
-          "KWDR": 0.91,
-          "KAHN": -0.11,
+          "KWDR": -0.07,
+          "KAHN": -1.22,
           "WATUGA": 2.17
         },
         {
           "week": "2026-06-15",
-          "KWDR": 2.51,
-          "KAHN": 1.02,
+          "KWDR": 0.94,
+          "KAHN": 0.46,
           "WATUGA": -2.43
         },
         {
           "week": "2026-06-22",
-          "KWDR": 1.05,
-          "KAHN": -0.07,
+          "KWDR": 0.4,
+          "KAHN": -1.32,
           "WATUGA": 0.3
         },
         {
           "week": "2026-06-29",
-          "KWDR": 3.34,
-          "KAHN": 0.63,
+          "KWDR": 1.22,
+          "KAHN": -1.7,
           "WATUGA": -0.23
         },
         {
           "week": "2026-07-06",
-          "KWDR": 2.02,
-          "KAHN": 1.33,
+          "KWDR": -0.18,
+          "KAHN": -0.98,
           "WATUGA": -3.87
         },
         {
           "week": "2026-07-13",
-          "KWDR": 1.77,
-          "KAHN": 2.5,
+          "KWDR": -2.92,
+          "KAHN": 0.12,
           "WATUGA": -0.67
         },
         {
           "week": "2026-07-20",
-          "KWDR": 0.73,
-          "KAHN": 0.33,
+          "KWDR": 0.57,
+          "KAHN": 0.51,
           "WATUGA": -2.7
         },
         {
           "week": "2026-07-27",
-          "KWDR": 1.82,
-          "KAHN": 1.31,
+          "KWDR": -0.55,
+          "KAHN": -0.98,
           "WATUGA": -0.92
         },
         {
@@ -172,13 +172,13 @@
       "days_in_state": 0,
       "current": 89.6,
       "offsets_7d": {
-        "KWDR": -1.19,
-        "KAHN": -2.48,
+        "KWDR": 2.14,
+        "KAHN": 0.51,
         "WATUGA": 11.59
       },
       "band": [
-        -10.89,
-        14.61
+        -7.42,
+        15.18
       ],
       "trend": [],
       "trend_only": false
@@ -191,12 +191,12 @@
       "days_in_state": 0,
       "current": 1.6,
       "offsets_7d": {
-        "KAHN": -1.03,
+        "KAHN": -1.29,
         "WATUGA": -1.76
       },
       "band": [
-        -3.62,
-        1.42
+        -3.83,
+        0.18
       ],
       "trend": [],
       "trend_only": true
@@ -209,12 +209,12 @@
       "days_in_state": 0,
       "current": 1012.6,
       "offsets_7d": {
-        "KWDR": -4.15,
-        "KAHN": -3.33
+        "KWDR": -4.33,
+        "KAHN": -3.47
       },
       "band": [
-        -5.41,
-        -2.54
+        -4.65,
+        -3.37
       ],
       "trend": [],
       "trend_only": false
@@ -232,6 +232,41 @@
       "trend": []
     }
   ],
+  "high_check": {
+    "n_days": 53,
+    "anchors": {
+      "KAHN": {
+        "n": 53,
+        "all": 0.39,
+        "n_calm_sunny": 13,
+        "n_windy": 21,
+        "calm_sunny": 0.36,
+        "windy": 0.51,
+        "split_delta": -0.15
+      },
+      "KWDR": {
+        "n": 53,
+        "all": 2.8,
+        "n_calm_sunny": 13,
+        "n_windy": 21,
+        "calm_sunny": 3.28,
+        "windy": 2.28,
+        "split_delta": 1.0
+      }
+    },
+    "split_delta": 0.42,
+    "suspect": false,
+    "note": "Daily highs track the aspirated airport highs about the same on calm-sunny and windy days (split +0.4\u00b0F) \u2014 no radiation-shield signature.",
+    "thresholds": {
+      "calm_at_or_below_mph": 1.56,
+      "windy_at_or_above_mph": 2.13,
+      "calm_pct": 33,
+      "windy_pct": 67,
+      "sunny_wm2": 700.0,
+      "min_days": 5,
+      "note_split_f": 1.0
+    }
+  },
   "flags": [],
   "scoreboard_annotations": []
 }
