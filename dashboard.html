@@ -879,6 +879,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   <div class="tabpanel" id="tab-rain" role="tabpanel" aria-labelledby="tab-btn-rain" hidden>
     <p class="tab-lede">Does the <em>Statham area</em> really get less rain than Winder, Watkinsville, and Athens — do storms fade before they get here? This tab tests that theory two ways: the station's own gauge vs. every volunteer CoCoRaHS gauge within 15 miles (scored daily against a rule locked in up front), and <em>eleven warm seasons of 1-km NOAA radar rainfall</em> over every town. <em>The data decides, not the view from the porch.</em></p>
     <section class="card" id="rainVerdict" aria-labelledby="rainVerdict-h"></section>
+    <section class="card" id="rainRolling" aria-labelledby="rainRolling-h" hidden></section>
     <section class="card analysis" id="rainRead" hidden></section>
     <section class="card" id="rainStats" aria-labelledby="rainStats-h" hidden></section>
     <section class="card" id="rainTowns" aria-labelledby="rainTowns-h" hidden></section>
@@ -2727,18 +2728,32 @@ async function fetchRainEquity() {
 }
 
 function renderRainTab(d) {
-  renderRainHow(d && d.params);
+  const fv = d && d.final_verdict;   // present once the experiment CONCLUDED (never-break: old payloads simply lack it)
+  renderRainHow(d && d.params, fv);
   const v = d && d.verdict;
   if (!v) {
     document.getElementById("rainVerdict").innerHTML =
       `<div class="card-head"><h2 id="rainVerdict-h">The verdict</h2></div>
        <p class="muted" style="font-size:var(--fs-sm)">No data yet — the Mac publishes the first
        snapshot at 9:45 AM ET (after the volunteer gauges file their morning reports).</p>`;
+    renderRainRolling(null);
     return;
   }
+  const p = d.params || {};
+  if (fv) renderRainConcluded(d, fv, p);
+  else renderRainVerdictLive(d, v, p);
+  renderRainRolling(d.rolling || null);
+  renderRainRead(d.reads);
+  renderRainStats(d, v, fv);
+  renderRainTowns(d.clusters || []);
+  renderRainChart(d.daily || []);
+  renderRainDays(d.daily || []);
+  renderRainRing(d.stations || [], d.airports || {}, p);
+}
+
+function renderRainVerdictLive(d, v, p) {
   const meta = RQ_STATUS[v.status] || RQ_STATUS.collecting;
   const pct = v.matched_ratio != null ? Math.round(v.matched_ratio * 100) : null;
-  const p = d.params || {};
   const lockLo = Math.round((p.confirm_below || 0.8) * 100);
   const lockHi = Math.round((p.blessed_above || 1.2) * 100);
   const prog = Math.min(100, Math.round((v.event_days / (v.needed || 20)) * 100));
@@ -2760,12 +2775,81 @@ function renderRainTab(d) {
         Pre-registered rule: under ${lockLo}% = theory confirmed · ${lockLo}–${lockHi}% = busted (normal luck) · over ${lockHi}% = rain-blessed.</div>
       </div>
     </div>`;
-  renderRainRead(d.reads);
-  renderRainStats(d, v);
-  renderRainTowns(d.clusters || []);
-  renderRainChart(d.daily || []);
-  renderRainDays(d.daily || []);
-  renderRainRing(d.stations || [], d.airports || {}, p);
+}
+
+/* ---- Phase 3: the experiment CONCLUDED — verdict frozen at the pre-registered line ---- */
+function renderRainConcluded(d, fv, p) {
+  const meta = RQ_STATUS[fv.status] || RQ_STATUS.busted;
+  const pct = fv.matched_ratio != null ? Math.round(fv.matched_ratio * 100) : null;
+  const lockLo = Math.round((p.confirm_below || 0.8) * 100);
+  const lockHi = Math.round((p.blessed_above || 1.2) * 100);
+  const oneLiner = fv.status === "busted"
+    ? `The yard is normal. After ${fv.event_days} measurable rain days the house had caught ${fv.house_total_in != null ? fv.house_total_in.toFixed(2) : "—"}&Prime; vs the neighborhood's ${fv.ring_median_total_in != null ? fv.ring_median_total_in.toFixed(2) : "—"}&Prime; — a ${pct != null ? pct + "%" : "—"} share, comfortably inside the ${lockLo}–${lockHi}% "normal luck" band. The sky was never out to get anyone.`
+    : `Verdict locked at ${pct != null ? pct + "%" : "—"} of the neighborhood median after ${fv.event_days} measurable rain days (house ${fv.house_total_in != null ? fv.house_total_in.toFixed(2) : "—"}&Prime; vs ring ${fv.ring_median_total_in != null ? fv.ring_median_total_in.toFixed(2) : "—"}&Prime;).`;
+  document.getElementById("rainVerdict").innerHTML = `
+    <div class="card-head"><h2 id="rainVerdict-h">The verdict · experiment concluded</h2>
+      <span class="meta">locked ${esc(fmtMD(fv.decided))}${d.generated_at ? " · updated " + esc(fmtETDateTime(d.generated_at)) : ""}</span></div>
+    <div class="rq-status">
+      <span class="chip chip--${meta.chip}"><span class="dot"></span>${esc(meta.label)} — final</span>
+      <span class="rq-sub">${esc(meta.sub)}</span>
+    </div>
+    <div class="rq-cols">
+      <div>
+        <div class="rq-big">${pct != null ? pct + "%" : "—"}<small> of the neighbors' rain</small></div>
+        <div class="rq-note">at the moment the verdict locked · median of ${esc(String(fv.n_ratio_stations || 0))} qualifying gauges</div>
+      </div>
+      <div>
+        <div class="rq-note" style="font-size:var(--fs-sm);color:var(--text-2)">${oneLiner}</div>
+        <div class="rq-note">${esc(fv.rule || "")} This verdict is frozen — later data feeds the rolling monitor below, never a re-ruling.</div>
+      </div>
+    </div>`;
+}
+
+/* ---- Phase 3: rolling 90-gauge-day monitor (descriptive only, never a verdict) ---- */
+function renderRainRolling(r) {
+  const el = document.getElementById("rainRolling");
+  if (!el) return;
+  if (!r) { el.hidden = true; return; }
+  const pct = r.matched_ratio != null ? Math.round(r.matched_ratio * 100) : null;
+  const bands = r.bands || { low: 0.8, high: 1.2 };
+  const hist = (r.history || []).filter(pt => pt && pt.r != null);
+  let spark = "";
+  if (hist.length > 1) {
+    const W = 680, H = 150, PAD = { t: 12, r: 46, b: 22, l: 40 };
+    const vals = hist.map(pt => pt.r).concat([bands.low, bands.high]);
+    const ymin = Math.min(...vals) - 0.05, ymax = Math.max(...vals) + 0.05;
+    const xOf = (i) => PAD.l + (i / (hist.length - 1)) * (W - PAD.l - PAD.r);
+    const yOf = (v2) => PAD.t + (1 - (v2 - ymin) / (ymax - ymin)) * (H - PAD.t - PAD.b);
+    const band = (v2, lab) =>
+      `<line x1="${PAD.l}" y1="${yOf(v2).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(v2).toFixed(1)}" stroke="var(--text-3)" stroke-width="1" stroke-dasharray="4 4"/>` +
+      `<text x="${W - PAD.r + 5}" y="${(yOf(v2) + 3.5).toFixed(1)}" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${lab}</text>`;
+    const path = hist.map((pt, i) => (i ? "L" : "M") + xOf(i).toFixed(1) + "," + yOf(pt.r).toFixed(1)).join("");
+    let ticks = "";
+    const nT = Math.min(4, hist.length);
+    for (let i = 0; i < nT; i++) {
+      const idx = Math.round((i / Math.max(1, nT - 1)) * (hist.length - 1));
+      ticks += `<text x="${xOf(idx).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(hist[idx].d))}</text>`;
+    }
+    spark = `<div class="schart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rolling ${r.window_days}-day house-vs-ring ratio over time, currently ${pct != null ? pct + "%" : "unavailable"}; dashed reference lines at ${Math.round(bands.low * 100)}% and ${Math.round(bands.high * 100)}%.">
+        ${band(bands.low, Math.round(bands.low * 100) + "%")}${band(bands.high, Math.round(bands.high * 100) + "%")}
+        <line x1="${PAD.l}" y1="${yOf(1).toFixed(1)}" x2="${W - PAD.r}" y2="${yOf(1).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+        ${ticks}
+        <path d="${path}" fill="none" stroke="var(--p-tempest)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="${xOf(hist.length - 1).toFixed(1)}" cy="${yOf(hist[hist.length - 1].r).toFixed(1)}" r="3.5" fill="var(--p-tempest)"/>
+      </svg>
+      <p class="keynote">rolling ${r.window_days}-day ratio, one point per gauge day · dashed = the old experiment's ${Math.round(bands.low * 100)}/${Math.round(bands.high * 100)}% lines, kept as reference only</p></div>`;
+  }
+  el.innerHTML = `
+    <div class="card-head"><h2 id="rainRolling-h">Rolling monitor · last ${esc(String(r.window_days || 90))} days</h2>
+      <span class="meta">${esc(fmtMD(r.start))} – ${esc(fmtMD(r.end))}</span></div>
+    <div class="rq-status">
+      <span class="rq-sub"><b style="color:var(--text)">${esc(r.status || "")}</b> — house at ${pct != null ? pct + "%" : "—"} of the neighborhood median over the window
+      (${esc(String(r.event_days != null ? r.event_days : "—"))} measurable days · ${esc(String(r.n_ratio_stations || 0))} qualifying gauges · house ${r.house_total_in != null ? r.house_total_in.toFixed(2) + "&Prime;" : "—"} vs ring ${r.ring_median_total_in != null ? r.ring_median_total_in.toFixed(2) + "&Prime;" : "—"}).</span>
+    </div>
+    ${spark}
+    ${explain(`
+      <p><b>This is a monitor, not a verdict.</b> The experiment ended when the pre-registered rule said it ended; this card just keeps the same matched-day math running over a trailing ${esc(String(r.window_days || 90))}-gauge-day window so a genuine future shift (a broken rain sensor, a truly cursed summer) would show up as the line drifting outside the reference band and staying there. Short excursions are normal — a single big storm that hits or misses the house moves a 90-day ratio by a lot.</p>`)}`;
+  el.hidden = false;
 }
 
 function renderRainTowns(clusters) {
@@ -2854,7 +2938,7 @@ function renderRainRead(reads) {
   el.hidden = false;
 }
 
-function renderRainStats(d, v) {
+function renderRainStats(d, v, fv) {
   const el = document.getElementById("rainStats");
   const daily = d.daily || [];
   const best = daily.reduce((a, r) => (r.house > (a ? a.house : 0) ? r : a), null);
@@ -2863,7 +2947,7 @@ function renderRainStats(d, v) {
     { l: "Typical nearby gauge", v: v.ring_median_total_in != null ? v.ring_median_total_in.toFixed(2) : "—", u: "in", m: "median of qualifying gauges" },
     { l: "House vs neighbors", v: v.matched_ratio != null ? Math.round(v.matched_ratio * 100) + "%" : "—", m: "matched days only" },
     { l: "Neighborhood rank", v: v.rank_n ? `${v.wetter_than} of ${v.rank_n}` : "—", m: "gauges the house out-rained" },
-    { l: "Measurable days", v: `${v.event_days}`, u: "of " + v.needed, m: "verdict locks at " + v.needed },
+    { l: "Measurable days", v: `${v.event_days}`, u: fv ? "" : "of " + v.needed, m: fv ? "verdict locked at " + v.needed + " (" + fmtMD(fv.decided) + ")" : "verdict locks at " + v.needed },
     { l: "Best day at the house", v: best && best.house ? best.house.toFixed(2) : "—", u: "in", m: best && best.house ? fmtMD(best.d) : "" },
   ];
   el.innerHTML = `<div class="card-head"><h2 id="rainStats-h">Running score</h2></div>
@@ -2957,12 +3041,14 @@ function renderRainRing(stations, airports, p) {
   el.hidden = false;
 }
 
-function renderRainHow(p) {
+function renderRainHow(p, fv) {
   p = p || {};
   const lockLo = Math.round((p.confirm_below || 0.8) * 100);
   const lockHi = Math.round((p.blessed_above || 1.2) * 100);
+  const concludedPara = fv ? `
+    <p><b>How it ended — and what runs now:</b> the rule fired on ${esc(fmtMD(fv.decided))}, the day the ${esc(String(p.min_event_days || 20))}th measurable rain day landed: the house stood at ${fv.matched_ratio != null ? Math.round(fv.matched_ratio * 100) + "%" : "—"} of the neighborhood median — <b>${esc(String(fv.status))}</b>. That verdict is frozen exactly as the pre-registration demanded; no amount of later rain reopens it. What continues is the <b>rolling monitor</b> above: the identical matched-day math over a trailing 90-gauge-day window, recomputed daily, with the old ${lockLo}/${lockHi}% thresholds demoted to reference lines. It describes drift ("within normal range", "below the band") but never re-declares a verdict — re-ruling on a rolling window you can watch wiggle would be exactly the goalpost-moving the pre-registration existed to prevent.</p>` : "";
   document.getElementById("rainHow").innerHTML = `
-    <div class="card-head"><h2 id="rainHow-h">How this experiment works</h2></div>
+    <div class="card-head"><h2 id="rainHow-h">How this experiment work${fv ? "ed" : "s"}</h2></div>${concludedPara}
     <p><b>The claim on trial:</b> the Statham area gets robbed of rain — storms weaken or split before they arrive, and the local totals run short of Winder, Watkinsville, Athens, and the rest of the neighbors. It's one of the most common local-weather beliefs in existence, and it's almost never tested. This tab tests it.</p>
     <p><b>The instruments:</b> the station's own rain sensor vs. every volunteer CoCoRaHS manual gauge within ${esc(String(p.ring_miles || 15))} miles (about two dozen hand-read cylinders — the gold standard for point rainfall), grouped by town, plus the Athens and Winder airports as automated reference points. Everyone is compared over the same 7 AM–7 AM "gauge day" the volunteers use. And because volunteers skip days and some towns barely have gauges, there's a second, tie-breaking instrument: <b>NOAA MRMS radar rainfall</b> — a 1-km grid built from every radar in range — averaged over a ~3-mile box on each town, every warm-season day back to 2015.</p>
     <p><b>The score:</b> for each neighbor gauge, take the house's rain on the days that gauge actually reported and divide by the gauge's total — then take the median across all qualifying gauges. That "matched-day" trick means a gauge that skips days can never tilt the result, and using the median means one leaky funnel or one soaker-magnet hilltop can't either.</p>
