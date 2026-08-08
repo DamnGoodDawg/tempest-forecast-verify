@@ -746,6 +746,27 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .hexplain .foot-note { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
 .hexplain .tagline { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-4); font-size: var(--fs-sm); color: var(--text-2); flex-wrap: wrap; }
 
+/* COMPONENT — scoring windows + dual verdict + verdict history + NBM twin (dashboard v2) */
+.verdict .win-note { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); text-wrap: pretty; }
+.verdict .win-note b { color: var(--text); font-weight: 650; }
+.win-tbl td .gap-pos { color: var(--st-behind); font-weight: 650; }
+.win-tbl td .gap-neg { color: var(--st-ahead); font-weight: 650; }
+.win-tbl td.wlabel { font-family: var(--font-sans); font-weight: 600; white-space: normal; }
+.win-tbl td.wlabel .wsub { display: block; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); font-weight: 500; margin-top: 1px; }
+.win-eqnote { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); text-wrap: pretty; }
+.win-eqnote b { color: var(--text); font-weight: 650; }
+.fp-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--border); }
+.fp-row:first-of-type { border-top: none; padding-top: 0; }
+.fp-name { font-weight: 650; flex: 0 0 150px; }
+.fp-name .fp-metric { display: block; font-size: var(--fs-micro); font-weight: 500; color: var(--text-3); }
+.fp-vs { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--text-2); }
+.fp-vs b { color: var(--text); font-weight: 650; }
+.fp-row .chip { margin-left: auto; }
+.fp-lead { flex-basis: 100%; font-size: var(--fs-micro); color: var(--text-3); }
+.vh-strip { display: flex; gap: 3px; margin-top: var(--s-3); }
+.vh-strip .vh-day { flex: 1 1 0; height: 10px; border-radius: 2px; max-width: 22px; }
+.nbm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s-3); margin-bottom: var(--s-4); }
+
 /* Tab 1 standings ⚠ footnote (v2) */
 .standings .flag-foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--border-2); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
 .standings .flag-foot .flag-mark { flex: none; }
@@ -797,6 +818,12 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   <!-- 1 · verdict banner -->
   <section class="card verdict" id="verdict" aria-labelledby="verdict-h"></section>
 
+  <!-- 1b · scoring windows (v2 — rolling-90 carries the verdict; all-time demoted to context) -->
+  <section class="card windows" id="windows" aria-labelledby="windows-h" hidden></section>
+
+  <!-- 1c · dual verdict: per-variable winners (v2) -->
+  <section class="card fullpic" id="fullpic" aria-labelledby="fullpic-h" hidden></section>
+
   <!-- 2 · guarantee clock -->
   <section class="card clock" id="clock" aria-labelledby="clock-h"></section>
 
@@ -805,6 +832,12 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 
   <!-- 4 · trend -->
   <section class="card trend" id="trend" aria-labelledby="trend-h"></section>
+
+  <!-- 4b · verdict history (v2 — pick a filing date on stability, not one good morning) -->
+  <section class="card vhistory" id="vhistory" aria-labelledby="vhistory-h" hidden></section>
+
+  <!-- 4c · NBM twin (v2 — facts only) -->
+  <section class="card nbmtwin" id="nbmtwin" aria-labelledby="nbmtwin-h" hidden></section>
 
   <!-- 5 · details -->
   <details class="card collapsible" id="details"></details>
@@ -825,6 +858,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <section class="card hcurrent" id="hcurrent" aria-labelledby="hcurrent-h"></section>
     <section class="card hstatus" id="hstatus" aria-labelledby="hstatus-h"></section>
     <section class="card anchors-card" id="hanchors" aria-labelledby="hanchors-h"></section>
+    <section class="card highcheck" id="hhighcheck" aria-labelledby="hhighcheck-h" hidden></section>
     <section class="card flaglog" id="hflaglog" aria-labelledby="hflaglog-h"></section>
     <section class="card hexplain" id="hexplain" aria-labelledby="hexplain-h"></section>
   </div><!-- /tab-health -->
@@ -916,6 +950,69 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     { "date": "2026-08-11", "tempest_raw": 0.00, "tempest_corrected": 0.00, "cocorahs": 0.00 },
     { "date": "2026-08-14", "tempest_raw": 0.62, "tempest_corrected": 0.88, "cocorahs": 1.21 }
   ],
+  "windows": {
+    "rolling90": {
+      "key": "rolling90", "label": "Rolling 90 days", "start": "2026-06-04", "end": "2026-08-16",
+      "n_days": 74, "equals_all_time": true, "diverges_after": "2026-09-02",
+      "standings_lead1": [
+        { "source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083 },
+        { "source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091 }
+      ],
+      "verdict": { "status": "TIED", "headline": "Tempest is within 3°F on 81% of days vs NBM's 79% — statistically tied with the best public forecast over the last 90 days.", "n_days": 74, "dm_p_value": 0.21, "best_public": "NBM" },
+      "winners": {
+        "temp": { "metric": "mae", "better": "low", "leader": "NBM", "leader_value": 1.85, "tempest": 1.92, "rival": "NBM", "rival_value": 1.85, "tempest_wins_rival": false, "tempest_pct_within_3f": 81, "rival_pct_within_3f": 79 },
+        "precip_occurrence": { "metric": "csi", "better": "high", "leader": "NBM", "leader_value": 0.74, "tempest": 0.71, "rival": "NBM", "rival_value": 0.74, "tempest_wins_rival": false },
+        "pop_calibration": { "metric": "brier", "better": "low", "leader": "NBM", "leader_value": 0.083, "tempest": 0.091, "rival": "NBM", "rival_value": 0.083, "tempest_wins_rival": false }
+      }
+    },
+    "since_epoch": {
+      "key": "since_epoch", "label": "Since Aug 1 · advantage window", "epoch": "2026-08-01",
+      "start": "2026-08-01", "end": "2026-08-16", "n_days": 16,
+      "standings_lead1": [
+        { "source": "Tempest", "mae": 1.74, "pct_within_3f": 85, "csi": 0.75, "brier": 0.081 },
+        { "source": "NBM",     "mae": 1.80, "pct_within_3f": 82, "csi": 0.72, "brier": 0.088 }
+      ],
+      "verdict": { "status": "TOO EARLY", "headline": "Only 16 scored days since the advantage window opened Aug 1 — need ~14 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.", "n_days": 16, "dm_p_value": null, "best_public": "NBM" },
+      "winners": {}
+    },
+    "rolling28": {
+      "key": "rolling28", "label": "Last 28 days · trend only", "trend_only": true,
+      "start": "2026-07-20", "end": "2026-08-16", "n_days": 28,
+      "standings_lead1": [
+        { "source": "Tempest", "mae": 1.88, "pct_within_3f": 82, "csi": 0.72, "brier": 0.089 },
+        { "source": "NBM",     "mae": 1.86, "pct_within_3f": 80, "csi": 0.73, "brier": 0.086 }
+      ]
+    },
+    "all_time": {
+      "key": "all_time", "label": "All-time · context", "start": "2026-06-04", "end": "2026-08-16",
+      "n_days": 74,
+      "standings_lead1": [
+        { "source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083 },
+        { "source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091 }
+      ],
+      "verdict": { "status": "TIED", "headline": "Tempest is within 3°F on 81% of days vs NBM's 79% — statistically tied with the best public forecast over all scored days.", "n_days": 74, "dm_p_value": 0.21, "best_public": "NBM" }
+    }
+  },
+  "verdict_history": [
+    { "date": "2026-08-12", "window_n": 70, "tempest_mae": 1.95, "best_public": "NBM", "best_mae": 1.86, "dm_p": 0.14, "status": "TIED" },
+    { "date": "2026-08-13", "window_n": 71, "tempest_mae": 1.94, "best_public": "NBM", "best_mae": 1.86, "dm_p": 0.16, "status": "TIED" },
+    { "date": "2026-08-14", "window_n": 72, "tempest_mae": 1.93, "best_public": "NBM", "best_mae": 1.85, "dm_p": 0.18, "status": "TIED" },
+    { "date": "2026-08-15", "window_n": 73, "tempest_mae": 1.93, "best_public": "NBM", "best_mae": 1.85, "dm_p": 0.20, "status": "TIED" },
+    { "date": "2026-08-16", "window_n": 74, "tempest_mae": 1.92, "best_public": "NBM", "best_mae": 1.85, "dm_p": 0.21, "status": "TIED" }
+  ],
+  "nbm_twin": {
+    "n_days": 74, "r_all_time": 0.95, "r_28d": 0.96,
+    "bias_all_time": { "tempest": -1.2, "nbm": -1.3 },
+    "bias_28d": { "tempest": -1.6, "nbm": -1.5 },
+    "weekly": [
+      { "week": "2026-07-06", "tempest_bias": -0.9, "nbm_bias": -1.0 },
+      { "week": "2026-07-13", "tempest_bias": -1.1, "nbm_bias": -1.2 },
+      { "week": "2026-07-20", "tempest_bias": -1.4, "nbm_bias": -1.3 },
+      { "week": "2026-07-27", "tempest_bias": -1.6, "nbm_bias": -1.5 },
+      { "week": "2026-08-03", "tempest_bias": -1.7, "nbm_bias": -1.6 },
+      { "week": "2026-08-10", "tempest_bias": -1.5, "nbm_bias": -1.5 }
+    ]
+  },
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
     "hub_online": true, "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
@@ -978,6 +1075,16 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     { "var": "rain", "label": "Rain", "unit": "in", "state": "OK", "days_in_state": 88, "current": null,
       "offsets_7d": {}, "band": null, "cross_check": "CoCoRaHS GA-OC-20", "trend": [] }
   ],
+  "high_check": {
+    "n_days": 53,
+    "anchors": {
+      "KAHN": { "n": 53, "all": 0.4, "n_calm_sunny": 13, "n_windy": 21, "calm_sunny": 0.4, "windy": 0.5, "split_delta": -0.1 },
+      "KWDR": { "n": 53, "all": 2.8, "n_calm_sunny": 13, "n_windy": 21, "calm_sunny": 3.3, "windy": 2.3, "split_delta": 1.0 }
+    },
+    "split_delta": 0.4, "suspect": false,
+    "note": "Daily highs track the aspirated airport highs about the same on calm-sunny and windy days (split +0.4°F) — no radiation-shield signature.",
+    "thresholds": { "calm_at_or_below_mph": 1.6, "windy_at_or_above_mph": 2.1, "calm_pct": 33, "windy_pct": 67, "sunny_wm2": 700, "min_days": 5, "note_split_f": 1.0 }
+  },
   "flags": [
     { "opened": "2026-06-09", "var": "temp", "state": "WATCH",
       "description": "Offset drifted +1.1°F above the normal band vs KWDR, KAHN and WATUGA for 3 consecutive days.",
@@ -1128,6 +1235,16 @@ function renderVerdict(d) {
     `<span class="sig"><span class="k">Significance</span>
        <span class="pill"><span class="num">p=${f2(v.dm_p_value)}</span> · ${sig}</span>
      </span>`);
+  // v2: the headline verdict is judged over the ROLLING-90 window (the guarantee's own claim
+  // window). Until the first scored day ages out, rolling-90 == all-time — label that state
+  // honestly so it reads as designed, not as a bug.
+  const w90 = d.windows && d.windows.rolling90;
+  let winNote = "";
+  if (w90) {
+    winNote = w90.equals_all_time
+      ? `<p class="win-note">Judged over the <b>rolling 90-day window</b> — which currently spans all <b class="num">${w90.n_days}</b> scored days, so it's identical to all-time until the earliest days age out (~${esc(fmtMD(w90.diverges_after))}).</p>`
+      : `<p class="win-note">Judged over the <b>rolling 90-day window</b> (${esc(fmtMD(w90.start))} – ${esc(fmtMD(w90.end))} · <span class="num">n=${w90.n_days}</span>) — the guarantee's own claim window. All-time is context below.</p>`;
+  }
   el.innerHTML = `
     <div class="top">
       <span class="chip chip--${st.cls}"><span class="dot"></span>${st.label}</span>
@@ -1135,15 +1252,211 @@ function renderVerdict(d) {
     </div>
     <p class="headline" id="verdict-h">${formatHeadline(v.headline)}</p>
     <div class="stats">${stats.join("")}</div>
+    ${winNote}
     ${explain(`
       <p><b>The bottom line.</b> This whole experiment asks one thing: is your Tempest's forecast actually more accurate than the big public forecasts — <b>NWS, NBM, ECMWF, GFS</b> — for Statham? Each is graded against what your station actually measured.</p>
-      <p>It currently reads <b>${esc(st.label)}</b> over <b>${v.n_days}</b> scored day${v.n_days === 1 ? "" : "s"}${v.best_public ? `, and <b>${esc(v.best_public)}</b> is the public forecast to beat` : ""}. It stays <span class="term">TOO EARLY</span> until about 30 days are scored (≈90 for a confident call). The <b>p-value</b> is the luck check — below 0.05 means a real difference, not random noise.</p>`)}`;
+      <p>It currently reads <b>${esc(st.label)}</b> over <b>${v.n_days}</b> scored day${v.n_days === 1 ? "" : "s"}${v.best_public ? `, and <b>${esc(v.best_public)}</b> is the public forecast to beat` : ""}. It stays <span class="term">TOO EARLY</span> until about 30 days are scored (≈90 for a confident call). The <b>p-value</b> is the luck check — below 0.05 means a real difference, not random noise.</p>
+      ${w90 ? `<p>The verdict is judged over a <b>rolling 90-day window</b> because that's the window WeatherFlow's guarantee itself uses ("the 3-month period immediately preceding your request") — an old bad month can't haunt the claim forever, and one good morning can't carry it.</p>` : ""}`)}`;
 }
 function formatHeadline(h) {
   // bold any "NN%" and "N°F" figures for glanceability
   return esc(h)
     .replace(/(\d+%)/g, "<b>$1</b>")
     .replace(/(\d+°F)/g, "<b>$1</b>");
+}
+
+/* --------------------------------------------------- 1b · SCORING WINDOWS (v2) */
+const WINDOW_ORDER = ["rolling90", "since_epoch", "rolling28", "all_time"];
+function renderWindows(d) {
+  const el = document.getElementById("windows");
+  const w = d.windows;
+  if (!el) return;
+  if (!w || !Object.keys(w).length) { el.hidden = true; return; }
+  const rows = WINDOW_ORDER.filter(k => w[k]).map(k => {
+    const b = w[k];
+    const t = (b.standings_lead1 || []).find(r => r.source === "Tempest");
+    const v = b.verdict || null;
+    // best public: the verdict's rival where there is one; otherwise (trend-only row) the
+    // lowest-MAE non-Tempest source — the MAE table is data either way, only verdicts are gated
+    const publics = (b.standings_lead1 || []).filter(r => r.source !== "Tempest" && r.mae != null);
+    const best = (v && v.best_public)
+      ? (b.standings_lead1 || []).find(r => r.source === v.best_public)
+      : (publics.length ? publics.reduce((a, r) => r.mae < a.mae ? r : a) : null);
+    const gap = (t && best) ? t.mae - best.mae : null;
+    let statusHTML;
+    if (b.trend_only) {
+      statusHTML = `<span class="muted">trend only — no verdict by design</span>`;
+    } else if (v) {
+      const st = statusOf(v.status);
+      const p = v.dm_p_value;
+      statusHTML = `<span class="chip chip--${st.cls}"><span class="dot"></span>${st.label}</span>` +
+        (p != null ? ` <span class="em">p=${f2(p)}</span>` : "");
+    } else {
+      statusHTML = `<span class="muted">—</span>`;
+    }
+    const span = b.n_days ? `${fmtMD(b.start)} – ${fmtMD(b.end)}` : "no scored days yet";
+    return `<tr>
+      <td class="wlabel">${esc(b.label)}<span class="wsub">${esc(span)}</span></td>
+      <td>${b.n_days}</td>
+      <td>${t ? f2(t.mae) : "—"}</td>
+      <td>${best ? `${esc(best.source)} ${f2(best.mae)}` : "—"}</td>
+      <td>${gap == null ? "—" : `<span class="${gap > 0 ? "gap-pos" : "gap-neg"}">${gap > 0 ? "+" : ""}${f2(gap)}</span>`}</td>
+      <td style="text-align:left;padding-left:var(--s-3)">${statusHTML}</td>
+    </tr>`;
+  }).join("");
+  const eqNote = (w.rolling90 && w.rolling90.equals_all_time)
+    ? `<p class="win-eqnote">ℹ️ <b>Deliberate early state:</b> every scored day is still inside the last 90, so the rolling-90 and all-time rows are identical. They start to diverge ~${esc(fmtMD(w.rolling90.diverges_after))}, when the earliest scored days age out of the window.</p>` : "";
+  const ep = w.since_epoch;
+  el.innerHTML = `
+    <div class="card-head"><h2 id="windows-h">Scoring windows</h2><span class="meta">lead-1 temp MAE °F · lower is better</span></div>
+    <div class="storm-scroll">
+      <table class="storm-tbl win-tbl">
+        <thead><tr><th scope="col" style="text-align:left">Window</th><th scope="col">Days</th><th scope="col">Tempest</th><th scope="col">Best public</th><th scope="col">Gap</th><th scope="col" style="text-align:left;padding-left:var(--s-3)">Verdict</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${eqNote}
+    ${explain(`
+      <p><b>Why windows?</b> One pooled all-time average can hide a trend — a good June papers over a bad August. Each row scores the <i>same</i> forecasts over a different span. <b>Rolling 90</b> carries the official verdict because the guarantee itself is judged on "the 3-month period immediately preceding your request."</p>
+      <p><b>Since Aug 1</b> is the fair test of WeatherFlow's claimed advantage: they say the forecast starts beating the public models ~60 days after install, which for this station was <b>Aug 1</b> — every earlier day is warm-up by their own framing. <b>Last 28 days</b> shows the recent trend only — deliberately no verdict, because weekly MAE swings are ~4× the gap under test and a 28-day verdict would flicker on noise. <b>Gap</b> = Tempest MAE − best public MAE (${ep ? "negative = Tempest ahead" : "negative = Tempest ahead"}).</p>`)}`;
+  el.hidden = false;
+}
+
+/* --------------------------------------------- 1c · DUAL VERDICT / FULL PICTURE (v2) */
+const FP_META = {
+  temp: { name: "Temperature", metric: "MAE °F · lower wins", fmt: f2 },
+  precip_occurrence: { name: "Precip occurrence", metric: "CSI · higher wins", fmt: f2 },
+  pop_calibration: { name: "PoP calibration", metric: "Brier · lower wins", fmt: f3 }
+};
+function renderFullPicture(d) {
+  const el = document.getElementById("fullpic");
+  if (!el) return;
+  const w90 = d.windows && d.windows.rolling90;
+  const winners = w90 && w90.winners;
+  if (!winners || !Object.keys(winners).length) { el.hidden = true; return; }
+  const rows = Object.keys(FP_META).filter(k => winners[k]).map(k => {
+    const m = FP_META[k], x = winners[k];
+    const wins = x.tempest_wins_rival === true;
+    const tie = x.tempest != null && x.rival_value != null && x.tempest === x.rival_value;
+    const chip = tie
+      ? `<span class="chip chip--tied"><span class="dot"></span>TIED</span>`
+      : (wins ? `<span class="chip chip--ahead"><span class="dot"></span>TEMPEST WINS</span>`
+              : `<span class="chip chip--behind"><span class="dot"></span>${esc(x.rival || "PUBLIC")} WINS</span>`);
+    const within = (k === "temp" && x.tempest_pct_within_3f != null)
+      ? ` · within-3°F <b>${x.tempest_pct_within_3f}%</b> vs ${x.rival_pct_within_3f}%` : "";
+    const leadNote = (x.leader && x.leader !== "Tempest" && x.leader !== x.rival)
+      ? `<span class="fp-lead">Field leader on this metric: ${esc(x.leader)} at ${m.fmt(x.leader_value)}.</span>` : "";
+    return `<div class="fp-row">
+      <span class="fp-name">${m.name}<span class="fp-metric">${m.metric}</span></span>
+      <span class="fp-vs">Tempest <b>${x.tempest != null ? m.fmt(x.tempest) : "—"}</b> vs ${esc(x.rival || "?")} <b>${x.rival_value != null ? m.fmt(x.rival_value) : "—"}</b>${within}</span>
+      ${chip}
+      ${leadNote}
+    </div>`;
+  }).join("");
+  el.innerHTML = `
+    <div class="card-head"><h2 id="fullpic-h">The full picture · dual verdict</h2><span class="meta">rolling 90 days · vs ${esc((w90.verdict && w90.verdict.best_public) || "best public")}</span></div>
+    ${rows}
+    ${explain(`
+      <p><b>The headline verdict is temperature-only</b> — that's the claim metric — but a forecast is more than highs and lows. This panel gives each variable its own winner, equal weight, judged over the same rolling-90 window against <b>${esc((w90.verdict && w90.verdict.best_public) || "the best public forecast")}</b> (the forecast the headline verdict is judged against).</p>
+      <p><span class="term">CSI</span> is a batting average for rain yes/no calls (1.0 = perfect); <span class="term">Brier</span> grades rain <i>probabilities</i> (lower = better calibrated). There is deliberately <b>no combined score</b> — any weighting between temperature and rain would be arguable, and an arguable number weakens a claim. Where another provider leads a metric outright, the field-leader line says so.</p>`)}`;
+  el.hidden = false;
+}
+
+/* ------------------------------------------------- 4b · VERDICT HISTORY (v2) */
+function renderVerdictHistory(d) {
+  const el = document.getElementById("vhistory");
+  if (!el) return;
+  const hist = (d.verdict_history || []).filter(h => h && h.date);
+  if (!hist.length) { el.hidden = true; return; }
+  const last = hist[hist.length - 1];
+  const chipFor = (s) => statusOf(s).cls;
+  // status strip: one colored tick per logged day
+  const strip = `<div class="vh-strip" role="img" aria-label="Daily rolling-90 verdict, ${hist.length} day${hist.length === 1 ? "" : "s"} logged">` +
+    hist.slice(-60).map(h =>
+      `<span class="vh-day" style="background:var(--st-${chipFor(h.status)})" title="${esc(h.date)}: ${esc(h.status || "?")} (Tempest ${h.tempest_mae != null ? f2(h.tempest_mae) : "—"} vs ${esc(h.best_public || "?")} ${h.best_mae != null ? f2(h.best_mae) : "—"})"></span>`
+    ).join("") + `</div>`;
+  // MAE line chart once there's something to draw
+  let chart = "";
+  const pts = hist.filter(h => h.tempest_mae != null && h.best_mae != null);
+  if (pts.length >= 2) {
+    const W = 680, H = 180, PAD = { t: 14, r: 14, b: 26, l: 38 };
+    const vals = pts.flatMap(h => [h.tempest_mae, h.best_mae]);
+    const lo = Math.floor((Math.min(...vals) - 0.15) * 10) / 10;
+    const hi = Math.ceil((Math.max(...vals) + 0.15) * 10) / 10;
+    const x = (i) => PAD.l + (i / (pts.length - 1)) * (W - PAD.l - PAD.r);
+    const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+    let grid = "";
+    for (let g = Math.ceil(lo * 2) / 2; g <= hi; g += 0.5) grid +=
+      `<line x1="${PAD.l}" y1="${y(g).toFixed(1)}" x2="${W - PAD.r}" y2="${y(g).toFixed(1)}" stroke="var(--border)"/>` +
+      `<text x="${PAD.l - 6}" y="${(y(g) + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${g.toFixed(1)}</text>`;
+    const path = (key) => pts.map((h, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(h[key]).toFixed(1)).join("");
+    const xl = `<text x="${x(0).toFixed(1)}" y="${H - 8}" text-anchor="start" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(pts[0].date))}</text>
+      <text x="${x(pts.length - 1).toFixed(1)}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(pts[pts.length - 1].date))}</text>`;
+    chart = `<div class="schart" style="margin-top:var(--s-4)"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rolling-90 MAE by day: Tempest (bold) vs best public (dashed).">
+      ${grid}${xl}
+      <path d="${path("best_mae")}" fill="none" stroke="var(--text-2)" stroke-width="1.75" stroke-dasharray="5 3"/>
+      <path d="${path("tempest_mae")}" fill="none" stroke="var(--p-tempest)" stroke-width="2.5" stroke-linejoin="round"/>
+    </svg><p class="keynote">bold = Tempest rolling-90 MAE · dashed = best public · one point per daily scoring run</p></div>`;
+  }
+  const pTxt = last.dm_p != null ? ` · p=${f2(last.dm_p)}` : "";
+  el.innerHTML = `
+    <div class="card-head"><h2 id="vhistory-h">Verdict history</h2><span class="meta">${hist.length} day${hist.length === 1 ? "" : "s"} logged · rolling-90</span></div>
+    <p class="rq-sub">Latest: <b>${esc(last.status || "?")}</b> — Tempest <b class="num">${last.tempest_mae != null ? f2(last.tempest_mae) : "—"}</b> vs ${esc(last.best_public || "?")} <b class="num">${last.best_mae != null ? f2(last.best_mae) : "—"}</b>${pTxt} over ${last.window_n} days.</p>
+    ${strip}
+    ${chart}
+    ${explain(`
+      <p><b>Why keep a history?</b> A claim gets filed on a single day — and a verdict that flickers between TIED and BEHIND day-to-day is a warning not to trust any one morning of it. This strip logs the rolling-90 verdict every day the scorer runs, so a filing date can be chosen against <b>stability</b>, not one lucky reading.</p>
+      <p>Each tick is one day, colored by that day's verdict. The chart tracks the two MAE lines the verdict compares; a real change shows as a sustained separation, not a one-day wiggle.</p>`)}`;
+  el.hidden = false;
+}
+
+/* ---------------------------------------------------- 4c · NBM TWIN (v2, facts only) */
+function renderNbmTwin(d) {
+  const el = document.getElementById("nbmtwin");
+  if (!el) return;
+  const t = d.nbm_twin;
+  if (!t || !t.n_days) { el.hidden = true; return; }
+  const tile = (l, v, m) => `<div class="sstat"><div class="sl">${esc(l)}</div><div class="sv">${esc(v)}</div>${m ? `<div class="sm">${esc(m)}</div>` : ""}</div>`;
+  const b = t.bias_all_time || {};
+  const b28 = t.bias_28d || {};
+  const sgn = (v) => v == null ? "—" : (v > 0 ? "+" : "") + f2(v);
+  const tiles =
+    tile("High-error correlation", t.r_all_time != null ? f2(t.r_all_time) : "—", `all-time · n=${t.n_days}`) +
+    tile("Correlation · last 28d", t.r_28d != null ? f2(t.r_28d) : "—", "") +
+    tile("High bias · Tempest", sgn(b.tempest) + "°F", b28.tempest != null ? `last 28d ${sgn(b28.tempest)}°` : "") +
+    tile("High bias · NBM", sgn(b.nbm) + "°F", b28.nbm != null ? `last 28d ${sgn(b28.nbm)}°` : "");
+  // weekly bias chart: two lines + zero axis
+  let chart = "";
+  const wk = t.weekly || [];
+  if (wk.length >= 2) {
+    const W = 680, H = 200, PAD = { t: 14, r: 14, b: 26, l: 38 };
+    const vals = wk.flatMap(r => [r.tempest_bias, r.nbm_bias]).filter(v => v != null).concat([0]);
+    const lo = Math.floor(Math.min(...vals)) - 0.5, hi = Math.ceil(Math.max(...vals)) + 0.5;
+    const x = (i) => PAD.l + (i / (wk.length - 1)) * (W - PAD.l - PAD.r);
+    const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+    let grid = "";
+    for (let g = Math.ceil(lo); g <= hi; g += 1) grid +=
+      `<line x1="${PAD.l}" y1="${y(g).toFixed(1)}" x2="${W - PAD.r}" y2="${y(g).toFixed(1)}" stroke="var(--border)"/>` +
+      `<text x="${PAD.l - 6}" y="${(y(g) + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${g > 0 ? "+" : ""}${g}</text>`;
+    const zero = `<line x1="${PAD.l}" y1="${y(0).toFixed(1)}" x2="${W - PAD.r}" y2="${y(0).toFixed(1)}" stroke="var(--text-3)" stroke-width="1.25"/>`;
+    const path = (key) => wk.map((r, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(r[key]).toFixed(1)).join("");
+    const xl = `<text x="${x(0).toFixed(1)}" y="${H - 8}" text-anchor="start" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(wk[0].week))}</text>
+      <text x="${x(wk.length - 1).toFixed(1)}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${esc(fmtMD(wk[wk.length - 1].week))}</text>`;
+    chart = `<div class="schart"><h3>Weekly high-temp bias · °F (forecast − actual)</h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly high-temperature bias: Tempest (bold teal) and NBM (dashed blue), in degrees Fahrenheit. Zero = unbiased.">
+      ${grid}${zero}${xl}
+      <path d="${path("nbm_bias")}" fill="none" stroke="var(--p-nbm)" stroke-width="1.75" stroke-dasharray="5 3"/>
+      <path d="${path("tempest_bias")}" fill="none" stroke="var(--p-tempest)" stroke-width="2.5" stroke-linejoin="round"/>
+    </svg><p class="keynote">bold teal = Tempest · dashed = NBM · 0 = unbiased · below 0 = forecasting cooler highs than measured</p></div>`;
+  }
+  el.innerHTML = `
+    <div class="card-head"><h2 id="nbmtwin-h">Tempest vs NBM · high-temp kinship</h2><span class="meta">lead-1 · facts only</span></div>
+    <div class="nbm-stats">${tiles}</div>
+    ${chart}
+    ${explain(`
+      <p><b>What this measures.</b> Correlation compares Tempest's and NBM's day-1 high-temp errors day by day: <b>1.00</b> would mean the two forecasts miss in perfect lockstep; near 0 would mean they miss independently. <b>Bias</b> is the average signed miss on highs — negative = forecasting cooler highs than the station measured.</p>
+      <p><b>What to watch:</b> whether the two lines stay glued together or separate over time. If Tempest's bias line decouples from NBM's, that's the station's own data showing up in its forecast; while they move together, the two forecasts are rising and falling as one. No interpretation is added here — the lines speak for themselves.</p>`)}`;
+  el.hidden = false;
 }
 
 /* ------------------------------------------------------------- 2 · CLOCK */
@@ -1561,9 +1874,13 @@ let DATA = null;
 function renderAll(d) {
   DATA = d;
   renderVerdict(d);
+  renderWindows(d);        // v2 — cards hide themselves when the feed predates the windows block
+  renderFullPicture(d);
   renderClock(d);
   renderStandings(d);
   renderTrend(d);
+  renderVerdictHistory(d);
+  renderNbmTwin(d);
   renderDetails(d);
   renderHealth(d);
   const gen = parseDate(d.generated_at);
@@ -1925,22 +2242,30 @@ function renderOffsetChartSVG(d) {
     <text x="${x(data.length - 1).toFixed(1)}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="var(--font-mono)">${fmtMD(data[data.length - 1].week)}</text>`;
   const lines = anchorIds.map(id => {
     const col = ANCHOR_COLORS[id] || "var(--text-3)";
-    const pts = data.map((r, i) => `${x(i).toFixed(1)},${y(r[id]).toFixed(1)}`);
+    // null-gap-safe: a week an anchor didn't report lifts the pen instead of emitting NaN
+    let path = "", pen = false;
+    data.forEach((r, i) => {
+      if (r[id] == null) { pen = false; return; }
+      path += (pen ? "L" : "M") + x(i).toFixed(1) + "," + y(r[id]).toFixed(1);
+      pen = true;
+    });
     const dash = ANCHOR_DASH[id] ? 'stroke-dasharray="5 4"' : "";
-    const dots = data.map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(r[id]).toFixed(1)}" r="2.6" fill="${col}"/>`).join("");
-    return `<path d="M${pts.join(" L")}" fill="none" stroke="${col}" stroke-width="${ANCHOR_DASH[id] ? 2 : 2.6}" stroke-linejoin="round" stroke-linecap="round" ${dash}/>${dots}`;
+    const dots = data.map((r, i) => r[id] == null ? "" :
+      `<circle cx="${x(i).toFixed(1)}" cy="${y(r[id]).toFixed(1)}" r="2.6" fill="${col}"/>`).join("");
+    return `<path d="${path}" fill="none" stroke="${col}" stroke-width="${ANCHOR_DASH[id] ? 2 : 2.6}" stroke-linejoin="round" stroke-linecap="round" ${dash}/>${dots}`;
   }).join("");
   let marker = "";
   if (tv.opened) {
     const openT = parseDate(tv.opened).getTime();
     let idx = data.findIndex(r => parseDate(r.week).getTime() >= openT);
     if (idx < 0) idx = data.length - 1;
-    const topId = anchorIds.reduce((a, b) => (data[idx][b] > data[idx][a] ? b : a), anchorIds[0]);
+    const val = (id) => data[idx][id] == null ? -Infinity : data[idx][id];
+    const topId = anchorIds.reduce((a, b) => (val(b) > val(a) ? b : a), anchorIds[0]);
     const near = x(idx) > W * 0.72;
     const tAnchor = near ? "end" : "middle";
     const tx = near ? (x(idx) - 7).toFixed(1) : x(idx).toFixed(1);
     marker = `<line x1="${x(idx).toFixed(1)}" y1="${PAD.t}" x2="${x(idx).toFixed(1)}" y2="${(PAD.t + innerH).toFixed(1)}" stroke="var(--hl-warn)" stroke-width="1.5" stroke-dasharray="3 3"/>
-      <circle cx="${x(idx).toFixed(1)}" cy="${y(data[idx][topId]).toFixed(1)}" r="4.5" fill="var(--hl-warn)"/>
+      ${data[idx][topId] == null ? "" : `<circle cx="${x(idx).toFixed(1)}" cy="${y(data[idx][topId]).toFixed(1)}" r="4.5" fill="var(--hl-warn)"/>`}
       <text x="${tx}" y="${(PAD.t - 9).toFixed(1)}" text-anchor="${tAnchor}" font-size="11" fill="var(--hl-warn)" font-weight="700">⚠ WATCH</text>`;
   }
   const legend = anchorIds.map(id => {
@@ -1957,6 +2282,42 @@ function renderOffsetChartSVG(d) {
     <div class="offset-legend">${legend}</div>
     <table class="sr-only"><caption>Temperature offset (°F) by week and anchor</caption><thead><tr><th>Week</th>${anchorIds.map(id => `<th>${esc(id)}</th>`).join("")}</tr></thead><tbody>${srRows}</tbody></table>
   </div>`;
+}
+
+/* ----- daily-HIGH truth check (v2) ----- */
+function renderHighCheck(d) {
+  const el = document.getElementById("hhighcheck");
+  if (!el) return;
+  const hc = d.high_check;
+  if (!hc || !hc.anchors || !Object.keys(hc.anchors).length) { el.hidden = true; return; }
+  const sgn = (v) => v == null ? "—" : (v > 0 ? "+" : "") + f1(v) + "°";
+  const rows = Object.entries(hc.anchors).map(([sid, a]) => `<tr>
+      <td style="text-align:left"><span class="fvar">${esc(sid)}</span></td>
+      <td>${a.n}</td>
+      <td>${sgn(a.all)}</td>
+      <td>${a.calm_sunny != null ? `${sgn(a.calm_sunny)} <span class="em">(${a.n_calm_sunny}d)</span>` : `<span class="muted">— (${a.n_calm_sunny}d)</span>`}</td>
+      <td>${a.windy != null ? `${sgn(a.windy)} <span class="em">(${a.n_windy}d)</span>` : `<span class="muted">— (${a.n_windy}d)</span>`}</td>
+      <td>${a.split_delta != null ? `<b>${sgn(a.split_delta)}</b>` : "—"}</td>
+    </tr>`).join("");
+  const chip = hc.suspect === true
+    ? `<span class="chip chip--warn"><span class="dot"></span>SPLIT SEEN</span>`
+    : hc.suspect === false
+      ? `<span class="chip chip--ok"><span class="dot"></span>NO SIGNATURE</span>`
+      : `<span class="chip chip--learning"><span class="dot"></span>BUILDING</span>`;
+  const th = hc.thresholds || {};
+  el.innerHTML = `
+    <div class="card-head"><h2 id="hhighcheck-h">Daily-high truth check</h2><span class="meta">station high vs airport highs</span></div>
+    <div class="rq-status">${chip}<span class="rq-sub">${esc(hc.note || "")}</span></div>
+    <div class="storm-scroll" style="margin-top:var(--s-4)">
+      <table class="storm-tbl">
+        <thead><tr><th scope="col" style="text-align:left">Anchor</th><th scope="col">Days</th><th scope="col">All days</th><th scope="col">Calm-sunny</th><th scope="col">Windy</th><th scope="col">Split</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${explain(`
+      <p><b>Why this check exists.</b> The scoreboard grades every forecast against the station's own daily high — so if the station's <i>thermometer housing</i> over-reads on hot afternoons, the "actuals" are inflated and every forecast looks cold-biased by construction. The classic failure regime for a passive radiation shield is <b>strong sun + light wind</b> (not enough airflow to carry the shield's own heat away).</p>
+      <p>So the check splits days by the station's own wind distribution (calm ≤ ${th.calm_at_or_below_mph != null ? f1(th.calm_at_or_below_mph) : "—"} mph, windy ≥ ${th.windy_at_or_above_mph != null ? f1(th.windy_at_or_above_mph) : "—"} mph daily mean, sun ≥ ${th.sunny_wm2 || 700} W/m² peak) and compares the station's daily high against the aspirated airport sensors in each regime. If calm-sunny days read meaningfully hotter than windy days do, that's the shield's signature. <b>Annotate-only:</b> whatever this finds, no days are excluded and no scored numbers change — it's a trustworthiness note on the ground truth, not a correction.</p>`)}`;
+  el.hidden = false;
 }
 
 /* ----- flag log ----- */
@@ -2021,6 +2382,7 @@ function renderHealthTab(d) {
   renderCurrentConditions(d);
   renderHStatus(d);
   renderAnchorsCard(d);
+  renderHighCheck(d);      // v2 — hides itself when the feed predates the high_check block
   renderFlagLog(d);
   renderExplainer(d);
   const dot = document.getElementById("healthDot");
