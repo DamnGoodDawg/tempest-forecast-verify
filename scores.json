@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T10:57:51Z",
+  "generated_at": "2026-08-25T10:55:25Z",
   "install_date": "2026-05-31",
   "milestones": {
     "window_opens": "2026-08-01",
@@ -9,157 +9,157 @@
   "verdict": {
     "status": "TEMPEST BEHIND",
     "headline": "Tempest is within 3\u00b0F on 74% of days vs NWS's 79% \u2014 behind the best public forecast over the last 90 days.",
-    "n_days": 78,
-    "dm_p_value": 0.025,
+    "n_days": 79,
+    "dm_p_value": 0.0194,
     "best_public": "NWS"
   },
   "standings": {
     "lead1": [
       {
         "source": "NWS",
-        "mae": 1.96,
+        "mae": 1.94,
         "pct_within_3f": 79,
         "csi": 0.34,
-        "brier": 0.258
+        "brier": 0.255
       },
       {
         "source": "NBM",
         "mae": 2.15,
         "pct_within_3f": 73,
         "csi": 0.33,
-        "brier": 0.258
+        "brier": 0.255
       },
       {
         "source": "GFS",
         "mae": 2.18,
         "pct_within_3f": 75,
         "csi": 0.33,
-        "brier": 0.258
+        "brier": 0.255
       },
       {
         "source": "Tempest",
-        "mae": 2.24,
+        "mae": 2.23,
         "pct_within_3f": 74,
         "csi": 0.52,
-        "brier": 0.206
+        "brier": 0.203
       },
       {
         "source": "ECMWF",
         "mae": 2.68,
         "pct_within_3f": 64,
         "csi": 0.65,
-        "brier": 0.181
+        "brier": 0.178
       }
     ],
     "lead2": [
       {
         "source": "NWS",
-        "mae": 2.06,
+        "mae": 2.05,
         "pct_within_3f": 77,
         "csi": 0.36,
-        "brier": 0.246
+        "brier": 0.243
       },
       {
         "source": "Tempest",
-        "mae": 2.32,
-        "pct_within_3f": 70,
+        "mae": 2.31,
+        "pct_within_3f": 71,
         "csi": 0.36,
-        "brier": 0.263
+        "brier": 0.259
       },
       {
         "source": "NBM",
-        "mae": 2.35,
+        "mae": 2.34,
         "pct_within_3f": 69,
         "csi": 0.36,
-        "brier": 0.252
+        "brier": 0.249
       },
       {
         "source": "GFS",
-        "mae": 2.68,
+        "mae": 2.69,
         "pct_within_3f": 65,
         "csi": 0.36,
-        "brier": 0.252
+        "brier": 0.249
       },
       {
         "source": "ECMWF",
-        "mae": 2.75,
-        "pct_within_3f": 58,
+        "mae": 2.73,
+        "pct_within_3f": 59,
         "csi": 0.57,
-        "brier": 0.192
+        "brier": 0.19
       }
     ],
     "lead3": [
       {
         "source": "NWS",
-        "mae": 2.17,
+        "mae": 2.16,
         "pct_within_3f": 75,
         "csi": 0.28,
-        "brier": 0.281
+        "brier": 0.278
       },
       {
         "source": "Tempest",
         "mae": 2.36,
         "pct_within_3f": 68,
         "csi": 0.24,
-        "brier": 0.296
+        "brier": 0.292
       },
       {
         "source": "NBM",
         "mae": 2.39,
         "pct_within_3f": 68,
         "csi": 0.2,
-        "brier": 0.291
+        "brier": 0.287
       },
       {
         "source": "GFS",
-        "mae": 3.02,
+        "mae": 3.03,
         "pct_within_3f": 61,
         "csi": 0.2,
-        "brier": 0.291
+        "brier": 0.287
       },
       {
         "source": "ECMWF",
-        "mae": 3.11,
-        "pct_within_3f": 52,
+        "mae": 3.09,
+        "pct_within_3f": 53,
         "csi": 0.47,
-        "brier": 0.215
+        "brier": 0.212
       }
     ],
     "blend": [
       {
         "source": "NWS",
-        "mae": 2.06,
+        "mae": 2.05,
         "pct_within_3f": 77,
         "csi": 0.33,
-        "brier": 0.262
+        "brier": 0.258
       },
       {
         "source": "NBM",
-        "mae": 2.3,
+        "mae": 2.29,
         "pct_within_3f": 70,
         "csi": 0.3,
-        "brier": 0.267
+        "brier": 0.264
       },
       {
         "source": "Tempest",
-        "mae": 2.31,
+        "mae": 2.3,
         "pct_within_3f": 71,
         "csi": 0.38,
-        "brier": 0.254
+        "brier": 0.251
       },
       {
         "source": "GFS",
-        "mae": 2.62,
+        "mae": 2.63,
         "pct_within_3f": 67,
         "csi": 0.3,
-        "brier": 0.267
+        "brier": 0.264
       },
       {
         "source": "ECMWF",
-        "mae": 2.85,
-        "pct_within_3f": 58,
+        "mae": 2.83,
+        "pct_within_3f": 59,
         "csi": 0.56,
-        "brier": 0.196
+        "brier": 0.193
       }
     ]
   },
@@ -259,6 +259,14 @@
       "NWS": 1.69,
       "ECMWF": 3.24,
       "GFS": 1.89
+    },
+    {
+      "week": "2026-08-24",
+      "Tempest": 1.7,
+      "NBM": 2.0,
+      "NWS": 0.7,
+      "ECMWF": 2.1,
+      "GFS": 2.2
     }
   ],
   "busts": [
@@ -285,13 +293,6 @@
     }
   ],
   "rain_compare": [
-    {
-      "date": "2026-08-03",
-      "tempest_raw": 0.0,
-      "tempest_corrected": 0.0,
-      "cocorahs": null,
-      "flag": null
-    },
     {
       "date": "2026-08-04",
       "tempest_raw": 0.1,
@@ -431,6 +432,13 @@
       "tempest_corrected": 0.0,
       "cocorahs": null,
       "flag": null
+    },
+    {
+      "date": "2026-08-24",
+      "tempest_raw": 0.0,
+      "tempest_corrected": 0.0,
+      "cocorahs": null,
+      "flag": null
     }
   ],
   "windows": {
@@ -438,50 +446,50 @@
       "key": "rolling90",
       "label": "Rolling 90 days",
       "start": "2026-06-05",
-      "end": "2026-08-23",
-      "n_days": 78,
+      "end": "2026-08-24",
+      "n_days": 79,
       "standings_lead1": [
         {
           "source": "NWS",
-          "mae": 1.96,
+          "mae": 1.94,
           "pct_within_3f": 79,
           "csi": 0.34,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "NBM",
           "mae": 2.15,
           "pct_within_3f": 73,
           "csi": 0.33,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "GFS",
           "mae": 2.18,
           "pct_within_3f": 75,
           "csi": 0.33,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "Tempest",
-          "mae": 2.24,
+          "mae": 2.23,
           "pct_within_3f": 74,
           "csi": 0.52,
-          "brier": 0.206
+          "brier": 0.203
         },
         {
           "source": "ECMWF",
           "mae": 2.68,
           "pct_within_3f": 64,
           "csi": 0.65,
-          "brier": 0.181
+          "brier": 0.178
         }
       ],
       "verdict": {
         "status": "TEMPEST BEHIND",
         "headline": "Tempest is within 3\u00b0F on 74% of days vs NWS's 79% \u2014 behind the best public forecast over the last 90 days.",
-        "n_days": 78,
-        "dm_p_value": 0.025,
+        "n_days": 79,
+        "dm_p_value": 0.0194,
         "best_public": "NWS"
       },
       "winners": {
@@ -489,10 +497,10 @@
           "metric": "mae",
           "better": "low",
           "leader": "NWS",
-          "leader_value": 1.96,
-          "tempest": 2.24,
+          "leader_value": 1.94,
+          "tempest": 2.23,
           "rival": "NWS",
-          "rival_value": 1.96,
+          "rival_value": 1.94,
           "tempest_wins_rival": false,
           "tempest_pct_within_3f": 74,
           "rival_pct_within_3f": 79
@@ -511,10 +519,10 @@
           "metric": "brier",
           "better": "low",
           "leader": "ECMWF",
-          "leader_value": 0.181,
-          "tempest": 0.206,
+          "leader_value": 0.178,
+          "tempest": 0.203,
           "rival": "NWS",
-          "rival_value": 0.258,
+          "rival_value": 0.255,
           "tempest_wins_rival": true
         }
       },
@@ -525,49 +533,49 @@
       "key": "since_epoch",
       "label": "Since Aug 1 \u00b7 advantage window",
       "start": "2026-08-01",
-      "end": "2026-08-23",
-      "n_days": 23,
+      "end": "2026-08-24",
+      "n_days": 24,
       "standings_lead1": [
         {
           "source": "NWS",
-          "mae": 1.75,
-          "pct_within_3f": 82,
+          "mae": 1.7,
+          "pct_within_3f": 83,
           "csi": 0.33,
-          "brier": 0.334
+          "brier": 0.32
         },
         {
           "source": "GFS",
-          "mae": 2.07,
-          "pct_within_3f": 78,
+          "mae": 2.08,
+          "pct_within_3f": 77,
           "csi": 0.33,
-          "brier": 0.345
+          "brier": 0.331
         },
         {
           "source": "Tempest",
-          "mae": 2.21,
-          "pct_within_3f": 76,
+          "mae": 2.19,
+          "pct_within_3f": 77,
           "csi": 0.42,
-          "brier": 0.247
+          "brier": 0.237
         },
         {
           "source": "NBM",
-          "mae": 2.3,
-          "pct_within_3f": 72,
+          "mae": 2.29,
+          "pct_within_3f": 73,
           "csi": 0.33,
-          "brier": 0.345
+          "brier": 0.331
         },
         {
           "source": "ECMWF",
-          "mae": 2.96,
-          "pct_within_3f": 59,
+          "mae": 2.92,
+          "pct_within_3f": 58,
           "csi": 0.58,
-          "brier": 0.232
+          "brier": 0.222
         }
       ],
       "verdict": {
         "status": "TOO EARLY",
-        "headline": "Only 23 scored days since the advantage window opened Aug 1 \u2014 need ~7 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
-        "n_days": 23,
+        "headline": "Only 24 scored days since the advantage window opened Aug 1 \u2014 need ~6 more for a first verdict (90 for a definitive one). Capture is running; check back as data accrues.",
+        "n_days": 24,
         "dm_p_value": null,
         "best_public": "NWS"
       },
@@ -576,13 +584,13 @@
           "metric": "mae",
           "better": "low",
           "leader": "NWS",
-          "leader_value": 1.75,
-          "tempest": 2.21,
+          "leader_value": 1.7,
+          "tempest": 2.19,
           "rival": "NWS",
-          "rival_value": 1.75,
+          "rival_value": 1.7,
           "tempest_wins_rival": false,
-          "tempest_pct_within_3f": 76,
-          "rival_pct_within_3f": 82
+          "tempest_pct_within_3f": 77,
+          "rival_pct_within_3f": 83
         },
         "precip_occurrence": {
           "metric": "csi",
@@ -598,10 +606,10 @@
           "metric": "brier",
           "better": "low",
           "leader": "ECMWF",
-          "leader_value": 0.232,
-          "tempest": 0.247,
+          "leader_value": 0.222,
+          "tempest": 0.237,
           "rival": "NWS",
-          "rival_value": 0.334,
+          "rival_value": 0.32,
           "tempest_wins_rival": true
         }
       },
@@ -610,41 +618,41 @@
     "rolling28": {
       "key": "rolling28",
       "label": "Last 28 days \u00b7 trend only",
-      "start": "2026-07-27",
-      "end": "2026-08-23",
+      "start": "2026-07-28",
+      "end": "2026-08-24",
       "n_days": 28,
       "standings_lead1": [
         {
           "source": "NWS",
-          "mae": 1.78,
+          "mae": 1.76,
           "pct_within_3f": 83,
           "csi": 0.29,
           "brier": 0.335
         },
         {
           "source": "GFS",
-          "mae": 2.01,
-          "pct_within_3f": 80,
+          "mae": 2.06,
+          "pct_within_3f": 79,
           "csi": 0.29,
-          "brier": 0.338
+          "brier": 0.337
         },
         {
           "source": "Tempest",
-          "mae": 2.12,
+          "mae": 2.11,
           "pct_within_3f": 79,
           "csi": 0.38,
-          "brier": 0.245
+          "brier": 0.244
         },
         {
           "source": "NBM",
-          "mae": 2.14,
+          "mae": 2.15,
           "pct_within_3f": 75,
           "csi": 0.29,
-          "brier": 0.338
+          "brier": 0.337
         },
         {
           "source": "ECMWF",
-          "mae": 2.91,
+          "mae": 2.88,
           "pct_within_3f": 61,
           "csi": 0.52,
           "brier": 0.233
@@ -656,50 +664,50 @@
       "key": "all_time",
       "label": "All-time \u00b7 context",
       "start": "2026-06-05",
-      "end": "2026-08-23",
-      "n_days": 78,
+      "end": "2026-08-24",
+      "n_days": 79,
       "standings_lead1": [
         {
           "source": "NWS",
-          "mae": 1.96,
+          "mae": 1.94,
           "pct_within_3f": 79,
           "csi": 0.34,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "NBM",
           "mae": 2.15,
           "pct_within_3f": 73,
           "csi": 0.33,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "GFS",
           "mae": 2.18,
           "pct_within_3f": 75,
           "csi": 0.33,
-          "brier": 0.258
+          "brier": 0.255
         },
         {
           "source": "Tempest",
-          "mae": 2.24,
+          "mae": 2.23,
           "pct_within_3f": 74,
           "csi": 0.52,
-          "brier": 0.206
+          "brier": 0.203
         },
         {
           "source": "ECMWF",
           "mae": 2.68,
           "pct_within_3f": 64,
           "csi": 0.65,
-          "brier": 0.181
+          "brier": 0.178
         }
       ],
       "verdict": {
         "status": "TEMPEST BEHIND",
         "headline": "Tempest is within 3\u00b0F on 74% of days vs NWS's 79% \u2014 behind the best public forecast over all scored days.",
-        "n_days": 78,
-        "dm_p_value": 0.025,
+        "n_days": 79,
+        "dm_p_value": 0.0194,
         "best_public": "NWS"
       },
       "winners": {
@@ -707,10 +715,10 @@
           "metric": "mae",
           "better": "low",
           "leader": "NWS",
-          "leader_value": 1.96,
-          "tempest": 2.24,
+          "leader_value": 1.94,
+          "tempest": 2.23,
           "rival": "NWS",
-          "rival_value": 1.96,
+          "rival_value": 1.94,
           "tempest_wins_rival": false,
           "tempest_pct_within_3f": 74,
           "rival_pct_within_3f": 79
@@ -729,10 +737,10 @@
           "metric": "brier",
           "better": "low",
           "leader": "ECMWF",
-          "leader_value": 0.181,
-          "tempest": 0.206,
+          "leader_value": 0.178,
+          "tempest": 0.203,
           "rival": "NWS",
-          "rival_value": 0.258,
+          "rival_value": 0.255,
           "tempest_wins_rival": true
         }
       }
@@ -891,19 +899,28 @@
       "best_mae": 1.96,
       "dm_p": 0.025,
       "status": "TEMPEST BEHIND"
+    },
+    {
+      "date": "2026-08-25",
+      "window_n": 79,
+      "tempest_mae": 2.23,
+      "best_public": "NWS",
+      "best_mae": 1.94,
+      "dm_p": 0.0194,
+      "status": "TEMPEST BEHIND"
     }
   ],
   "nbm_twin": {
-    "n_days": 78,
+    "n_days": 79,
     "r_all_time": 0.97,
     "r_28d": 0.96,
     "bias_all_time": {
       "tempest": -1.62,
-      "nbm": -1.76
+      "nbm": -1.77
     },
     "bias_28d": {
-      "tempest": -1.83,
-      "nbm": -2.02
+      "tempest": -1.82,
+      "nbm": -2.04
     },
     "weekly": [
       {
@@ -965,13 +982,18 @@
         "week": "2026-08-17",
         "tempest_bias": -0.64,
         "nbm_bias": -0.96
+      },
+      {
+        "week": "2026-08-24",
+        "tempest_bias": -1.7,
+        "nbm_bias": -2.5
       }
     ]
   },
   "data_health": {
-    "capture_days": 82,
+    "capture_days": 83,
     "capture_misses": 1,
-    "station_online_streak": 46,
+    "station_online_streak": 47,
     "hub_online": true,
     "cocorahs_ok": true,
     "last_snapshot_hours_ago": 0,
