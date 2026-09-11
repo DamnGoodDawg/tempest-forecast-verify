@@ -770,6 +770,29 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 /* Tab 1 standings ⚠ footnote (v2) */
 .standings .flag-foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--border-2); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
 .standings .flag-foot .flag-mark { flex: none; }
+
+/* ===== Dawg's Calls (private journal tab) ===== */
+.dawg-unlock { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: center; margin-top: var(--s-3); }
+.dawg-unlock input[type=password] { flex: 1 1 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); font: inherit; }
+.dawg-btn { padding: 8px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-3); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.dawg-btn.ghost { background: transparent; color: var(--text-2); margin-left: auto; font-weight: 500; }
+.dawg-remember { font-size: var(--fs-sm); color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }
+.dawg-err { color: var(--hl-fail); font-size: var(--fs-sm); margin-top: var(--s-2); }
+.dawg-pill { display: inline-block; min-width: 1.6em; text-align: center; border-radius: var(--r-pill); padding: 0 6px; font-weight: 700; font-size: var(--fs-sm); }
+.dawg-pill.ok { background: var(--tint-ok); color: var(--hl-ok); }
+.dawg-pill.miss { background: var(--tint-fail); color: var(--hl-fail); }
+.dawg-pill.pend { background: var(--tint-muted); color: var(--text-3); font-weight: 500; }
+.dawg-wrap { overflow-x: auto; }
+.dawg-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.dawg-table th, .dawg-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; white-space: nowrap; }
+.dawg-table td.q { color: var(--text-2); white-space: normal; min-width: 14ch; max-width: 30ch; }
+.dawg-table td.num, .dawg-table th.num { text-align: right; font-family: var(--font-mono); }
+.dawg-filters { display: flex; gap: var(--s-2); margin-bottom: var(--s-3); flex-wrap: wrap; }
+.dawg-filters button { padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.dawg-filters button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); border-color: var(--border-2); font-weight: 600; }
+.dawg-list { margin: 0; padding-left: 1.2em; } .dawg-list li { margin: 4px 0; } .dawg-list .when { color: var(--text-3); font-size: var(--fs-micro); margin-left: 6px; }
+.dawg-chart { width: 100%; height: auto; display: block; }
+.dawg-note { color: var(--text-3); font-size: var(--fs-micro); margin-top: var(--s-2); }
 </style>
 </head>
 <body>
@@ -807,6 +830,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <button class="tab" id="tab-btn-health" role="tab" type="button" aria-selected="false" aria-controls="tab-health">Station Health<span class="tab-dot" id="healthDot" hidden aria-hidden="true"></span></button>
     <button class="tab" id="tab-btn-storms" role="tab" type="button" aria-selected="false" aria-controls="tab-storms">Storms<span class="tab-dot" id="stormsDot" hidden aria-hidden="true"></span></button>
     <button class="tab" id="tab-btn-rain" role="tab" type="button" aria-selected="false" aria-controls="tab-rain">Rain Equity</button>
+    <button class="tab" id="tab-btn-dawg" role="tab" type="button" aria-selected="false" aria-controls="tab-dawg">Dawg's Calls</button>
   </nav>
 
   <!-- ============ TAB 1 · GUARANTEE SCOREBOARD ============ -->
@@ -889,6 +913,19 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <section class="card" id="rainRing" aria-labelledby="rainRing-h" hidden></section>
     <section class="card rq-how" id="rainHow" aria-labelledby="rainHow-h"></section>
   </div><!-- /tab-rain -->
+
+  <div class="tabpanel" id="tab-dawg" role="tabpanel" aria-labelledby="tab-btn-dawg" hidden>
+    <p class="tab-lede">Dawg — the family's text-message weatherman — now <em>commits to a call</em> every morning and every time he's asked, and the station grades him. This is his report card: what he said, what happened, and whether he is getting sharper. <em>Private:</em> the journal is encrypted on the Mac and unlocks here with a passphrase.</p>
+    <section class="card" id="dawgLock" hidden></section>
+    <section class="card verdict" id="dawgVerdict" hidden></section>
+    <section class="card" id="dawgStats" aria-labelledby="dawgStats-h" hidden></section>
+    <section class="card" id="dawgReliability" aria-labelledby="dawgReliability-h" hidden></section>
+    <section class="card" id="dawgSameday" aria-labelledby="dawgSameday-h" hidden></section>
+    <section class="card" id="dawgCalls" aria-labelledby="dawgCalls-h" hidden></section>
+    <section class="card" id="dawgLog" aria-labelledby="dawgLog-h" hidden></section>
+    <section class="card" id="dawgLessons" aria-labelledby="dawgLessons-h" hidden></section>
+    <section class="card rq-how" id="dawgHow" aria-labelledby="dawgHow-h" hidden></section>
+  </div><!-- /tab-dawg -->
 
   <p class="pagefoot" id="pagefoot"></p>
 </div>
@@ -1170,6 +1207,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 }
 </script>
 
+<script src="./dawg_crypto.js"></script>
 <script>
 "use strict";
 /* ============================================================================
@@ -3058,13 +3096,14 @@ function renderRainHow(p, fv) {
 }
 
 /* ----- tab switching (deep-linkable via #scoreboard / #health / #storms / #storms/<id>) ----- */
-const TAB_NAMES = ["scoreboard", "health", "storms", "rain"];
+const TAB_NAMES = ["scoreboard", "health", "storms", "rain", "dawg"];
 function showTab(name) {
   if (!TAB_NAMES.includes(name)) name = "scoreboard";
   TAB_NAMES.forEach(t => {
     document.getElementById("tab-" + t).hidden = (t !== name);
     document.getElementById("tab-btn-" + t).setAttribute("aria-selected", String(t === name));
   });
+  if (name === "dawg") loadDawgTab();                 // lazy: fetch + unlock only when opened
   // preserve an open storm-detail sub-route instead of clobbering it
   const hash = "#" + name + (name === "storms" && CURRENT_DETAIL ? "/" + CURRENT_DETAIL : "");
   if (history.replaceState) history.replaceState(null, "", hash); else location.hash = hash;
