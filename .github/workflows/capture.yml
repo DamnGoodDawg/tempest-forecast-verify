@@ -3,9 +3,13 @@
 name: daily-forecast-capture
 on:
   schedule:
-    # 10:23 UTC: off the congested top-of-hour (observed drift 1.2-3.8 h past 11:00) and
-    # early enough to buy DST headroom. = 06:23 EDT / 05:23 EST.
-    - cron: "23 10 * * *"
+    # 11:23 UTC: off the congested top-of-hour (observed drift 1.2-3.8 h past 11:00), and
+    # after the Mac publishes the 05:35 ET house-AI forecast. = 07:23 EDT / 06:23 EST.
+    # (Was 10:23 UTC. A punctual winter run at 05:23 EST would beat Dawg's 05:35 call to the
+    # gist every day and fetch yesterday's file — which capture.py's freshness gate then
+    # correctly refuses, losing the row. One hour later clears the call in both halves of
+    # the year while staying well inside the same morning.)
+    - cron: "23 11 * * *"
   workflow_dispatch: {}     # manual trigger for testing
 concurrency:
   group: capture            # never let two capture runs race the same data/ + scores.json push

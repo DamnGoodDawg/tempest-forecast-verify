@@ -2,15 +2,18 @@
 
 A daily automated check of whether a [WeatherFlow Tempest](https://weatherflow.com/tempest-weather-system/)
 weather station's forecast for **Statham, GA** is actually more accurate than the public
-forecasts — NWS, NBM, ECMWF, and GFS — scored against observed conditions.
+forecasts — NWS, NBM, ECMWF, and GFS — scored against observed conditions. Two *house* rows
+compete on the same board for context: **Dawg** (the AI meteorologist's 05:35 ET call) and
+**Blend** (a deterministic baseline) — see [House rows](#house-rows-dawg--blend).
 
 This is the verification layer behind WeatherFlow's *Better Forecast Guarantee*: keep an
 honest, timestamped, tamper-evident record of forecast accuracy and let the numbers decide.
 
 ## How it works
 
-A GitHub Actions job runs once a day (cron `23 10 * * *`, i.e. 10:23 UTC ≈ 06:23 ET — moved
-off the congested top-of-hour, where runs had been drifting 1–4 h late) and:
+A GitHub Actions job runs once a day (cron `23 11 * * *`, i.e. 11:23 UTC ≈ 07:23 EDT / 06:23
+EST — off the congested top-of-hour, where runs had been drifting 1–4 h late, and after the
+Mac publishes Dawg's 05:35 ET call) and:
 
 1. **Captures** (`capture.py`) each provider's forecast into `data/YYYY-MM-DD/`:
    - `tempest.json` — Tempest `better_forecast` (the subject under test). Irreplaceable: it has no public archive.
@@ -19,6 +22,8 @@ off the congested top-of-hour, where runs had been drifting 1–4 h late) and:
    - `tempest_station_obs.json` — the current station observation (current conditions + yesterday's raw/corrected daily rain totals).
    - `tempest_device_yesterday.json` — yesterday's per-minute device observations: the temperature ground truth (daily high/low) plus battery voltage.
    - `cocorahs.json` — nearby CoCoRaHS gauge report (independent precip-amount truth).
+   - `dawg.json` — the house AI forecast the Mac published that morning. Soft: a stale,
+     missing or unparseable file logs a warning and writes nothing.
 2. **Scores** (`extract.py` → `verify.py`) every snapshot and writes `scores.json`:
    mean absolute error and % within 3 °F on temperature, precip-occurrence CSI, PoP Brier
    score, and a paired Diebold-Mariano significance test — at 1-, 2-, 3-day and blended leads.
@@ -34,12 +39,38 @@ off the congested top-of-hour, where runs had been drifting 1–4 h late) and:
 
 Until enough days accrue, the verdict reads **TOO EARLY** — by design.
 
+## House rows: Dawg & Blend
+
+Since 2026-09-13 the standings carry two extra rows, tagged **HOUSE** on the dashboard and
+`"house": true` in `scores.json`:
+
+- **Dawg** — the Mac's AI meteorologist writes a forecast at ~05:35 ET and publishes it to a
+  gist; `capture.py` fetches it in the same run as everyone else's, checks it was issued
+  *today*, and freezes it into `data/<date>/dawg.json` with the sha256 of the bytes fetched.
+  It commits *before* the public forecasts it is scored against are frozen.
+- **Blend** — a deterministic baseline computed here from the captured files:
+  **high/low = NWS value, else NBM, else Tempest; pop = mean(ECMWF pop, Tempest pop) when both
+  exist, else whichever exists, else NWS.** Because it derives from snapshots we already have,
+  it **back-scores across the entire capture history** and arrives with a full record.
+
+Both are scored identically to everyone else. Neither can ever be the guarantee's rival: the
+verdict compares Tempest against the best of `PUBLIC_SOURCES` (NBM/NWS/ECMWF/GFS) only, so a
+row we wrote ourselves can never appear as *"the best public forecast"* in the claim sentence
+or in `verdict_history.json`. The field *leader* on any metric may be any source.
+
+Every standings row now also carries `n_days` (how many scored days it rests on); rows under
+10 days are greyed out and tagged `early` — which is how Dawg's thin first weeks read honestly
+next to Blend's back-filled history.
+
+Full contract, fairness argument and the guard's rationale: **[`docs/dawg-source.md`](docs/dawg-source.md)**.
+
 ## Files
 
 | File | Role |
 |---|---|
 | `capture.py` | Daily snapshot job. Standard library only. Fails loud if the Tempest capture is missed. |
-| `extract.py` | Reads snapshots → scores them → emits `scores.json` in the dashboard's data contract. |
+| `extract.py` | Reads snapshots → scores them → emits `scores.json` in the dashboard's data contract. Also builds the deterministic `Blend` row from the captured files. |
+| `docs/dawg-source.md` | The Dawg file contract, the fairness statement, the Blend rule and the `PUBLIC_SOURCES` guard. |
 | `verify.py` | Scoring engine: MAE/RMSE/bias, %±3 °F, Brier, POD/FAR/CSI, Diebold-Mariano. |
 | `health.py` | Station-health monitor: Tempest vs 3 anchors → offsets, bands, flag states → `health.json` + `anchors.csv`. |
 | `backfill_anchors.py` | One-time METAR-anchor baseline backfill (AWC history) → `anchors_backfill.json`, so flags arm fast. |

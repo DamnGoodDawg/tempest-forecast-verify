@@ -18,12 +18,17 @@
 
   /* --- Provider identity ------------------------------------------------- */
   /* Tempest is the hero (teal). Competitors are spaced around the hue wheel,
-     all at matched chroma/lightness so none reads "louder" than another.     */
+     all at matched chroma/lightness so none reads "louder" than another.
+     The two HOUSE rows sit in the two gaps the public five left: Dawg at 345
+     (rose — the house AI, loud enough to follow) and Blend at 140 held at LOW
+     chroma, because a yardstick line should read quiet, not "winning green".  */
   --p-tempest: oklch(0.62 0.13 205);
   --p-nbm:     oklch(0.58 0.13 262);
   --p-nws:     oklch(0.55 0.14 305);
   --p-ecmwf:   oklch(0.66 0.13 75);
   --p-gfs:     oklch(0.62 0.15 25);
+  --p-dawg:    oklch(0.58 0.16 345);
+  --p-blend:   oklch(0.55 0.07 140);
 
   /* --- Status (verdict + cells) ----------------------------------------- */
   --st-ahead:     oklch(0.60 0.14 150);   /* Tempest beating public        */
@@ -101,6 +106,8 @@
     --p-nws:     oklch(0.66 0.13 305);
     --p-ecmwf:   oklch(0.76 0.12 75);
     --p-gfs:     oklch(0.70 0.15 25);
+    --p-dawg:    oklch(0.72 0.14 345);
+    --p-blend:   oklch(0.70 0.07 140);
     --st-ahead:  oklch(0.72 0.14 150);
     --st-tied:   oklch(0.80 0.13 85);
     --st-behind: oklch(0.70 0.17 25);
@@ -123,6 +130,8 @@
   --p-nws:     oklch(0.66 0.13 305);
   --p-ecmwf:   oklch(0.76 0.12 75);
   --p-gfs:     oklch(0.70 0.15 25);
+  --p-dawg:    oklch(0.72 0.14 345);
+  --p-blend:   oklch(0.70 0.07 140);
   --st-ahead:  oklch(0.72 0.14 150);
   --st-tied:   oklch(0.80 0.13 85);
   --st-behind: oklch(0.70 0.17 25);
@@ -339,6 +348,20 @@ table.standings-tbl { width: 100%; border-collapse: collapse; min-width: 420px; 
   border: 1px solid color-mix(in oklch, var(--p-tempest) 40%, transparent);
   padding: 1px 5px; border-radius: var(--r-pill); margin-left: 2px;
 }
+/* HOUSE tag: our own rows (Dawg, Blend) — same shape as YOU, neutral ink so it reads as a
+   label, not a score. Plus the per-row sample size and the "early" caveat for thin rows. */
+.rank .house {
+  font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; color: var(--text-2);
+  border: 1px solid var(--border-2);
+  padding: 1px 5px; border-radius: var(--r-pill); margin-left: 2px;
+}
+.rank .ndays { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); margin-left: 2px; }
+.rank .early {
+  font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; color: var(--st-tied);
+  border: 1px solid color-mix(in oklch, var(--st-tied) 45%, transparent);
+  padding: 1px 5px; border-radius: var(--r-pill); margin-left: 2px;
+}
+.standings-tbl tbody tr.row-early td { opacity: 0.62; }
 .row-tempest td { background: var(--tint-tempest); }
 .row-tempest td:first-child { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
 .row-tempest td:last-child { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
@@ -943,41 +966,49 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
   },
   "standings": {
     "lead1": [
-      { "source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083 },
-      { "source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091 },
-      { "source": "ECMWF",   "mae": 1.98, "pct_within_3f": 77, "csi": 0.72, "brier": 0.088 },
-      { "source": "NWS",     "mae": 2.10, "pct_within_3f": 74, "csi": 0.70, "brier": 0.095 },
-      { "source": "GFS",     "mae": 2.41, "pct_within_3f": 68, "csi": 0.62, "brier": 0.112 }
+      { "source": "Dawg",    "mae": 1.71, "pct_within_3f": 86, "csi": 0.76, "brier": 0.079, "n_days": 6,  "house": true },
+      { "source": "Blend",   "mae": 1.80, "pct_within_3f": 82, "csi": 0.75, "brier": 0.081, "n_days": 74, "house": true },
+      { "source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083, "n_days": 74 },
+      { "source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091, "n_days": 74 },
+      { "source": "ECMWF",   "mae": 1.98, "pct_within_3f": 77, "csi": 0.72, "brier": 0.088, "n_days": 74 },
+      { "source": "NWS",     "mae": 2.10, "pct_within_3f": 74, "csi": 0.70, "brier": 0.095, "n_days": 74 },
+      { "source": "GFS",     "mae": 2.41, "pct_within_3f": 68, "csi": 0.62, "brier": 0.112, "n_days": 74 }
     ],
     "lead2": [
-      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.101 },
-      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.106 },
-      { "source": "Tempest", "mae": 2.44, "pct_within_3f": 73, "csi": 0.64, "brier": 0.110 },
-      { "source": "NWS",     "mae": 2.58, "pct_within_3f": 68, "csi": 0.63, "brier": 0.115 },
-      { "source": "GFS",     "mae": 2.95, "pct_within_3f": 61, "csi": 0.55, "brier": 0.134 }
+      { "source": "Blend",   "mae": 2.26, "pct_within_3f": 74, "csi": 0.69, "brier": 0.099, "n_days": 74, "house": true },
+      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.101, "n_days": 74 },
+      { "source": "Dawg",    "mae": 2.38, "pct_within_3f": 71, "csi": 0.66, "brier": 0.104, "n_days": 6,  "house": true },
+      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.106, "n_days": 74 },
+      { "source": "Tempest", "mae": 2.44, "pct_within_3f": 73, "csi": 0.64, "brier": 0.110, "n_days": 74 },
+      { "source": "NWS",     "mae": 2.58, "pct_within_3f": 68, "csi": 0.63, "brier": 0.115, "n_days": 74 },
+      { "source": "GFS",     "mae": 2.95, "pct_within_3f": 61, "csi": 0.55, "brier": 0.134, "n_days": 74 }
     ],
     "lead3": [
-      { "source": "NBM",     "mae": 2.78, "pct_within_3f": 66, "csi": 0.61, "brier": 0.122 },
-      { "source": "ECMWF",   "mae": 2.85, "pct_within_3f": 64, "csi": 0.60, "brier": 0.126 },
-      { "source": "Tempest", "mae": 3.05, "pct_within_3f": 64, "csi": 0.57, "brier": 0.135 },
-      { "source": "NWS",     "mae": 3.12, "pct_within_3f": 61, "csi": 0.57, "brier": 0.139 },
-      { "source": "GFS",     "mae": 3.58, "pct_within_3f": 54, "csi": 0.48, "brier": 0.161 }
+      { "source": "Blend",   "mae": 2.74, "pct_within_3f": 67, "csi": 0.62, "brier": 0.120, "n_days": 74, "house": true },
+      { "source": "NBM",     "mae": 2.78, "pct_within_3f": 66, "csi": 0.61, "brier": 0.122, "n_days": 74 },
+      { "source": "ECMWF",   "mae": 2.85, "pct_within_3f": 64, "csi": 0.60, "brier": 0.126, "n_days": 74 },
+      { "source": "Dawg",    "mae": 2.99, "pct_within_3f": 63, "csi": 0.58, "brier": 0.132, "n_days": 6,  "house": true },
+      { "source": "Tempest", "mae": 3.05, "pct_within_3f": 64, "csi": 0.57, "brier": 0.135, "n_days": 74 },
+      { "source": "NWS",     "mae": 3.12, "pct_within_3f": 61, "csi": 0.57, "brier": 0.139, "n_days": 74 },
+      { "source": "GFS",     "mae": 3.58, "pct_within_3f": 54, "csi": 0.48, "brier": 0.161, "n_days": 74 }
     ],
     "blend": [
-      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.102 },
-      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.107 },
-      { "source": "Tempest", "mae": 2.47, "pct_within_3f": 73, "csi": 0.64, "brier": 0.112 },
-      { "source": "NWS",     "mae": 2.60, "pct_within_3f": 67, "csi": 0.62, "brier": 0.116 },
-      { "source": "GFS",     "mae": 2.99, "pct_within_3f": 60, "csi": 0.55, "brier": 0.135 }
+      { "source": "Blend",   "mae": 2.27, "pct_within_3f": 74, "csi": 0.69, "brier": 0.100, "n_days": 75, "house": true },
+      { "source": "NBM",     "mae": 2.31, "pct_within_3f": 72, "csi": 0.68, "brier": 0.102, "n_days": 75 },
+      { "source": "ECMWF",   "mae": 2.40, "pct_within_3f": 71, "csi": 0.66, "brier": 0.107, "n_days": 75 },
+      { "source": "Dawg",    "mae": 2.44, "pct_within_3f": 70, "csi": 0.65, "brier": 0.110, "n_days": 6,  "house": true },
+      { "source": "Tempest", "mae": 2.47, "pct_within_3f": 73, "csi": 0.64, "brier": 0.112, "n_days": 75 },
+      { "source": "NWS",     "mae": 2.60, "pct_within_3f": 67, "csi": 0.62, "brier": 0.116, "n_days": 75 },
+      { "source": "GFS",     "mae": 2.99, "pct_within_3f": 60, "csi": 0.55, "brier": 0.135, "n_days": 75 }
     ]
   },
   "trend": [
-    { "week": "2026-07-06", "Tempest": 2.21, "NBM": 1.95, "ECMWF": 2.02, "NWS": 2.18, "GFS": 2.55 },
-    { "week": "2026-07-13", "Tempest": 2.05, "NBM": 1.90, "ECMWF": 2.05, "NWS": 2.12, "GFS": 2.48 },
-    { "week": "2026-07-20", "Tempest": 1.98, "NBM": 1.88, "ECMWF": 1.99, "NWS": 2.09, "GFS": 2.40 },
-    { "week": "2026-07-27", "Tempest": 1.95, "NBM": 1.86, "ECMWF": 2.01, "NWS": 2.11, "GFS": 2.43 },
-    { "week": "2026-08-03", "Tempest": 1.90, "NBM": 1.84, "ECMWF": 1.97, "NWS": 2.08, "GFS": 2.39 },
-    { "week": "2026-08-10", "Tempest": 1.92, "NBM": 1.85, "ECMWF": 1.98, "NWS": 2.10, "GFS": 2.41 }
+    { "week": "2026-07-06", "Tempest": 2.21, "Blend": 1.91, "NBM": 1.95, "ECMWF": 2.02, "NWS": 2.18, "GFS": 2.55 },
+    { "week": "2026-07-13", "Tempest": 2.05, "Blend": 1.86, "NBM": 1.90, "ECMWF": 2.05, "NWS": 2.12, "GFS": 2.48 },
+    { "week": "2026-07-20", "Tempest": 1.98, "Blend": 1.84, "NBM": 1.88, "ECMWF": 1.99, "NWS": 2.09, "GFS": 2.40 },
+    { "week": "2026-07-27", "Tempest": 1.95, "Blend": 1.82, "NBM": 1.86, "ECMWF": 2.01, "NWS": 2.11, "GFS": 2.43 },
+    { "week": "2026-08-03", "Tempest": 1.90, "Blend": 1.79, "NBM": 1.84, "ECMWF": 1.97, "NWS": 2.08, "GFS": 2.39 },
+    { "week": "2026-08-10", "Tempest": 1.92, "Dawg": 1.71, "Blend": 1.80, "NBM": 1.85, "ECMWF": 1.98, "NWS": 2.10, "GFS": 2.41 }
   ],
   "busts": [
     { "date": "2026-08-12", "source": "Tempest", "var": "high", "forecast": 84, "actual": 91 },
@@ -1050,6 +1081,15 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
       { "week": "2026-08-03", "tempest_bias": -1.7, "nbm_bias": -1.6 },
       { "week": "2026-08-10", "tempest_bias": -1.5, "nbm_bias": -1.5 }
     ]
+  },
+  "sources": {
+    "Tempest": { "public": false, "house": false, "first_date": "2026-06-04", "n_days": 74 },
+    "Dawg":    { "public": false, "house": true,  "first_date": "2026-08-11", "n_days": 6 },
+    "Blend":   { "public": false, "house": true,  "first_date": "2026-06-04", "n_days": 74 },
+    "NBM":     { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 },
+    "ECMWF":   { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 },
+    "NWS":     { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 },
+    "GFS":     { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 }
   },
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
@@ -1216,14 +1256,39 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 
 const PROVIDERS = {
   Tempest: { var: "--p-tempest", label: "Tempest" },
+  Dawg:    { var: "--p-dawg",    label: "Dawg",  house: true },
+  Blend:   { var: "--p-blend",   label: "Blend", house: true },
   NBM:     { var: "--p-nbm",     label: "NBM" },
   NWS:     { var: "--p-nws",     label: "NWS" },
   ECMWF:   { var: "--p-ecmwf",   label: "ECMWF" },
   GFS:     { var: "--p-gfs",     label: "GFS" }
 };
-const ORDER = ["Tempest", "NBM", "ECMWF", "NWS", "GFS"];
+// The four independent PUBLIC forecasts. The guarantee verdict compares Tempest against the
+// best of THESE and nothing else — our own house rows (Dawg, Blend) are scored and ranked in
+// the same table, but a row we wrote can never become "the best public forecast" in the
+// claim. Mirrors extract.PUBLIC_SOURCES; scores.sources[src].public overrides it when the
+// feed carries the newer block, so the two lists can't silently drift apart.
+const PUBLIC_FALLBACK = ["NBM", "NWS", "ECMWF", "GFS"];
+const ORDER_FALLBACK = ["Tempest", "Dawg", "Blend", "NBM", "ECMWF", "NWS", "GFS"];
+let SOURCE_META = {};          // set from scores.sources on load (may stay empty on old feeds)
+let ORDER = ORDER_FALLBACK.slice();
+const isPublic = (src) => (SOURCE_META[src] ? !!SOURCE_META[src].public
+                                            : PUBLIC_FALLBACK.includes(src));
+const isHouse = (src) => (SOURCE_META[src] ? !!SOURCE_META[src].house
+                                           : !!(PROVIDERS[src] && PROVIDERS[src].house));
+const EARLY_N_DAYS = 10;       // mirrors extract.EARLY_N_DAYS — below this a row reads "early"
+// Derive the legend/colour order from the feed when it says which sources exist (so a source
+// that has never published yet doesn't get a dead legend entry), else the hardcoded list.
+function setSources(d) {
+  SOURCE_META = (d && d.sources && typeof d.sources === "object") ? d.sources : {};
+  const known = Object.keys(SOURCE_META);
+  ORDER = known.length
+    ? ORDER_FALLBACK.filter(s => known.includes(s)).concat(known.filter(s => !ORDER_FALLBACK.includes(s)))
+    : ORDER_FALLBACK.slice();
+}
 const cvar = (name) => `var(${name})`;
 const pcolor = (src) => cvar((PROVIDERS[src] || PROVIDERS.GFS).var);
+const plabel = (src) => (PROVIDERS[src] ? PROVIDERS[src].label : String(src));
 
 const STATUS = {
   TOO_EARLY:     { cls: "tooearly", accent: "--st-tooearly", label: "TOO EARLY" },
@@ -1294,6 +1359,7 @@ function renderVerdict(d) {
     ${winNote}
     ${explain(`
       <p><b>The bottom line.</b> This whole experiment asks one thing: is your Tempest's forecast actually more accurate than the big public forecasts — <b>NWS, NBM, ECMWF, GFS</b> — for Statham? Each is graded against what your station actually measured.</p>
+      <p>Two more rows ride along in the standings below, tagged <b>HOUSE</b>: <b>Dawg</b>, the AI meteorologist's own 5:35 AM call, and <b>Blend</b>, a dumb deterministic baseline (NWS temps, ECMWF-and-Tempest rain odds averaged) back-scored across every captured day. They're graded identically — but the verdict up top is deliberately still <b>Tempest vs the best <i>public</i> forecast</b>, because that's the claim under test and a row we wrote ourselves can't stand in for the competition.</p>
       <p>It currently reads <b>${esc(st.label)}</b> over <b>${v.n_days}</b> scored day${v.n_days === 1 ? "" : "s"}${v.best_public ? `, and <b>${esc(v.best_public)}</b> is the public forecast to beat` : ""}. It stays <span class="term">TOO EARLY</span> until about 30 days are scored (≈90 for a confident call). The <b>p-value</b> is the luck check — below 0.05 means a real difference, not random noise.</p>
       ${w90 ? `<p>The verdict is judged over a <b>rolling 90-day window</b> because that's the window WeatherFlow's guarantee itself uses ("the 3-month period immediately preceding your request") — an old bad month can't haunt the claim forever, and one good morning can't carry it.</p>` : ""}`)}`;
 }
@@ -1316,8 +1382,10 @@ function renderWindows(d) {
     const t = (b.standings_lead1 || []).find(r => r.source === "Tempest");
     const v = b.verdict || null;
     // best public: the verdict's rival where there is one; otherwise (trend-only row) the
-    // lowest-MAE non-Tempest source — the MAE table is data either way, only verdicts are gated
-    const publics = (b.standings_lead1 || []).filter(r => r.source !== "Tempest" && r.mae != null);
+    // lowest-MAE PUBLIC source — the MAE table is data either way, only verdicts are gated.
+    // Must filter on isPublic(), not "not Tempest": the house rows (Dawg/Blend) sit in the
+    // same standings and would otherwise be printed under a "Best public" heading.
+    const publics = (b.standings_lead1 || []).filter(r => isPublic(r.source) && r.mae != null);
     const best = (v && v.best_public)
       ? (b.standings_lead1 || []).find(r => r.source === v.best_public)
       : (publics.length ? publics.reduce((a, r) => r.mae < a.mae ? r : a) : null);
@@ -1582,13 +1650,20 @@ function renderStandings(d) {
     const isTempest = r.source === "Tempest";
     const isLeader = i === 0;
     const barPct = 30 + ((r.mae - minMae) / (maxMae - minMae || 1)) * 70; // longer bar = worse
-    return `<tr class="${isTempest ? "row-tempest" : ""} ${isLeader ? "row-leader" : ""}">
+    // n_days is additive (older feeds omit it). A row resting on a handful of days must not
+    // read like one resting on 90 — it gets the sample size, an "early" tag and dimmed ink.
+    const nd = r.n_days;
+    const early = nd != null && nd < EARLY_N_DAYS;
+    return `<tr class="${isTempest ? "row-tempest" : ""} ${isLeader ? "row-leader" : ""} ${early ? "row-early" : ""}">
       <td>
         <span class="rank">
           <span class="pos">${i + 1}</span>
           <span class="swatch" style="background:${pcolor(r.source)}"></span>
-          <span class="name">${esc(PROVIDERS[r.source] ? PROVIDERS[r.source].label : r.source)}</span>
+          <span class="name">${esc(plabel(r.source))}</span>
           ${isTempest ? '<span class="you">YOU</span>' : ""}
+          ${!isTempest && isHouse(r.source) ? '<span class="house" title="Our own forecast — scored like everyone else, but never the &quot;best public&quot; the guarantee is judged against">HOUSE</span>' : ""}
+          ${nd != null ? `<span class="ndays" title="Distinct scored days behind this row">n=${nd}</span>` : ""}
+          ${early ? `<span class="early" title="Fewer than ${EARLY_N_DAYS} scored days — too thin to rank on">early</span>` : ""}
         </span>
       </td>
       <td>
@@ -1627,6 +1702,7 @@ function renderStandings(d) {
     ${explain(`
       <p><b>The leaderboard.</b> Each row is a forecaster ranked by <span class="term">MAE</span> — Mean Absolute Error, the average miss (in °F) between its forecast high/low and what your station actually recorded. <b>Lower is better.</b></p>
       <p><b>≤3°F</b> is how often the forecast landed within 3°F (higher is better). <span class="term">Precip CSI</span> grades the rain yes/no calls, where 1.0 is perfect. The <b>1d · 2d · 3d</b> toggle is how far ahead the forecast was made — predicting 1 day out is far easier than 3.</p>
+      <p><b>Two rows are ours</b>, tagged <span class="term">HOUSE</span>. <b>Dawg</b> is the AI meteorologist's own 5:35 AM call, captured here at the same moment as everybody else's and frozen. <b>Blend</b> is a plain rule with no opinion in it — take the NWS high/low, average ECMWF and Tempest for rain odds — scored back across every day we ever captured, so it arrives with a full history. They compete on the same board, but the guarantee verdict above still measures Tempest against the best <i>public</i> forecast only. <b>n=</b> is how many scored days a row rests on; anything under ${EARLY_N_DAYS} is greyed and tagged <span class="term">early</span>.</p>
       ${tempestRow ? `<p>Right now Tempest's ${LEAD_LABELS[currentLead]} forecast misses by about <b>${f2(tempestRow.mae)}°F</b> on average — <b>${ordinal}</b> of ${rows.length}.</p>` : ""}`)}`;
 
   document.querySelectorAll('#standings .seg button').forEach(b => {
@@ -1650,8 +1726,12 @@ function renderTrend(d) {
   const W = 680, H = 280, PAD = { t: 16, r: 14, b: 30, l: 34 };
   const innerW = W - PAD.l - PAD.r, innerH = H - PAD.t - PAD.b;
 
+  // Only chart sources that actually appear in at least one weekly row: a source that joined
+  // last week (Dawg) must not get a dead legend toggle over a chart with no line under it.
+  const series = ORDER.filter(s => data.some(row => row[s] != null));
   const allVals = [];
-  data.forEach(row => ORDER.forEach(s => { if (row[s] != null) allVals.push(row[s]); }));
+  data.forEach(row => series.forEach(s => { if (row[s] != null) allVals.push(row[s]); }));
+  if (!allVals.length) { document.getElementById("trend").innerHTML = ""; return; }
   const lo = Math.floor(Math.min(...allVals) * 10) / 10 - 0.1;
   const hi = Math.ceil(Math.max(...allVals) * 10) / 10 + 0.1;
   const x = (i) => PAD.l + (data.length === 1 ? innerW / 2 : (i / (data.length - 1)) * innerW);
@@ -1669,51 +1749,73 @@ function renderTrend(d) {
     `<text x="${x(i).toFixed(1)}" y="${H - 9}" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-mono)">${fmtMD(row.week)}</text>`
   ).join("");
 
-  // gap shading between Tempest and best public (lowest MAE among non-Tempest, per week)
-  const bestPublic = (row) => Math.min(...ORDER.filter(s => s !== "Tempest" && row[s] != null).map(s => row[s]));
+  // gap shading between Tempest and the best PUBLIC forecast that week (not merely the best
+  // non-Tempest: our own Dawg/Blend rows live on this chart too, and shading against one of
+  // them would silently redefine the gap the whole page is about). null when a week has no
+  // public value at all — the shading is then simply skipped rather than drawn from Infinity.
+  const bestPublic = (row) => {
+    const vals = series.filter(s => isPublic(s) && row[s] != null).map(s => row[s]);
+    return vals.length ? Math.min(...vals) : null;
+  };
+  const gapWeeks = data.map((row, i) => ({ i, t: row.Tempest, b: bestPublic(row) }))
+                       .filter(w => w.t != null && w.b != null);
   let gapPath = "";
-  if (!hidden.has("Tempest")) {
-    const top = data.map((row, i) => `${x(i).toFixed(1)},${y(row.Tempest).toFixed(1)}`);
-    const bot = data.map((row, i) => `${x(i).toFixed(1)},${y(bestPublic(row)).toFixed(1)}`).reverse();
+  if (!hidden.has("Tempest") && gapWeeks.length > 1) {
+    const top = gapWeeks.map(w => `${x(w.i).toFixed(1)},${y(w.t).toFixed(1)}`);
+    const bot = gapWeeks.map(w => `${x(w.i).toFixed(1)},${y(w.b).toFixed(1)}`).reverse();
     gapPath = `<polygon points="${top.concat(bot).join(" ")}" fill="var(--p-tempest)" fill-opacity="0.08"/>`;
   }
 
+  // Segmented path: a source that only starts mid-chart (or skips a week) draws over the
+  // weeks it HAS, instead of emitting "MNaN,NaN" coordinates the browser rejects.
   const linePath = (src) => {
-    const pts = data.map((row, i) => `${x(i).toFixed(1)},${y(row[src]).toFixed(1)}`);
-    return "M" + pts.join(" L");
+    const segs = [];
+    let cur = [];
+    data.forEach((row, i) => {
+      if (row[src] == null) { if (cur.length) segs.push(cur), cur = []; return; }
+      cur.push(`${x(i).toFixed(1)},${y(row[src]).toFixed(1)}`);
+    });
+    if (cur.length) segs.push(cur);
+    return segs.filter(s => s.length > 1).map(s => "M" + s.join(" L")).join(" ");
   };
-  const lines = ORDER.filter(s => !hidden.has(s)).map(src => {
+  const lines = series.filter(s => !hidden.has(s)).map(src => {
     const isT = src === "Tempest";
-    const dots = data.map((row, i) =>
+    const dots = data.map((row, i) => row[src] == null ? "" :
       `<circle cx="${x(i).toFixed(1)}" cy="${y(row[src]).toFixed(1)}" r="${isT ? 3.6 : 2.6}" fill="${pcolor(src)}"/>`
     ).join("");
-    return `<path d="${linePath(src)}" fill="none" stroke="${pcolor(src)}" stroke-width="${isT ? 3 : 1.75}"
-              stroke-linejoin="round" stroke-linecap="round" ${isT ? "" : 'stroke-opacity="0.85"'}/>${dots}`;
+    const dd = linePath(src);
+    const path = dd ? `<path d="${dd}" fill="none" stroke="${pcolor(src)}" stroke-width="${isT ? 3 : 1.75}"
+              stroke-linejoin="round" stroke-linecap="round" ${isT ? "" : 'stroke-opacity="0.85"'}/>` : "";
+    return path + dots;
   }).join("");
 
-  const legend = ORDER.map(src => {
+  const legend = series.map(src => {
     const off = hidden.has(src);
     const isT = src === "Tempest";
-    return `<button type="button" data-src="${src}" aria-pressed="${!off}">
+    const n = data.filter(row => row[src] != null).length;
+    const partial = n < data.length ? ` title="${n} of ${data.length} weeks"` : "";
+    return `<button type="button" data-src="${src}" aria-pressed="${!off}"${partial}>
       <span class="ln" style="background:${pcolor(src)}"></span>
-      <span class="name ${isT ? "is-tempest" : ""}">${esc(PROVIDERS[src].label)}</span>
+      <span class="name ${isT ? "is-tempest" : ""}">${esc(plabel(src))}${isHouse(src) ? " ·&nbsp;house" : ""}</span>
     </button>`;
   }).join("");
 
-  // narrative: current gap Tempest vs best public
-  const last = data[data.length - 1];
-  const first = data[0];
-  const gapNow = last.Tempest - bestPublic(last);
-  const gapThen = first.Tempest - bestPublic(first);
-  const closing = gapNow < gapThen;
-  const gapTxt = Math.abs(gapNow) < 0.005
-    ? `Tempest and the best public line are essentially <b>level</b>.`
-    : `Tempest trails the best public forecast by <b class="num">${f2(Math.abs(gapNow))}°F</b> this week — the gap has <b>${closing ? "narrowed" : "widened"}</b> from <span class="num">${f2(Math.abs(gapThen))}°F</span> six weeks ago.`;
+  // narrative: current gap Tempest vs best public (over the weeks where both actually exist)
+  let gapTxt = "";
+  if (gapWeeks.length) {
+    const lastW = gapWeeks[gapWeeks.length - 1], firstW = gapWeeks[0];
+    const gapNow = lastW.t - lastW.b;
+    const gapThen = firstW.t - firstW.b;
+    const closing = gapNow < gapThen;
+    gapTxt = Math.abs(gapNow) < 0.005
+      ? `Tempest and the best public line are essentially <b>level</b>.`
+      : `Tempest trails the best public forecast by <b class="num">${f2(Math.abs(gapNow))}°F</b> this week — the gap has <b>${closing ? "narrowed" : "widened"}</b> from <span class="num">${f2(Math.abs(gapThen))}°F</span> six weeks ago.`;
+  }
 
   // sr-only data table mirroring the chart, for screen readers
-  const srHead = ORDER.map(s => `<th scope="col">${esc(PROVIDERS[s].label)}</th>`).join("");
+  const srHead = series.map(s => `<th scope="col">${esc(plabel(s))}</th>`).join("");
   const srBody = data.map(row => {
-    const cells = ORDER.map(s => `<td>${row[s] != null ? f2(row[s]) : "—"}</td>`).join("");
+    const cells = series.map(s => `<td>${row[s] != null ? f2(row[s]) : "—"}</td>`).join("");
     return `<tr><th scope="row">${fmtMD(row.week)}</th>${cells}</tr>`;
   }).join("");
   const srTable = `
@@ -1739,13 +1841,13 @@ function renderTrend(d) {
     <div class="legend" role="group" aria-label="Toggle providers">${legend}</div>
     ${explain(`
       <p><b>Accuracy over time.</b> Each line is one forecaster's weekly <span class="term">MAE</span> (average miss in °F). A line trending <b>down</b> = that forecast is getting more accurate. Tempest is the bold teal line.</p>
-      <p>The shaded band is the gap between Tempest and the best public forecast each week — <b>thinner is better</b> for you. Tap a name in the legend to hide or show a line.</p>`)}`;
+      <p>The shaded band is the gap between Tempest and the best public forecast each week — <b>thinner is better</b> for you. The two lines marked <b>house</b> are ours (Dawg, Blend); they're scored the same way but sit outside that band by design. A line that starts partway across simply hadn't begun publishing yet. Tap a name in the legend to hide or show a line.</p>`)}`;
 
   document.querySelectorAll("#trend .legend button").forEach(b => {
     b.addEventListener("click", () => {
       const s = b.dataset.src;
       if (hidden.has(s)) hidden.delete(s); else hidden.add(s);
-      if (hidden.size >= ORDER.length) hidden.delete(s); // keep at least one
+      if (hidden.size >= series.length) hidden.delete(s); // keep at least one
       renderTrend(DATA);
     });
   });
@@ -1760,7 +1862,7 @@ function renderDetails(d) {
       whoHTML = `<span class="badge" style="background:var(--st-behind)">All except ${esc(except)}</span>`;
       descHTML = `${esc(b.note || (b.var + " miss"))}`;
     } else {
-      whoHTML = `<span class="badge" style="background:${pcolor(b.source)}">${esc(PROVIDERS[b.source] ? PROVIDERS[b.source].label : b.source)}</span>`;
+      whoHTML = `<span class="badge" style="background:${pcolor(b.source)}">${esc(plabel(b.source))}</span>`;
       const varLabel = b.var === "high" ? "High temp" : b.var === "low" ? "Low temp" : b.var === "precip" ? "Precip" : esc(b.var);
       if (b.forecast != null && b.actual != null) {
         const miss = Math.abs(b.actual - b.forecast);
@@ -1792,7 +1894,7 @@ function renderDetails(d) {
   const bestBrier = brierVals.length ? Math.min(...brierVals) : null;
   const brierHTML = brierRows.map(r => `
     <tr>
-      <td><span class="rank"><span class="swatch" style="background:${pcolor(r.source)}"></span>${esc(PROVIDERS[r.source] ? PROVIDERS[r.source].label : r.source)}</span></td>
+      <td><span class="rank"><span class="swatch" style="background:${pcolor(r.source)}"></span>${esc(plabel(r.source))}${isHouse(r.source) ? '<span class="house">HOUSE</span>' : ""}</span></td>
       <td class="num ${r.brier != null && r.brier === bestBrier ? "best" : ""}">${r.brier == null ? '<span class="muted">—</span>' : f3(r.brier)}</td>
     </tr>`).join("");
 
@@ -1912,6 +2014,7 @@ function renderHealth(d) {
 let DATA = null;
 function renderAll(d) {
   DATA = d;
+  setSources(d);           // legend order + public/house labelling come from the feed
   renderVerdict(d);
   renderWindows(d);        // v2 — cards hide themselves when the feed predates the windows block
   renderFullPicture(d);

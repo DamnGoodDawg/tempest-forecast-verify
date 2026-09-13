@@ -8,6 +8,7 @@ Captures, as raw JSON under data/YYYY-MM-DD/:
   openmeteo.json  - Open-Meteo GFS/ECMWF/NBM daily+hourly (also backfillable; captured for tidiness)
   tempest_obs_yesterday.json - station actuals for yesterday (temp/wind truth + rain occurrence)
   diagnostics.json - station/hub health: online, RSSI, battery voltage, sensor faults
+  dawg.json       - the house AI forecast the Mac published this morning (docs/dawg-source.md)
   _capture_log.json - capture metadata + failures + warnings
 
 Env vars: TEMPEST_TOKEN, TEMPEST_STATION_ID (skips Tempest gracefully if unset, with loud warning).
@@ -22,7 +23,7 @@ Design notes (June 2026 hardening):
   - Core sources (tempest/nws/openmeteo/obs) fail LOUD (exit 1) so a missed irreplaceable
     Tempest capture is never silent. Diagnostics is a soft warning (never blocks the run).
 """
-import json, os, sys, urllib.request, urllib.parse, datetime as dt
+import hashlib, json, os, sys, urllib.request, urllib.parse, datetime as dt
 from zoneinfo import ZoneInfo
 
 LAT, LON = 33.9364, -83.5736
@@ -42,6 +43,15 @@ ANCHOR_METAR_IDS = "KWDR,KAHN"
 ANCHOR_METAR_HOURS = 36
 WATUGA_URL = "http://www.georgiaweather.net/?variable=YC&site=WATUGA"
 
+# The house AI forecast: the always-on Mac PATCHes dawg_forecast.json onto the same gist the
+# dashboard already reads current.json/storms.json from, right after the 05:35 ET morning
+# call. Captured here like any other forecaster — same instant, frozen in data/, never
+# rewritten. SOFT in EVERY failure mode (unreachable / unparseable / yesterday's file still
+# sitting there): a warning and NO file, so extract.py simply has no Dawg row for that day.
+# File contract + fairness statement: docs/dawg-source.md.
+DAWG_URL = ("https://gist.githubusercontent.com/DamnGoodDawg/"
+            "2a878ade5ebb53b82ebc7e6aecba97c1/raw/dawg_forecast.json")
+
 def get(url, params=None):
     if params: url = url + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
@@ -53,6 +63,13 @@ def get_text(url, params=None):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read().decode("utf-8", "replace")
+
+def get_bytes(url, params=None):
+    """Raw response bytes — so the snapshot can record the sha256 of exactly what we fetched."""
+    if params: url = url + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return r.read()
 
 # NOTE on sensor fault flags + RSSI: these live in the WebSocket device_status/hub_status
 # messages, which (confirmed June 2026) the public WS does NOT deliver to personal-token
@@ -212,6 +229,27 @@ def main():
         print(f"[ok] watuga.html ({len(watuga_html)} bytes)")
     except Exception as e:
         warnings.append(f"watuga: {e} (non-fatal)")
+
+    # 8. The house AI forecast ("Dawg"), published to the gist by the Mac at ~05:35 ET.
+    #    SOFT in every failure mode. The freshness gate is the whole point: a gist raw URL
+    #    happily serves YESTERDAY's file forever, and silently scoring a stale call at
+    #    today's leads would be the one way this row could cheat. issued_date must equal the
+    #    capture's ET date or nothing is written at all. Filename has no leading underscore —
+    #    GitHub Pages does not serve underscore-prefixed paths.
+    try:
+        raw = get_bytes(DAWG_URL, {"t": int(dt.datetime.now(dt.timezone.utc).timestamp())})
+        dawg = json.loads(raw.decode("utf-8"))
+        issued = (dawg or {}).get("issued_date")
+        if issued != day:
+            warnings.append(f"dawg: issued_date {issued!r} != capture date {day} "
+                            f"— stale or not yet published, no snapshot written (non-fatal)")
+        else:
+            dawg_meta = dict(meta, source_url=DAWG_URL, sha256=hashlib.sha256(raw).hexdigest())
+            write(outdir, "dawg.json", {"meta": dawg_meta, "data": dawg})
+            print(f"[ok] dawg.json (kind={dawg.get('kind')}, "
+                  f"{len(dawg.get('days') or [])} days, {len(raw)} bytes)")
+    except Exception as e:
+        warnings.append(f"dawg: {e} (non-fatal)")
 
     write(outdir, "_capture_log.json", {"meta": meta, "failures": failures, "warnings": warnings})
     if warnings:

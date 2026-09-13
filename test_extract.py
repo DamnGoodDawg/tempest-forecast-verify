@@ -57,6 +57,231 @@ class TestNWSAttribution(unittest.TestCase):
         self.assertEqual(extract.parse_actuals(None), {})
 
 
+class TestDawgSource(unittest.TestCase):
+    """The house AI row. Contract in docs/dawg-source.md; parsed only when the file is BOTH
+    a real AI call (kind "dawg") and issued on the capture's own date."""
+
+    def _file(self, **over):
+        j = {"meta": {}, "data": {
+            "v": 1, "source": "Dawg", "kind": "dawg", "model": "claude-fable-5",
+            "issued_at": f"{CAP}T05:47:12-04:00", "issued_date": CAP,
+            "days": [
+                {"date": CAP, "lead": 0, "pop": 40, "high": 91, "low": 71},                # lead 0
+                {"date": "2026-06-05", "lead": 1, "pop": 75, "high": 85, "low": 68},
+                {"date": "2026-06-06", "lead": 2, "pop": 20, "high": 88, "low": 70},
+                {"date": "2026-06-07", "lead": 3, "pop": 0, "high": 90, "low": 72},
+                {"date": "2026-06-11", "lead": 7, "pop": 30, "high": 92, "low": 71},       # lead 7
+            ]}}
+        j["data"].update(over)
+        return j
+
+    def test_normal_parse_leads_1_to_3_only(self):
+        recs = extract.parse_dawg(self._file(), CAP)
+        got = {(r["date"], r["var"]): (r["value"], r["lead"]) for r in recs}
+        self.assertEqual(got[("2026-06-05", "high")], (85.0, 1))
+        self.assertEqual(got[("2026-06-05", "low")], (68.0, 1))
+        self.assertEqual(got[("2026-06-07", "high")], (90.0, 3))
+        self.assertTrue(all(r["source"] == "Dawg" for r in recs))
+        self.assertEqual(sorted({r["lead"] for r in recs}), [1, 2, 3])   # 0 and 7 dropped
+        self.assertNotIn((CAP, "high"), got)
+
+    def test_pop_passes_through_unscaled_0_100(self):
+        recs = extract.parse_dawg(self._file(), CAP)
+        pops = {r["date"]: r["value"] for r in recs if r["var"] == "pop"}
+        self.assertEqual(pops["2026-06-05"], 75.0)     # already 0-100: no /100, no *100
+        self.assertEqual(pops["2026-06-07"], 0.0)      # 0 is a real PoP, not "missing"
+
+    def test_stale_issued_date_yields_no_records(self):
+        # A gist raw URL serves yesterday's file forever; scoring it at today's leads would
+        # be the one way this row could cheat. capture.py refuses to write it; so does this.
+        self.assertEqual(extract.parse_dawg(self._file(issued_date="2026-06-03"), CAP), [])
+        self.assertEqual(extract.parse_dawg(self._file(issued_date=None), CAP), [])
+
+    def test_kind_blend_fallback_is_not_scored_as_dawg(self):
+        # kind "blend" = the Mac's LLM call failed and it shipped its deterministic fallback.
+        # Crediting the AI for a forecast it never made would flatter the row.
+        self.assertEqual(extract.parse_dawg(self._file(kind="blend"), CAP), [])
+        self.assertEqual(extract.parse_dawg(self._file(kind=None), CAP), [])
+
+    def test_null_and_malformed_fields_tolerated(self):
+        j = self._file(days=[
+            {"date": "2026-06-05", "lead": 1, "pop": None, "high": 85, "low": None},
+            {"date": None, "lead": 2, "pop": 50, "high": 80, "low": 60},        # no date
+            {"date": "2026-06-06", "lead": 2},                                  # no values
+            "not a dict",
+            {"date": "2026-06-07", "lead": 3, "pop": "x", "high": 90, "low": 72},  # bad type
+        ])
+        recs = extract.parse_dawg(j, CAP)   # must not raise
+        got = {(r["date"], r["var"]) for r in recs}
+        self.assertEqual(got, {("2026-06-05", "high"), ("2026-06-07", "high"),
+                               ("2026-06-07", "low")})
+
+    def test_missing_file_and_junk(self):
+        self.assertEqual(extract.parse_dawg(None, CAP), [])
+        self.assertEqual(extract.parse_dawg({}, CAP), [])
+        self.assertEqual(extract.parse_dawg({"data": None}, CAP), [])
+
+
+class TestBlendBaseline(unittest.TestCase):
+    """The deterministic baseline: high/low = NWS value, else NBM, else Tempest; pop =
+    mean(ECMWF pop, Tempest pop) when both exist, else whichever exists, else NWS."""
+
+    def _recs(self, spec, date="2026-06-05", lead=1):
+        return [{"date": date, "lead": lead, "source": s, "var": v, "value": float(x)}
+                for s, vars_ in spec.items() for v, x in vars_.items()]
+
+    def _blend(self, spec, **kw):
+        out = extract.blend_records(self._recs(spec, **kw))
+        self.assertTrue(all(r["source"] == "Blend" for r in out))
+        return {r["var"]: r["value"] for r in out}
+
+    def test_temps_prefer_nws_then_nbm_then_tempest(self):
+        b = self._blend({"NWS": {"high": 85, "low": 65}, "NBM": {"high": 87, "low": 66},
+                         "Tempest": {"high": 89, "low": 67}})
+        self.assertEqual((b["high"], b["low"]), (85.0, 65.0))
+        b = self._blend({"NBM": {"high": 87, "low": 66}, "Tempest": {"high": 89, "low": 67}})
+        self.assertEqual((b["high"], b["low"]), (87.0, 66.0))
+        b = self._blend({"Tempest": {"high": 89, "low": 67}})
+        self.assertEqual((b["high"], b["low"]), (89.0, 67.0))
+
+    def test_temps_fall_back_per_variable(self):
+        # NWS gave a high but no low -> the low falls through to NBM on its own.
+        b = self._blend({"NWS": {"high": 85}, "NBM": {"high": 87, "low": 66}})
+        self.assertEqual((b["high"], b["low"]), (85.0, 66.0))
+
+    def test_pop_is_mean_of_ecmwf_and_tempest(self):
+        b = self._blend({"NWS": {"high": 85, "low": 65, "pop": 90},
+                         "ECMWF": {"pop": 60}, "Tempest": {"pop": 30}})
+        self.assertEqual(b["pop"], 45.0)     # mean(60, 30) — NWS's 90 is the last resort only
+
+    def test_pop_falls_back_to_whichever_exists_then_nws(self):
+        self.assertEqual(self._blend({"NWS": {"high": 85, "pop": 90},
+                                      "ECMWF": {"pop": 60}})["pop"], 60.0)
+        self.assertEqual(self._blend({"NWS": {"high": 85, "pop": 90},
+                                      "Tempest": {"pop": 30}})["pop"], 30.0)
+        self.assertEqual(self._blend({"NWS": {"high": 85, "pop": 90}})["pop"], 90.0)
+        self.assertNotIn("pop", self._blend({"NBM": {"high": 87}}))   # nothing to blend
+
+    def test_backfills_every_date_and_lead_and_is_idempotent(self):
+        recs = (self._recs({"NWS": {"high": 85, "low": 65}}, date="2026-06-05", lead=1)
+                + self._recs({"NWS": {"high": 80, "low": 60}}, date="2026-06-06", lead=2)
+                + self._recs({"NBM": {"high": 70, "low": 50}}, date="2026-06-07", lead=3))
+        out = extract.blend_records(recs)
+        self.assertEqual(sorted({(r["date"], r["lead"]) for r in out}),
+                         [("2026-06-05", 1), ("2026-06-06", 2), ("2026-06-07", 3)])
+        # re-running over records that ALREADY contain Blend rows must not blend the blend
+        self.assertEqual(extract.blend_records(recs + out), out)
+
+    def test_dawg_never_feeds_the_blend(self):
+        # The baseline must stay a PUBLIC/Tempest construction — otherwise "Blend beat Dawg"
+        # would be partly Dawg grading itself.
+        b = self._blend({"Dawg": {"high": 99, "low": 40, "pop": 100},
+                         "NWS": {"high": 85, "low": 65}, "ECMWF": {"pop": 60},
+                         "Tempest": {"pop": 30}})
+        self.assertEqual((b["high"], b["low"], b["pop"]), (85.0, 65.0, 45.0))
+
+    def test_empty_input(self):
+        self.assertEqual(extract.blend_records([]), [])
+
+
+class TestPublicSourceGuard(unittest.TestCase):
+    """The verdict sentence and verdict_history must keep meaning Tempest vs a PUBLIC
+    forecast, even when a house row (Dawg/Blend) owns the lowest MAE in the table."""
+
+    L1 = [
+        {"source": "Dawg",    "mae": 1.40, "pct_within_3f": 90, "csi": 0.70, "brier": 0.12, "house": True},
+        {"source": "Blend",   "mae": 1.60, "pct_within_3f": 88, "csi": 0.68, "brier": 0.13, "house": True},
+        {"source": "NBM",     "mae": 1.85, "pct_within_3f": 79, "csi": 0.74, "brier": 0.083},
+        {"source": "Tempest", "mae": 1.92, "pct_within_3f": 81, "csi": 0.71, "brier": 0.091},
+        {"source": "NWS",     "mae": 2.10, "pct_within_3f": 74, "csi": 0.70, "brier": 0.095},
+    ]
+
+    def test_best_public_skips_house_rows(self):
+        v = extract.temp_verdict([], {}, self.L1, 5)
+        self.assertEqual(v["best_public"], "NBM")          # NOT Dawg, though Dawg has lower MAE
+        self.assertNotIn("Dawg", v["headline"])
+        for house in extract.HOUSE_SOURCES:
+            self.assertIn(house, [r["source"] for r in self.L1])   # they ARE in the table…
+            self.assertNotEqual(v["best_public"], house)           # …just never the rival
+
+    def test_public_and_house_lists_are_disjoint_and_complete(self):
+        self.assertEqual(set(extract.PUBLIC_SOURCES) & set(extract.HOUSE_SOURCES), set())
+        self.assertNotIn("Tempest", extract.PUBLIC_SOURCES)   # the subject is not its own rival
+        self.assertEqual(set(extract.SOURCES),
+                         {"Tempest"} | set(extract.PUBLIC_SOURCES) | set(extract.HOUSE_SOURCES))
+
+    def test_winners_leader_may_be_a_house_row(self):
+        # Taylor's call: the RIVAL must be public, but the field LEADER can be anyone.
+        w = extract.winners_panel(self.L1, "NBM")
+        self.assertEqual(w["temp"]["leader"], "Dawg")
+        self.assertEqual(w["temp"]["rival"], "NBM")
+
+    def test_house_only_field_gives_no_verdict(self):
+        l1 = [r for r in self.L1 if r["source"] in ("Tempest",) + tuple(extract.HOUSE_SOURCES)]
+        v = extract.temp_verdict([], {}, l1, 99)
+        self.assertIsNone(v["best_public"])
+        self.assertEqual(v["status"], "TOO EARLY")
+
+
+class TestStandingsExtras(unittest.TestCase):
+    """Additive standings keys (n_days / house / sources) and the pooled-row lead guard."""
+
+    def _fixture(self):
+        import datetime as dt
+        records, actuals = [], {}
+        dates = [(dt.date.fromisoformat("2026-06-05") + dt.timedelta(days=i)).isoformat()
+                 for i in range(12)]
+        _temp_days("Tempest", dates, 80, 60, 82, 61, records, actuals)
+        _temp_days("NWS", dates, 81, 60, 82, 61, records, actuals)
+        # Dawg joined late — only the last 4 dates, so its row must read as thin.
+        _temp_days("Dawg", dates[-4:], 82, 61, 82, 61, records, actuals)
+        # …and only at lead 1, while the two established sources also forecast at leads 2-3.
+        records += [dict(r, lead=L) for r in list(records)
+                    if r["source"] in ("Tempest", "NWS") for L in (2, 3)]
+        return records, actuals, {}
+
+    def test_per_row_n_days_and_house_flag(self):
+        records, actuals, wet = self._fixture()
+        rows = {r["source"]: r for r in extract.standings_for(records, actuals, wet, 1)}
+        self.assertEqual(rows["Tempest"]["n_days"], 12)
+        self.assertEqual(rows["NWS"]["n_days"], 12)
+        self.assertEqual(rows["Dawg"]["n_days"], 4)       # < EARLY_N_DAYS -> greyed on the page
+        self.assertTrue(rows["Dawg"]["house"])
+        self.assertNotIn("house", rows["NWS"])
+        self.assertNotIn("house", rows["Tempest"])
+
+    def test_pooled_row_excludes_sources_missing_a_lead(self):
+        records, actuals, wet = self._fixture()
+        # Dawg only ever appears at lead 1 in this fixture -> no pooled row for it.
+        pooled = {r["source"] for r in
+                  extract.standings_for(records, actuals, wet, extract.LEADS, require_all_leads=True)}
+        self.assertNotIn("Dawg", pooled)
+        self.assertIn("Tempest", pooled)
+        self.assertEqual(extract.POOLED_KEY, "blend")     # the KEY, not the "Blend" SOURCE
+
+    def test_sources_block_labels_public_and_house(self):
+        records, actuals, _ = self._fixture()
+        s = extract.sources_block(records, actuals)
+        self.assertEqual(s["NWS"]["public"], True)
+        self.assertEqual(s["NWS"]["house"], False)
+        self.assertEqual(s["Dawg"]["public"], False)
+        self.assertEqual(s["Dawg"]["house"], True)
+        self.assertEqual(s["Tempest"]["public"], False)   # the subject is not a rival
+        self.assertEqual(s["Dawg"]["first_date"], "2026-06-13")
+        self.assertEqual(s["Dawg"]["n_days"], 4)
+        self.assertNotIn("GFS", s)                        # no records -> not listed
+        self.assertEqual(list(s), [x for x in extract.SOURCES if x in s])   # display order
+        json.dumps(s, allow_nan=False)
+
+    def test_build_emits_standings_and_sources_cleanly(self):
+        records, actuals, wet = self._fixture()
+        standings, verdict, _, _, _, _ = extract.build(records, actuals, wet)
+        self.assertIn(extract.POOLED_KEY, standings)
+        self.assertTrue(all("n_days" in r for r in standings["lead1"]))
+        self.assertEqual(verdict["best_public"], "NWS")
+        json.dumps(standings, allow_nan=False)
+
+
 class TestUnitConversion(unittest.TestCase):
     def test_c_to_f(self):
         self.assertAlmostEqual(extract.c_to_f(0), 32.0)

@@ -12,6 +12,13 @@ over pooled high+low errors; precip occurrence CSI from PoP >= 50% vs observed w
 (>= 0.01"); PoP calibration Brier; paired Diebold-Mariano on the MAE loss differential
 drives the headline verdict. Leads 1/2/3 plus a 1-3 blend.
 
+Seven scored sources: Tempest (the subject), four PUBLIC forecasts (NBM/NWS/ECMWF/GFS) and
+two HOUSE rows — "Dawg", the Mac's AI meteorologist call captured alongside everyone else,
+and "Blend", a deterministic best-source-per-variable baseline computed here from the
+captured files (so it back-fills across all history). The house rows are scored and shown
+like anybody else, but the guarantee verdict stays Tempest vs the best PUBLIC source — see
+PUBLIC_SOURCES and docs/dawg-source.md.
+
 Degrades gracefully: until >= MIN_VERDICT_N scored days exist the verdict reads
 TOO EARLY, and any source/section with no data is simply omitted. This script must
 NEVER crash the daily run -- on any unexpected error it still writes a minimal,
@@ -45,8 +52,31 @@ MIN_VERDICT_N = 30          # README: DM verdicts once cumulative n >= 30 (defin
 WET = 0.01                  # inches; matches NWS PoP definition
 RAIN_SENSOR_MIN_V = 2.355   # at/below this, the haptic rain sensor silently disables
 BATTERY_WARN_V = 2.40       # early-warning threshold (act before the 2.355 V cutoff)
-SOURCES = ["Tempest", "NBM", "NWS", "ECMWF", "GFS"]
+# Scored sources, in DISPLAY order (standings rows re-sort by MAE; this order only drives
+# iteration, the trend-row key order and the `sources` block the dashboard reads).
+#   PUBLIC_SOURCES — the four independent public forecasts. The guarantee verdict and
+#     `verdict_history` are Tempest vs the best of THESE, and nothing else: a house row
+#     winning on MAE must never be able to become the "best public forecast" in the claim
+#     sentence (see temp_verdict).
+#   HOUSE_SOURCES  — our own rows. NOT public, NOT the subject under test:
+#     "Dawg"  = the Mac's AI meteorologist call, issued 05:35 ET and captured here at the
+#               same instant as everyone else (docs/dawg-source.md).
+#     "Blend" = a deterministic best-source-per-variable baseline computed here from the
+#               captured public files (blend_records), so it back-fills across history.
+# NOTE ON NAMES: the SOURCE "Blend" (a forecaster) is a different thing from the pooled
+# standings KEY "blend" (= POOLED_KEY, the lead-1–3 pooled row set). Both spellings are
+# load-bearing and pre-existing on the dashboard side; keep them straight.
+SOURCES = ["Tempest", "Dawg", "Blend", "NBM", "ECMWF", "NWS", "GFS"]
+PUBLIC_SOURCES = ["NBM", "NWS", "ECMWF", "GFS"]
+HOUSE_SOURCES = ["Dawg", "Blend"]
+POOLED_KEY = "blend"        # standings key for the lead-1–3 pooled rows (NOT the Blend source)
+EARLY_N_DAYS = 10           # per-row n_days below this is labeled "early" on the dashboard
 OM_MODELS = {"gfs_seamless": "GFS", "ecmwf_ifs025": "ECMWF", "ncep_nbm_conus": "NBM"}
+
+# blend_records rule (keep VERBATIM in sync with docs/dawg-source.md and the Mac's blend):
+#   high/low = NWS value, else NBM, else Tempest;
+#   pop = mean(ECMWF pop, Tempest pop) when both exist, else whichever exists, else NWS.
+BLEND_TEMP_PREFERENCE = ["NWS", "NBM", "Tempest"]
 
 
 # ---------------------------------------------------------------- date helpers
@@ -174,6 +204,78 @@ def parse_nws(j, capture):
         rec(out, target, lead, "NWS", "low", s["low"])
         if s["pops"]:
             rec(out, target, lead, "NWS", "pop", max(s["pops"]))
+    return out
+
+
+def parse_dawg(j, capture):
+    """The house AI forecast (data/<capture>/dawg.json; contract in docs/dawg-source.md).
+
+    Two belt-and-braces gates before a single record is emitted:
+      * `kind == "dawg"` — the Mac writes kind "blend" when its LLM call failed and it fell
+        back to its own deterministic blend. Scoring that as "Dawg" would credit the AI for
+        a forecast it never made, so a fallback day is simply NOT scored as Dawg.
+      * `issued_date == capture` — capture.py already refuses a stale file, but a hand-copied
+        or re-committed snapshot must not silently score yesterday's call at today's leads.
+    Vars: high/low (°F) and pop (already 0-100) from days[]; nulls skipped; leads 1-3 only
+    (rec() drops the rest, so the file's leads 0 and 4-7 are captured but never scored)."""
+    out = []
+    data = (j or {}).get("data") or {}
+    if data.get("kind") != "dawg":
+        return out
+    if data.get("issued_date") != capture:
+        return out
+    for e in data.get("days") or []:
+        if not isinstance(e, dict):
+            continue
+        target = e.get("date")
+        if not target:
+            continue
+        lead = lead_of(target, capture)     # derived from the dates, never trusting e["lead"]
+        rec(out, target, lead, "Dawg", "high", e.get("high"))
+        rec(out, target, lead, "Dawg", "low", e.get("low"))
+        rec(out, target, lead, "Dawg", "pop", e.get("pop"))
+    return out
+
+
+def blend_records(records):
+    """Deterministic best-source-per-variable baseline -> "Blend" records. PURE function.
+
+    THE RULE (verbatim in docs/dawg-source.md and in the Mac's own blend):
+        high/low = NWS value, else NBM, else Tempest;
+        pop = mean(ECMWF pop, Tempest pop) when both exist, else whichever exists, else NWS.
+
+    It reads only records already parsed out of the captured files, grouped by
+    (target date, lead) — which pins the capture date exactly, since capture = date - lead.
+    So it BACK-FILLS across every historical capture day automatically: the baseline lands
+    with a full scored history rather than starting at n=0. It measures the RULE against the
+    frozen captures, not any live blend the Mac computed that morning."""
+    by_key = {}
+    for r in records:
+        if r["source"] == "Blend":          # never re-blend our own output
+            continue
+        by_key.setdefault((r["date"], r["lead"]), {}).setdefault(r["source"], {})[r["var"]] = r["value"]
+
+    out = []
+    for (target, lead), srcs in sorted(by_key.items()):
+        def first_of(var, order):
+            for s in order:
+                v = srcs.get(s, {}).get(var)
+                if v is not None:
+                    return v
+            return None
+        ec = srcs.get("ECMWF", {}).get("pop")
+        tp = srcs.get("Tempest", {}).get("pop")
+        if ec is not None and tp is not None:
+            pop = (ec + tp) / 2.0
+        elif ec is not None:
+            pop = ec
+        elif tp is not None:
+            pop = tp
+        else:
+            pop = srcs.get("NWS", {}).get("pop")
+        rec(out, target, lead, "Blend", "high", first_of("high", BLEND_TEMP_PREFERENCE))
+        rec(out, target, lead, "Blend", "low", first_of("low", BLEND_TEMP_PREFERENCE))
+        rec(out, target, lead, "Blend", "pop", pop)
     return out
 
 
@@ -352,11 +454,30 @@ def source_row(records, actuals, wet, src, leads):
     pop_pairs, yn_pairs = precip_pairs(records, actuals, src, leads, wet)
     row["csi"] = _finite(verify.contingency(yn_pairs)["csi"], 2) if yn_pairs else None
     row["brier"] = _finite(verify.brier(pop_pairs)["brier"], 3) if pop_pairs else None
+    # Additive keys (the pre-existing dashboard ignores unknown keys):
+    #   n_days — distinct scored target dates this row rests on. A row that started last week
+    #            must not read like one resting on 90 days; the page greys those out.
+    #   house  — our own rows (Dawg/Blend); never eligible to be a "public forecast".
+    row["n_days"] = len(dates)
+    if src in HOUSE_SOURCES:
+        row["house"] = True
     return row, dates
 
-def standings_for(records, actuals, wet, leads):
+def sources_with_all_leads(records):
+    """Sources carrying at least one record at EVERY lead in LEADS — the eligibility gate for
+    the pooled 1-3 standings row (POOLED_KEY). Pooling a source that only ever had lead 1
+    would flatter it against rivals that carry their own lead-3 misses into the same average."""
+    have = defaultdict(set)
+    for r in records:
+        have[r["source"]].add(r["lead"])
+    return {s for s, ls in have.items() if all(L in ls for L in LEADS)}
+
+def standings_for(records, actuals, wet, leads, require_all_leads=False):
     rows = []
+    eligible = sources_with_all_leads(records) if require_all_leads else None
     for src in SOURCES:
+        if eligible is not None and src not in eligible:
+            continue
         row, _ = source_row(records, actuals, wet, src, leads)
         if row:
             rows.append(row)
@@ -387,7 +508,12 @@ def temp_verdict(records, actuals, l1, n_days, window_phrase="so far"):
     `window_phrase` names the window being judged — v2 design: headline copy must say which
     window it speaks for, never an unlabeled pooled average."""
     tempest = next((r for r in l1 if r["source"] == "Tempest"), None)
-    publics = [r for r in l1 if r["source"] != "Tempest"]
+    # PUBLIC_SOURCES allowlist, NOT "anything that isn't Tempest": since the house rows
+    # (Dawg/Blend) joined the same standings table, a "not Tempest" filter would let one of
+    # OUR OWN forecasts become the `best_public` in the verdict sentence and in
+    # verdict_history — turning "beats the best public forecast" into a claim about a row we
+    # wrote ourselves. The leader of the field may be any source; the RIVAL must be public.
+    publics = [r for r in l1 if r["source"] in PUBLIC_SOURCES]
     best = publics[0] if publics else None   # l1 already sorted by mae
 
     verdict = {"status": "TOO EARLY", "headline": "", "n_days": n_days,
@@ -582,10 +708,34 @@ def update_verdict_history(win90):
     return hist[-VERDICT_HISTORY_EMBED:]
 
 
+def sources_block(records, actuals):
+    """Self-describing roster of every source that has records, in display order — so the
+    page can derive its legend/colour order and its public-vs-house labelling FROM THE DATA
+    instead of a second hardcoded list drifting out of sync with this one.
+      public     — eligible to be the verdict's `best_public` rival
+      house      — ours (Dawg/Blend)
+      first_date — earliest target date this source ever forecast
+      n_days     — distinct lead-1 target dates with a scored temp actual (the "is this row
+                   old enough to read?" number; matches standings.lead1[].n_days)"""
+    out = {}
+    for src in SOURCES:
+        dates = sorted({r["date"] for r in records if r["source"] == src})
+        if not dates:
+            continue
+        _, scored = temp_errors(records, actuals, src, 1)
+        out[src] = {"public": src in PUBLIC_SOURCES,
+                    "house": src in HOUSE_SOURCES,
+                    "first_date": dates[0],
+                    "n_days": len(scored)}
+    return out
+
+
 # ---------------------------------------------------------------- assemble
 def build(records, actuals, wet):
     standings = {f"lead{L}": standings_for(records, actuals, wet, L) for L in LEADS}
-    standings["blend"] = standings_for(records, actuals, wet, LEADS)
+    # POOLED_KEY ("blend") = the lead-1-2-3 POOLED rows. Not the "Blend" source; a source only
+    # earns a pooled row when it actually forecast at every lead (sources_with_all_leads).
+    standings[POOLED_KEY] = standings_for(records, actuals, wet, LEADS, require_all_leads=True)
 
     l1 = standings["lead1"]
     _, t_dates = temp_errors(records, actuals, "Tempest", 1)
@@ -711,7 +861,7 @@ def empty_scores(note=""):
                     "n_days": 0, "dm_p_value": None, "best_public": None},
         "standings": {"lead1": [], "lead2": [], "lead3": [], "blend": []},
         "trend": [], "busts": [], "rain_compare": [],
-        "windows": {}, "verdict_history": [], "nbm_twin": None,
+        "windows": {}, "verdict_history": [], "nbm_twin": None, "sources": {},
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
                         "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
                         "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
@@ -734,6 +884,9 @@ def main():
                 hub_online = bool(online)
         records += parse_openmeteo(load(os.path.join(dd, "openmeteo.json")), capture)
         records += parse_nws(load(os.path.join(dd, "nws.json")), capture)
+        # dawg.json is OPTIONAL — it only exists from the day the Mac's publisher went live,
+        # and capture.py deliberately writes no file on a stale/missing/unparseable fetch.
+        records += parse_dawg(load(os.path.join(dd, "dawg.json")), capture)
         dev = load(os.path.join(dd, "tempest_device_yesterday.json"))
         actuals.update(parse_actuals(dev))
         if dev:
@@ -804,6 +957,10 @@ def main():
             "flag": flag,
         })
 
+    # The deterministic baseline is derived from everyone ELSE's already-parsed records, so it
+    # is appended once, after every capture day is loaded and before anything is scored.
+    records += blend_records(records)
+
     standings, verdict, trend, busts, n_days, windows = build(records, actuals, wet)
     scores = {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -814,6 +971,7 @@ def main():
         "windows": windows,
         "verdict_history": update_verdict_history(windows.get("rolling90")),
         "nbm_twin": nbm_twin(records, actuals),
+        "sources": sources_block(records, actuals),
         "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
     # A3: serialize to a string with allow_nan=False FIRST, so a stray NaN/inf raises
