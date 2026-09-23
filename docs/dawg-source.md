@@ -24,17 +24,17 @@ https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1
 ```
 
 ```json
-{"v": 1, "source": "Dawg", "issued_at": "2026-09-14T05:47:12-04:00", "issued_date": "2026-09-14",
- "kind": "dawg", "model": "claude-fable-5", "label": "Dawg Forecast",
+{"v": 1, "source": "Dawg", "issued_at": "2026-09-24T05:35:12-04:00", "issued_date": "2026-09-24",
+ "kind": "dawg", "model": "claude-fable-5", "label": "Dawg Forecast", "recipe": "v2",
  "summary": "40% storms, best shot 3-7 PM, high near 91",
  "days": [
-   {"date": "2026-09-14", "lead": 0, "pop": 40, "high": 91, "low": 71, "amt_in": 0.15,
+   {"date": "2026-09-24", "lead": 0, "pop": 40, "high": 91, "low": 71, "amt_in": 0.15,
     "win_start": "15:00", "win_end": "19:00", "conf": "med", "reason": null},
-   {"date": "2026-09-15", "lead": 1, "pop": 75, "high": 85, "low": 68, "amt_in": 0.30,
+   {"date": "2026-09-25", "lead": 1, "pop": 75, "high": 85, "low": 68, "amt_in": 0.30,
     "conf": "med", "reason": "AFD shortwave; 4 of 6 models wet"}
  ],
  "blend": [
-   {"date": "2026-09-14", "lead": 0, "pop": 35, "high": 90, "low": 71, "amt_in": 0.10,
+   {"date": "2026-09-24", "lead": 0, "pop": 35, "high": 90, "low": 71, "amt_in": 0.10,
     "sources": {"high": "NWS", "low": "NWS", "pop": "ECMWF+Tempest"}}
  ]}
 ```
@@ -45,6 +45,10 @@ https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1
   deterministic blend (in which case `days` == `blend` numbers).
 - `blend` is the Mac's own live blend, carried for the record. **This repo does not score it** —
   the `Blend` row here is recomputed from the captured files (§3).
+- `recipe` *(added 2026-09-23)* — which version of Dawg's recipe (the Mac's versioned prompt +
+  code rules) made the call: `"v1"` through 2026-09-23, `"v2"` from the 2026-09-24 call. **Absent
+  means `"v1"`** — every file frozen before v2 predates the key. A `kind: "blend"` fallback file
+  carries `"blend-v1"`, but fallback days are never scored as Dawg, so it is never counted. See §7.
 
 ### How capture.py handles it
 
@@ -74,6 +78,10 @@ hand-copied or re-committed snapshot must not sneak past capture's check):
 Then it emits `high` / `low` / `pop` for **leads 1–3 only** (the repo's `LEADS`); leads 0 and
 4–7 are captured and archived but never scored. Leads are derived from the dates, never from
 the file's own `lead` field. Nulls are skipped; `pop` passes through unscaled.
+
+`dawg_recipe()` reads the top-level `recipe` behind the **same two gates** (a day counts under a
+recipe exactly when it produced Dawg records) — missing/blank → `"v1"`. It is a label only: it
+never changes a record, and the Dawg row is not split by it (§7).
 
 `dawg.json` is optional everywhere — the overwhelming majority of historical capture days have
 none, and `parse_dawg(None, …)` returns `[]`.
@@ -185,6 +193,23 @@ published yet gets no dead legend entry on the chart. The dashboard derives its 
 and its public/house labelling from this block, falling back to a hardcoded list when the feed
 predates it.
 
+**Top level, since 2026-09-23 — `house_recipes`** (`extract.house_recipes`, Dawg only, in order
+of first call):
+
+```json
+"house_recipes": [
+  { "version": "v1", "first_date": "2026-09-14", "last_date": "2026-09-23", "n_days": 10, "n_scored_days": 8 },
+  { "version": "v2", "first_date": "2026-09-24", "last_date": "2026-10-20", "n_days": 27, "n_scored_days": 26 }
+]
+```
+
+- `first_date` / `last_date` — first/last **capture (issue) date** with a scorable call under that recipe.
+- `n_days` — scorable capture days (calls) under that recipe.
+- `n_scored_days` — distinct lead-1 target dates with a scored temp actual from those calls (the same
+  yardstick as a standings row's `n_days`).
+- One entry per version, even across a rollback (v1 → v2 → v1): spans may then overlap, and the page
+  treats the entry with the latest `last_date` as the recipe currently in use. `[]` when no Dawg day exists.
+
 ### A naming collision to keep straight
 
 `standings["blend"]` (lower-case, `extract.POOLED_KEY`) is the **pooled lead-1–3 row set** and
@@ -205,3 +230,28 @@ cannot be flattered by an average its rivals pay lead-3 misses into.
   that payload is encrypted.)
 - **A missing Dawg day is normal and silent** (a warning line in `_capture_log.json`, nothing
   more). Check `data/<date>/_capture_log.json → warnings` if a day is unexpectedly absent.
+
+---
+
+## 7 · Recipe versions (2026-09-23)
+
+On 2026-09-24 Dawg's morning call moved from recipe **v1** (start from the Blend; the version live
+since 2026-09-13) to **v2** — five prompt/code tweaks Taylor approved after 30 days of his journal
+(bias-adjusted highs, bolder wet-day probabilities, storm windows only for today/tomorrow, amounts
+scaled by coverage, explicit permission to move off the Blend). Rollback is a config knob on the Mac,
+so the recipe can change again, in either direction.
+
+How that shows up here — deliberately little, because this page is **truth-only**:
+
+- **The Dawg row stays one row.** Nothing is re-scored, split, adjusted or re-weighted by recipe; the
+  numbers are the frozen calls vs the station, exactly as before.
+- **`house_recipes` labels the history** (§5), and the standings card prints one footnote under the
+  house rows once there are two recipes, e.g. *"Dawg's recipe changed Sep 24 (v1 Sep 14–23 → v2).
+  Numbers above mix both until v2 has its own 90 days — the private tab tracks the split."*
+  (After a rollback it reads *"Dawg is back on recipe v1 (v2 … in between)"*.)
+- **The v1-vs-v2 verdict is not decided here.** It lives in the private journal (the Mac's
+  `alerts/experiment.py`, rendered on the *Dawg's Calls* tab): each recipe is measured as Dawg's
+  **paired edge over the frozen Blend** on the same mornings (same made date + target date), under a
+  rule pre-registered before v2's first call. The public `Blend` row is that experiment's control, which
+  is one more reason it is never bias-corrected.
+

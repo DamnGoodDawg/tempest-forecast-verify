@@ -246,7 +246,8 @@ def main():
         else:
             dawg_meta = dict(meta, source_url=DAWG_URL, sha256=hashlib.sha256(raw).hexdigest())
             write(outdir, "dawg.json", {"meta": dawg_meta, "data": dawg})
-            print(f"[ok] dawg.json (kind={dawg.get('kind')}, "
+            # recipe (2026-09-23): frozen verbatim with the rest; absent = v1 (extract.dawg_recipe)
+            print(f"[ok] dawg.json (kind={dawg.get('kind')}, recipe={dawg.get('recipe') or 'v1'}, "
                   f"{len(dawg.get('days') or [])} days, {len(raw)} bytes)")
     except Exception as e:
         warnings.append(f"dawg: {e} (non-fatal)")

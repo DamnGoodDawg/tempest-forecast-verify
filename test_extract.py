@@ -120,6 +120,104 @@ class TestDawgSource(unittest.TestCase):
         self.assertEqual(extract.parse_dawg(None, CAP), [])
         self.assertEqual(extract.parse_dawg({}, CAP), [])
         self.assertEqual(extract.parse_dawg({"data": None}, CAP), [])
+        self.assertEqual(extract.parse_dawg({"data": "junk"}, CAP), [])
+
+    # ---- recipe (2026-09-23): the Mac's versioned prompt rides along as a top-level label
+    def test_recipe_missing_means_v1(self):
+        # Every file frozen before recipe v2 (first call 2026-09-24) has no "recipe" key.
+        self.assertEqual(extract.dawg_recipe(self._file(), CAP), "v1")
+        self.assertEqual(extract.dawg_recipe(self._file(recipe=None), CAP), "v1")
+        self.assertEqual(extract.dawg_recipe(self._file(recipe="  "), CAP), "v1")
+        self.assertEqual(extract.dawg_recipe(self._file(recipe=2), CAP), "v1")   # junk type
+
+    def test_recipe_read_verbatim(self):
+        self.assertEqual(extract.dawg_recipe(self._file(recipe="v2"), CAP), "v2")
+        self.assertEqual(extract.dawg_recipe(self._file(recipe=" v3 "), CAP), "v3")
+
+    def test_recipe_follows_the_scoring_gates(self):
+        # A day that is not scored is not counted under ANY recipe — the fallback blend day
+        # (Mac stamps it "blend-v1") and a stale file both yield None, exactly like parse_dawg.
+        self.assertIsNone(extract.dawg_recipe(self._file(kind="blend", recipe="blend-v1"), CAP))
+        self.assertIsNone(extract.dawg_recipe(self._file(issued_date="2026-06-03", recipe="v2"), CAP))
+        self.assertIsNone(extract.dawg_recipe(None, CAP))
+        self.assertIsNone(extract.dawg_recipe({"data": None}, CAP))
+
+    def test_recipe_never_changes_the_records(self):
+        # Truth-only: the label must not alter a single scored number.
+        self.assertEqual(extract.parse_dawg(self._file(recipe="v2"), CAP),
+                         extract.parse_dawg(self._file(), CAP))
+
+
+class TestHouseRecipes(unittest.TestCase):
+    """scores.json `house_recipes`: which Dawg recipe made which days, for the standings
+    footnote. Labels only — the Dawg row stays one row across every recipe."""
+
+    def _days(self, caps_by_recipe, actual_dates):
+        import datetime as dt
+        recipe_by_capture, records, actuals = {}, [], {}
+        for ver, caps in caps_by_recipe.items():
+            for cap in caps:
+                recipe_by_capture[cap] = ver
+                tgt = (dt.date.fromisoformat(cap) + dt.timedelta(days=1)).isoformat()
+                records += [{"date": tgt, "lead": 1, "source": "Dawg", "var": "high", "value": 80.0},
+                            {"date": tgt, "lead": 1, "source": "Dawg", "var": "low", "value": 60.0},
+                            # a lead-2 row must not count toward lead-1 n_scored_days
+                            {"date": (dt.date.fromisoformat(cap) + dt.timedelta(days=2)).isoformat(),
+                             "lead": 2, "source": "Dawg", "var": "high", "value": 81.0}]
+        for tgt in actual_dates:
+            actuals[(tgt, "high")] = 82.0
+            actuals[(tgt, "low")] = 61.0
+        # another source on the same dates must never leak into Dawg's counts
+        records += [{"date": t, "lead": 1, "source": "NWS", "var": "high", "value": 80.0}
+                    for t in actual_dates]
+        return recipe_by_capture, records, actuals
+
+    def test_two_recipes_chronological_with_counts(self):
+        v1 = ["2026-09-14", "2026-09-15", "2026-09-16"]
+        v2 = ["2026-09-24", "2026-09-25"]
+        rbc, recs, act = self._days({"v2": v2, "v1": v1},
+                                    ["2026-09-15", "2026-09-16", "2026-09-17", "2026-09-25"])
+        out = extract.house_recipes(rbc, recs, act)
+        self.assertEqual([h["version"] for h in out], ["v1", "v2"])      # by first call, not name
+        self.assertEqual(out[0], {"version": "v1", "first_date": "2026-09-14",
+                                  "last_date": "2026-09-16", "n_days": 3, "n_scored_days": 3})
+        # v2's 09-25 call targets 09-26, which has no actual yet -> 1 scored of 2 calls
+        self.assertEqual(out[1], {"version": "v2", "first_date": "2026-09-24",
+                                  "last_date": "2026-09-25", "n_days": 2, "n_scored_days": 1})
+        json.dumps(out, allow_nan=False)
+
+    def test_rollback_keeps_one_entry_per_version(self):
+        # v1 -> v2 -> back to v1: still one entry per version, spans may overlap; the page
+        # picks "current" as the entry with the latest last_date.
+        rbc, recs, act = self._days({"v1": ["2026-09-20", "2026-10-02"], "v2": ["2026-09-24"]}, [])
+        out = extract.house_recipes(rbc, recs, act)
+        self.assertEqual([(h["version"], h["first_date"], h["last_date"], h["n_days"]) for h in out],
+                         [("v1", "2026-09-20", "2026-10-02", 2), ("v2", "2026-09-24", "2026-09-24", 1)])
+        self.assertTrue(all(h["n_scored_days"] == 0 for h in out))
+
+    def test_empty(self):
+        self.assertEqual(extract.house_recipes({}, [], {}), [])
+
+    def test_empty_scores_carries_the_key(self):
+        self.assertEqual(extract.empty_scores()["house_recipes"], [])
+
+    def test_real_capture_history_reads_as_v1(self):
+        # The frozen captures on disk all predate recipe v2: every scorable day must read v1,
+        # and none may be dropped relative to parse_dawg's own gate.
+        import glob, os
+        seen = 0
+        for dd in sorted(glob.glob(os.path.join(extract.DATA, "*"))):
+            p = os.path.join(dd, "dawg.json")
+            if not os.path.exists(p):
+                continue
+            cap, j = os.path.basename(dd), extract.load(p)
+            r = extract.dawg_recipe(j, cap)
+            if extract.parse_dawg(j, cap):
+                seen += 1
+                self.assertIsNotNone(r)
+            if cap < "2026-09-24" and r is not None:
+                self.assertEqual(r, "v1")
+        self.assertGreater(seen, 0)
 
 
 class TestBlendBaseline(unittest.TestCase):

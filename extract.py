@@ -71,6 +71,9 @@ PUBLIC_SOURCES = ["NBM", "NWS", "ECMWF", "GFS"]
 HOUSE_SOURCES = ["Dawg", "Blend"]
 POOLED_KEY = "blend"        # standings key for the lead-1–3 pooled rows (NOT the Blend source)
 EARLY_N_DAYS = 10           # per-row n_days below this is labeled "early" on the dashboard
+# 2026-09-23: Dawg's recipe (the Mac's versioned prompt, "v2" from the 2026-09-24 call) rides
+# along as a top-level "recipe" in dawg.json. Files frozen before v2 carry none -> they are v1.
+DAWG_RECIPE_DEFAULT = "v1"
 OM_MODELS = {"gfs_seamless": "GFS", "ecmwf_ifs025": "ECMWF", "ncep_nbm_conus": "NBM"}
 
 # blend_records rule (keep VERBATIM in sync with docs/dawg-source.md and the Mac's blend):
@@ -207,6 +210,18 @@ def parse_nws(j, capture):
     return out
 
 
+def _scorable_dawg(j, capture):
+    """The dawg.json payload when it passes BOTH scoring gates, else None (see parse_dawg).
+    Shared by parse_dawg and dawg_recipe so a day counted under a recipe is exactly a day
+    that produced Dawg records — never a fallback or stale file."""
+    data = (j or {}).get("data") or {}
+    if not isinstance(data, dict) or data.get("kind") != "dawg":
+        return None
+    if data.get("issued_date") != capture:
+        return None
+    return data
+
+
 def parse_dawg(j, capture):
     """The house AI forecast (data/<capture>/dawg.json; contract in docs/dawg-source.md).
 
@@ -217,12 +232,12 @@ def parse_dawg(j, capture):
       * `issued_date == capture` — capture.py already refuses a stale file, but a hand-copied
         or re-committed snapshot must not silently score yesterday's call at today's leads.
     Vars: high/low (°F) and pop (already 0-100) from days[]; nulls skipped; leads 1-3 only
-    (rec() drops the rest, so the file's leads 0 and 4-7 are captured but never scored)."""
+    (rec() drops the rest, so the file's leads 0 and 4-7 are captured but never scored).
+    The file's top-level "recipe" (2026-09-23) is read separately by dawg_recipe — it labels
+    the day, it never changes a record."""
     out = []
-    data = (j or {}).get("data") or {}
-    if data.get("kind") != "dawg":
-        return out
-    if data.get("issued_date") != capture:
+    data = _scorable_dawg(j, capture)
+    if data is None:
         return out
     for e in data.get("days") or []:
         if not isinstance(e, dict):
@@ -235,6 +250,21 @@ def parse_dawg(j, capture):
         rec(out, target, lead, "Dawg", "low", e.get("low"))
         rec(out, target, lead, "Dawg", "pop", e.get("pop"))
     return out
+
+
+def dawg_recipe(j, capture):
+    """Which version of Dawg's recipe made this capture day's call, or None when the file
+    would not be scored at all (missing / kind "blend" fallback / stale — parse_dawg's gates).
+
+    2026-09-23: the Mac's recipe v2 (five prompt tweaks, first call 2026-09-24) stamps a
+    top-level "recipe" on dawg_forecast.json. Every file frozen before that has no such key
+    and was made by v1, so missing/blank -> DAWG_RECIPE_DEFAULT. Read for the record only:
+    the recipe never changes how a day is scored (truth-only rule — no adjusted numbers)."""
+    data = _scorable_dawg(j, capture)
+    if data is None:
+        return None
+    r = data.get("recipe")
+    return r.strip() if isinstance(r, str) and r.strip() else DAWG_RECIPE_DEFAULT
 
 
 def blend_records(records):
@@ -730,6 +760,43 @@ def sources_block(records, actuals):
     return out
 
 
+def _capture_of(r):
+    """A record's capture (issue) date = target date - lead — the same identity the Blend
+    rule relies on (blend_records)."""
+    try:
+        return (d(r["date"]) - dt.timedelta(days=int(r["lead"]))).isoformat()
+    except Exception:
+        return None
+
+
+def house_recipes(recipe_by_capture, records, actuals):
+    """The `house_recipes` block (2026-09-23): one entry per Dawg recipe version, in order of
+    first call, so the page can say honestly that the Dawg row's all-time numbers straddle a
+    recipe change (v1 -> v2 on 2026-09-24) while the private tab's paired experiment tracks
+    the split. `recipe_by_capture` = {capture date: recipe} for scorable Dawg days only.
+
+      version       — the recipe string from the frozen file ("v1" when absent)
+      first_date    — first CAPTURE (issue) date with a scorable call under this recipe
+      last_date     — last such date
+      n_days        — scorable capture days (calls) under this recipe
+      n_scored_days — distinct lead-1 target dates with a scored temp actual from those
+                      calls: the same yardstick as a standings row's n_days
+
+    A pure LABEL over the frozen captures: nothing here re-scores or adjusts a number
+    (truth-only), and the Dawg row itself stays one row spanning every recipe."""
+    by_ver = {}
+    for cap in sorted(recipe_by_capture):
+        by_ver.setdefault(recipe_by_capture[cap], []).append(cap)
+    out = []
+    for ver, caps in sorted(by_ver.items(), key=lambda kv: (kv[1][0], kv[0])):
+        capset = set(caps)
+        recs = [r for r in records if r["source"] == "Dawg" and _capture_of(r) in capset]
+        _, scored = temp_errors(recs, actuals, "Dawg", 1)
+        out.append({"version": ver, "first_date": caps[0], "last_date": caps[-1],
+                    "n_days": len(caps), "n_scored_days": len(scored)})
+    return out
+
+
 # ---------------------------------------------------------------- assemble
 def build(records, actuals, wet):
     standings = {f"lead{L}": standings_for(records, actuals, wet, L) for L in LEADS}
@@ -861,7 +928,7 @@ def empty_scores(note=""):
                     "n_days": 0, "dm_p_value": None, "best_public": None},
         "standings": {"lead1": [], "lead2": [], "lead3": [], "blend": []},
         "trend": [], "busts": [], "rain_compare": [],
-        "windows": {}, "verdict_history": [], "nbm_twin": None, "sources": {},
+        "windows": {}, "verdict_history": [], "nbm_twin": None, "sources": {}, "house_recipes": [],
         "data_health": {"capture_days": 0, "capture_misses": 0, "station_online_streak": 0,
                         "hub_online": None, "cocorahs_ok": None, "last_snapshot_hours_ago": 0,
                         "battery_volts": None, "battery_warn": False, "rain_sensor_ok": True,
@@ -872,6 +939,7 @@ def empty_scores(note=""):
 def main():
     day_dirs = sorted(g for g in glob.glob(os.path.join(DATA, "*")) if os.path.isdir(g))
     records, actuals, latest_device, latest_ds = [], {}, None, None
+    dawg_recipes = {}   # capture date -> Dawg recipe, scorable days only (house_recipes)
     cocorahs, cocorahs_seen, hub_online = {}, False, None
     tempest_rain = {}   # date -> {raw, corrected} daily totals (inches)
     for dd in day_dirs:
@@ -886,7 +954,11 @@ def main():
         records += parse_nws(load(os.path.join(dd, "nws.json")), capture)
         # dawg.json is OPTIONAL — it only exists from the day the Mac's publisher went live,
         # and capture.py deliberately writes no file on a stale/missing/unparseable fetch.
-        records += parse_dawg(load(os.path.join(dd, "dawg.json")), capture)
+        dj = load(os.path.join(dd, "dawg.json"))
+        records += parse_dawg(dj, capture)
+        recipe = dawg_recipe(dj, capture)
+        if recipe is not None:
+            dawg_recipes[capture] = recipe
         dev = load(os.path.join(dd, "tempest_device_yesterday.json"))
         actuals.update(parse_actuals(dev))
         if dev:
@@ -972,6 +1044,8 @@ def main():
         "verdict_history": update_verdict_history(windows.get("rolling90")),
         "nbm_twin": nbm_twin(records, actuals),
         "sources": sources_block(records, actuals),
+        # 2026-09-23 additive: which Dawg recipe made which days (labels only, never a re-score)
+        "house_recipes": house_recipes(dawg_recipes, records, actuals),
         "data_health": data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds),
     }
     # A3: serialize to a string with allow_nan=False FIRST, so a stray NaN/inf raises
