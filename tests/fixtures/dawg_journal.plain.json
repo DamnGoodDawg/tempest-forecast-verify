@@ -222,26 +222,28 @@
   "recipes": [
    {
     "version": "v1",
-    "label": "Start from the Blend",
+    "label": "v1 — start from the blend, change with a reason",
     "first_call": "2026-09-13",
     "last_call": "2026-09-23",
-    "days": 11,
+    "days": 10,
     "tag": "deploy/2026-09-13-house-forecast",
-    "changes": []
+    "changes": [
+     "The original house-forecast call: start from the fixed blend, change any number with a reason, say why."
+    ]
    },
    {
     "version": "v2",
-    "label": "Five tweaks",
+    "label": "v2 — five tweaks",
     "first_call": "2026-09-24",
     "last_call": "2026-09-27",
     "days": 4,
     "tag": "deploy/2026-09-23-dawg-v2",
     "changes": [
-     "Highs start from a bias-adjusted Blend high (measured cold bias, capped ±3°F)",
-     "Bolder on clearly-wet days: his ≥60% calls verified ~85%, so use 0.8–0.95 when everything agrees",
-     "Storm windows only for today and tomorrow — code drops the rest",
-     "Amounts scaled by coverage: small on scattered days, no shading down organized rain",
-     "Explicit permission to move off the Blend, with the reason in WHY"
+     "Highs: starts from a bias-adjusted high when the blend has run measurably cold or warm (last 21 days).",
+     "Rain odds: shown his own calibration and told to use the full range — 0.8-0.95 when everything agrees it's wet.",
+     "Storm windows: only today and tomorrow; day-2+ windows are dropped (they never verified).",
+     "Amounts: small on scattered-storm days, no shading down on organized rain.",
+     "Moves: told the blend is the scored control — move off it with a reason, and shown how his past moves did."
     ]
    }
   ],
@@ -258,13 +260,14 @@
    "need_paired_short": 15
   },
   "rule": {
-   "text": "Pre-registered 2026-09-23. Unit = one morning call paired with the frozen Blend's row made in the same run (within 30 min) for the same date, both final-scored (chat calls excluded). The verdict waits for 21 days since v2's first call, 60 paired rows and 15 paired rows at lead 0–1, then compares v2's edge over the Blend with v1's on the two headline metrics: HELPED = at least one improves past its threshold and neither gets worse; HURT = at least one gets worse and neither improves; MIXED = one each way; NEUTRAL = neither moves past its threshold. It latches once and never flips; the numbers keep updating as a monitor.",
+   "text": "Pre-registered 2026-09-23, before v2's first call. Unit: one 05:35 standing-call row paired with the frozen Blend's row made the same morning, in the same run (within 30 min), for the same date, both final-scored against the station (chat calls excluded). Headline edges = the Blend's error minus Dawg's on those pairs: high-temp MAE (°F) and rain Brier — positive = Dawg better. v2 collects until 21 days after its first call, 60 paired rows and 15 paired rows at lead 0–1; then its edges are compared with v1's. An edge counts as improved or worse when it moves by at least 0.25°F (highs) or 0.01 (Brier). HELPED = at least one improved and neither worse; HURT = at least one worse and neither improved; MIXED = one each way; NEUTRAL = neither moved. The verdict latches once and never flips; the numbers keep updating as a monitor. Early warning (once): after 7 days and 25 paired rows, a headline edge worse than v1's by 2× its threshold pages Taylor with the rollback. The other metrics (one or more per tweak) are descriptive and never decide the verdict; any metric reads 'insufficient' until both recipes have 5 rows.",
    "thresholds": {
     "high_mae_edge": 0.25,
     "brier_edge": 0.01,
     "high_bias": 0.25,
     "wet_calib_gap": 0.05,
     "window_hit_short": 0.1,
+    "windows_long": 1,
     "amt_mae_edge": 0.03,
     "amt_light_bias": 0.03,
     "move_rate": 0.1,
@@ -281,9 +284,9 @@
     "better": "higher",
     "v1": {
      "n": 44,
-     "value": 0.02,
-     "dawg": 2.14,
-     "blend": 2.16
+     "value": -0.04,
+     "dawg": 1.91,
+     "blend": 1.87
     },
     "v2": {
      "n": 6,
@@ -291,7 +294,7 @@
      "dawg": 1.62,
      "blend": 2.07
     },
-    "delta": 0.43,
+    "delta": 0.49,
     "status": "improved"
    },
    {
@@ -303,9 +306,9 @@
     "better": "higher",
     "v1": {
      "n": 44,
-     "value": 0.006,
-     "dawg": 0.171,
-     "blend": 0.177
+     "value": 0.002,
+     "dawg": 0.196,
+     "blend": 0.199
     },
     "v2": {
      "n": 6,
@@ -313,20 +316,20 @@
      "dawg": 0.141,
      "blend": 0.145
     },
-    "delta": -0.002,
+    "delta": 0.002,
     "status": "same"
    },
    {
     "key": "high_bias",
     "tweak": 1,
     "headline": false,
-    "label": "High-temp bias",
+    "label": "High-temp bias (call − actual)",
     "unit": "°F",
     "better": "zero",
     "v1": {
      "n": 44,
-     "value": -1.46,
-     "dawg": -1.46,
+     "value": -1.49,
+     "dawg": -1.49,
      "blend": -1.55
     },
     "v2": {
@@ -335,29 +338,29 @@
      "dawg": -0.35,
      "blend": -1.52
     },
-    "delta": 1.11,
+    "delta": 1.14,
     "status": "improved"
    },
    {
     "key": "wet_calib_gap",
     "tweak": 2,
     "headline": false,
-    "label": "Wet-call calibration gap (calls ≥60%)",
+    "label": "Calibration gap on ≥60% calls (rained − said)",
     "unit": "pts",
     "better": "zero",
     "v1": {
-     "n": 13,
-     "value": 0.196,
-     "dawg": null,
-     "blend": null
+     "n": 11,
+     "value": 0.169,
+     "dawg": 0.169,
+     "blend": 0.175
     },
     "v2": {
-     "n": 2,
+     "n": 3,
      "value": 0.05,
-     "dawg": null,
+     "dawg": 0.05,
      "blend": null
     },
-    "delta": -0.146,
+    "delta": -0.119,
     "status": "insufficient"
    },
    {
@@ -368,41 +371,41 @@
     "unit": "%",
     "better": "higher",
     "v1": {
-     "n": 18,
-     "value": 0.39,
-     "dawg": 0.39,
-     "blend": 0.33
+     "n": 11,
+     "value": 0.364,
+     "dawg": 0.364,
+     "blend": 0.25
     },
     "v2": {
-     "n": 1,
-     "value": 1.0,
-     "dawg": 1.0,
-     "blend": 0.0
+     "n": 5,
+     "value": 0.6,
+     "dawg": 0.6,
+     "blend": 0.4
     },
-    "delta": 0.61,
-    "status": "insufficient"
+    "delta": 0.236,
+    "status": "improved"
    },
    {
     "key": "windows_long",
     "tweak": 3,
     "headline": false,
-    "label": "Windows issued 2+ days out",
+    "label": "Storm windows issued 2+ days out",
     "unit": "count",
     "better": "lower",
     "v1": {
-     "n": 58,
-     "value": 31,
-     "dawg": null,
-     "blend": null
+     "n": 27,
+     "value": 6,
+     "dawg": 6,
+     "blend": 12
     },
     "v2": {
-     "n": 12,
+     "n": 1,
      "value": 0,
-     "dawg": null,
-     "blend": null
+     "dawg": 0,
+     "blend": 1
     },
-    "delta": -31,
-    "status": "improved"
+    "delta": -6,
+    "status": "insufficient"
    },
    {
     "key": "amt_mae_edge",
@@ -413,15 +416,15 @@
     "better": "higher",
     "v1": {
      "n": 44,
-     "value": -0.004,
-     "dawg": 0.118,
-     "blend": 0.114
+     "value": 0.018,
+     "dawg": 0.194,
+     "blend": 0.212
     },
     "v2": {
      "n": 6,
-     "value": 0.021,
-     "dawg": 0.062,
-     "blend": 0.083
+     "value": 0.043,
+     "dawg": 0.083,
+     "blend": 0.126
     },
     "delta": 0.025,
     "status": "same"
@@ -430,22 +433,22 @@
     "key": "amt_light_bias",
     "tweak": 4,
     "headline": false,
-    "label": "Amount bias on light days (<0.25\")",
+    "label": "Amount bias on light days (<0.25\" fell)",
     "unit": "in",
     "better": "zero",
     "v1": {
-     "n": 36,
-     "value": 0.12,
-     "dawg": 0.12,
+     "n": 31,
+     "value": 0.122,
+     "dawg": 0.122,
      "blend": 0.115
     },
     "v2": {
      "n": 4,
-     "value": 0.03,
-     "dawg": 0.03,
+     "value": 0.04,
+     "dawg": 0.04,
      "blend": 0.09
     },
-    "delta": -0.09,
+    "delta": -0.082,
     "status": "insufficient"
    },
    {
@@ -457,7 +460,7 @@
     "better": "higher",
     "v1": {
      "n": 44,
-     "value": 0.523,
+     "value": 0.364,
      "dawg": null,
      "blend": null
     },
@@ -467,33 +470,179 @@
      "dawg": null,
      "blend": null
     },
-    "delta": 0.31,
+    "delta": 0.469,
     "status": "improved"
    },
    {
     "key": "move_help_rate",
     "tweak": 5,
     "headline": false,
-    "label": "Moves that helped",
+    "label": "Moves that beat the Blend",
     "unit": "%",
     "better": "higher",
     "v1": {
-     "n": 31,
-     "value": 0.484,
+     "n": 19,
+     "value": 0.684,
      "dawg": null,
      "blend": null
     },
     "v2": {
-     "n": 9,
-     "value": 0.667,
+     "n": 7,
+     "value": 0.714,
      "dawg": null,
      "blend": null
     },
-    "delta": 0.183,
-    "status": "improved"
+    "delta": 0.03,
+    "status": "same"
    }
   ],
-  "note": "Each edge = the frozen Blend's error minus Dawg's on the same mornings (same made date + target date), so a shift in the weather hits both sides and cancels. v2's first days are a small sample — read the status column, not the raw numbers. Chat calls are excluded.",
-  "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full (last resort): git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local — that code writes its calls unlabeled, so once back on v2 run `python -m alerts.cli dawg-journal stamp-recipe --since <first day> --until <last day> --live` to count them as v1."
+  "note": "Each edge = the frozen Blend's error minus Dawg's on the same mornings (same made date + target date), so a change in the weather hits both sides and cancels — positive means Dawg beat the Blend. Early numbers rest on small samples: read the status column, not the raw values. Chat calls are excluded from the verdict (they come later in the day, radar in hand — their own table is tracked, not judged). '%' and 'pts' values are fractions (0.52 = 52%).",
+  "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full (last resort): git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local — that code writes its calls unlabeled, so once back on v2 run `python -m alerts.cli dawg-journal stamp-recipe --since <first day> --until <last day> --live` to count them as v1.",
+  "chat": {
+   "note": "Group-chat calls, each paired with the Blend made that same morning for the same date (both final-scored). Chat calls are made later in the day with radar in hand — and some evening calls come after the rain already fell — so their edge over the 05:35 Blend is naturally positive: only the v1 → v2 CHANGE is meaningful. Tracked here, never part of the verdict or the early warning. Same thresholds as the morning table; the call count is never judged.",
+   "metrics": [
+    {
+     "key": "chat_high_mae_edge",
+     "tweak": 1,
+     "headline": false,
+     "label": "High-temp MAE edge over the Blend",
+     "unit": "°F",
+     "better": "higher",
+     "v1": {
+      "n": 9,
+      "value": -0.11,
+      "dawg": 1.14,
+      "blend": 1.03
+     },
+     "v2": {
+      "n": 7,
+      "value": 1.31,
+      "dawg": 1.19,
+      "blend": 2.5
+     },
+     "delta": 1.42,
+     "status": "improved"
+    },
+    {
+     "key": "chat_brier_edge",
+     "tweak": 2,
+     "headline": false,
+     "label": "Rain Brier edge over the Blend",
+     "unit": "Brier",
+     "better": "higher",
+     "v1": {
+      "n": 30,
+      "value": 0.08,
+      "dawg": 0.121,
+      "blend": 0.201
+     },
+     "v2": {
+      "n": 8,
+      "value": 0.072,
+      "dawg": 0.101,
+      "blend": 0.173
+     },
+     "delta": -0.008,
+     "status": "same"
+    },
+    {
+     "key": "chat_window_hit_short",
+     "tweak": 3,
+     "headline": false,
+     "label": "Storm-window hit rate, today + tomorrow",
+     "unit": "%",
+     "better": "higher",
+     "v1": {
+      "n": 27,
+      "value": 0.667,
+      "dawg": 0.667,
+      "blend": 0.2
+     },
+     "v2": {
+      "n": 6,
+      "value": 0.833,
+      "dawg": 0.833,
+      "blend": 0.5
+     },
+     "delta": 0.166,
+     "status": "improved"
+    },
+    {
+     "key": "chat_amt_light_bias",
+     "tweak": 4,
+     "headline": false,
+     "label": "Amount bias on light days (<0.25\" fell)",
+     "unit": "in",
+     "better": "zero",
+     "v1": {
+      "n": 8,
+      "value": 0.083,
+      "dawg": 0.083,
+      "blend": 0.111
+     },
+     "v2": {
+      "n": 5,
+      "value": 0.03,
+      "dawg": 0.03,
+      "blend": 0.1
+     },
+     "delta": -0.053,
+     "status": "improved"
+    },
+    {
+     "key": "chat_calls",
+     "tweak": 0,
+     "headline": false,
+     "label": "Chat calls paired with that morning's Blend",
+     "unit": "count",
+     "better": "higher",
+     "v1": {
+      "n": 30,
+      "value": 30,
+      "dawg": null,
+      "blend": null
+     },
+     "v2": {
+      "n": 8,
+      "value": 8,
+      "dawg": null,
+      "blend": null
+     },
+     "delta": -22,
+     "status": "same"
+    }
+   ]
+  }
+ },
+ "radar_pager": {
+  "since": "2026-09-20",
+  "pages": 1,
+  "tally": {
+   "hit": 1,
+   "miss": 0,
+   "faded": 0,
+   "open": 0
+  },
+  "decided": 1,
+  "hit_rate": 1.0,
+  "recent": [
+   {
+    "date": "2026-09-20",
+    "time_local": "18:19",
+    "town": "Bogart",
+    "dbz": 45,
+    "outcome": "hit",
+    "lead_min": null
+   }
+  ],
+  "verdicts_30d": {
+   "threat-no-track": 3528,
+   "tracked-wide": 1941,
+   "candidate": 146,
+   "await-2nd-look": 2,
+   "paged": 1
+  },
+  "rule": "A page needs a storm core of 45+ dBZ (or ProbSevere ≥40%) with a motion track (≥5 kt) projected to pass within 4 mi of the house inside 35 min — on two looks in a row (the earlier one already within 6 mi) — and a real ≥40 dBZ echo under it on the MRMS grid within 7 mi (grid down = no page). Only 7 AM–11 PM; silent within 45 min of a lightning alert or 60 min of an NWS warning text (they own the storm by then); at least 10 min between radar texts; one page per storm, updated only when the ETA moves 15+ min. No AI anywhere in the path: feeds, math and fixed wording.",
+  "note": "Scored against the station, not the radar: hit = at least 0.01\" in the gauge or a real strike within 10 mi after the page; miss = it veered off (a 'never mind' text went out); faded = it fell apart before it got here (a 'false alarm' text); open = still being watched. Lead = minutes from the page to the first rain or close strike, stamped on hits closed since the 2026-09-23 build (older pages have none). Small n early — a storm season is a handful of pages, so read the tally before the percentage. The gate tally counts radar LOOKS at threat-grade cells (one cell shows up once per poll), not distinct storms."
  }
 }

@@ -81,7 +81,7 @@ test("collecting card renders every contract section from the fixture", () => {
   assert.match(h, /width:19%/);                                  // 4/21
   assert.match(h, /deploy\/2026-09-13-house-forecast/);
   assert.match(h, /deploy\/2026-09-23-dawg-v2/);
-  assert.match(h, /Sep 13–23 · 11 days/);
+  assert.match(h, /Sep 13–23 · 10 days/);
   assert.match(h, /Sep 24–27 · 4 days/);
   assert.match(h, /<span class="dawg-pill ok">live<\/span>/);
   for (const c of X.recipes[1].changes) assert.ok(h.includes(T.esc(c)), `change: ${c}`);
@@ -89,36 +89,38 @@ test("collecting card renders every contract section from the fixture", () => {
   assert.ok(h.includes(T.esc(X.rule.text)));
   assert.ok(h.includes(T.esc(X.rollback)));
   assert.ok(h.includes(T.esc(X.note)));
-  assert.ok(!/Early warning/.test(h));
+  assert.ok(!/⚠ Early warning/.test(h));                         // no callout (the rule text names the early warning)
   assert.equal((h.match(/<tr class="hl">/g) || []).length, 2);  // headline rows emphasized
-  // headline rows come first, then tweaks in order
-  const firstRows = [...h.matchAll(/<tr(?: class="hl")?><td>(Headline|<span title="[^"]*">T\d<\/span>|T\d)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, ""));
+  // headline rows come first, then tweaks in order (morning table; the chat table follows it)
+  const firstRows = [...h.split("Group-chat calls")[0].matchAll(/<tr(?: class="hl")?><td>(Headline|<span title="[^"]*">T\d<\/span>|T\d)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, ""));
   assert.deepEqual(firstRows, ["Headline", "Headline", "T1", "T2", "T3", "T3", "T4", "T4", "T5", "T5"]);
   assert.ok(!h.includes("undefined") && !h.includes("NaN") && !h.includes("null"), "no leaked undefined/NaN/null");
 });
 
 test("metric cells: values by unit, Dawg/Blend sub-lines, status pills", () => {
-  const h = els.dawgExperiment.innerHTML;
+  // the morning table only — the group-chat table below it is dawg_pager.test.mjs's
+  const h = els.dawgExperiment.innerHTML.split("Group-chat calls")[0];
   const S = (...a) => a.map(x => `<span class="sub">${x}</span>`).join("");
-  assert.ok(h.includes("+0.02°F" + S("n=44", "Dawg 2.14", "Blend 2.16")));                  // H1 v1
+  assert.ok(h.includes("-0.04°F" + S("n=44", "Dawg 1.91", "Blend 1.87")));                  // H1 v1 (live 09-23 journal)
   assert.ok(h.includes("+0.45°F" + S("n=6", "Dawg 1.62", "Blend 2.07")));                   // H1 v2
-  assert.ok(h.includes("+0.006" + S("n=44", "Dawg 0.171", "Blend 0.177")));                 // H2
-  assert.ok(h.includes("-1.46°F" + S("n=44", "Dawg -1.46", "Blend -1.55")));                // T1 bias, signed
-  assert.ok(h.includes("+20 pts" + S("n=13")));                                             // T2 gap as points
-  assert.ok(h.includes(">39%" + S("n=18", "Dawg 39%", "Blend 33%")));                       // T3 rate, unsigned
-  assert.ok(h.includes(">31" + S("n=58")));                                                 // count
-  assert.ok(h.includes(">52%" + S("n=44")));                                                // move rate
-  assert.ok(h.includes("-0.004&quot;" + S("n=44", "Dawg 0.118", "Blend 0.114")));           // amounts at 3 dp
+  assert.ok(h.includes("+0.002" + S("n=44", "Dawg 0.196", "Blend 0.199")));                 // H2
+  assert.ok(h.includes("-1.49°F" + S("n=44", "Dawg -1.49", "Blend -1.55")));                // T1 bias, signed
+  assert.ok(h.includes("+17 pts" + S("n=11", "Dawg +17", "Blend +18")));                    // T2 gap as points, signed subs
+  assert.ok(h.includes("+5 pts" + S("n=3", "Dawg +5", "Blend —")));                         // missing Blend -> dash
+  assert.ok(h.includes(">36%" + S("n=11", "Dawg 36%", "Blend 25%")));                       // T3 rate, unsigned
+  assert.ok(h.includes(">6" + S("n=27", "Dawg 6", "Blend 12")));                           // count
+  assert.ok(h.includes(">36%" + S("n=44")));                                                // move rate
+  assert.ok(h.includes("+0.018&quot;" + S("n=44", "Dawg 0.194", "Blend 0.212")));           // amounts at 3 dp
   assert.match(h, /counts past ±0\.25°F/);
   assert.match(h, /counts past ±0\.010/);
   assert.match(h, /counts past ±10\.0 pts/);
   assert.match(h, /counts past ±0\.030&quot;/);
-  assert.match(h, /\+31\.0 pts<\/td>/);                                                   // move_rate change in points
+  assert.match(h, /\+46\.9 pts<\/td>/);                                                   // move_rate change in points
   assert.match(h, /<td class="num">\+0\.025&quot;<\/td>/);                                // 0.025" change doesn't round onto 0.03
-  assert.match(h, /<td class="num muted">-14\.6 pts<\/td>/);                                // insufficient change muted
-  assert.equal((h.match(/dawg-pill ok">improved/g) || []).length, 5);
+  assert.match(h, /<td class="num muted">-11\.9 pts<\/td>/);                                // insufficient change muted
+  assert.equal((h.match(/dawg-pill ok">improved/g) || []).length, 4);
   assert.equal((h.match(/dawg-pill pend">too few/g) || []).length, 3);
-  assert.equal((h.match(/dawg-pill pend">same/g) || []).length, 2);
+  assert.equal((h.match(/dawg-pill pend">same/g) || []).length, 3);
 });
 
 test("decided verdicts: chip colour, date, latched copy, rollback emphasis", () => {
