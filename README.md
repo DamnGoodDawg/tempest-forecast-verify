@@ -62,7 +62,17 @@ Every standings row now also carries `n_days` (how many scored days it rests on)
 10 days are greyed out and tagged `early` — which is how Dawg's thin first weeks read honestly
 next to Blend's back-filled history.
 
+Dawg's **recipe** is versioned on the Mac (v1 through 2026-09-23, v2 from the 2026-09-24 call). The
+frozen file carries it as a label, `scores.json` summarizes it in `house_recipes`, and the standings
+print a one-line footnote once the recipe has changed — but the Dawg row is never split or adjusted
+here; the paired v1-vs-v2 experiment lives on the private *Dawg's Calls* tab.
+
 Full contract, fairness argument and the guard's rationale: **[`docs/dawg-source.md`](docs/dawg-source.md)**.
+
+Tests: `python -m unittest test_extract test_health test_watchdog` (Python) and
+`node tests/dawg_crypto.test.mjs && node tests/dawg_experiment.test.mjs` (the private tab's decrypt
+interop, and a no-browser render of its Recipe-experiment card + the public recipe footnote, lifted
+straight out of `dashboard.html`).
 
 ## Files
 

@@ -793,6 +793,11 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 /* Tab 1 standings ⚠ footnote (v2) */
 .standings .flag-foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--border-2); display: flex; gap: 6px; align-items: baseline; text-wrap: pretty; }
 .standings .flag-foot .flag-mark { flex: none; }
+/* Tab 1 standings — Dawg recipe footnote (2026-09-23): the Dawg row's all-time numbers straddle a
+   recipe change; a label under the house rows, never an adjusted number (truth-only). */
+.standings .recipe-foot { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--s-3); display: flex; gap: 8px; align-items: baseline; text-wrap: pretty; }
+.standings .recipe-foot .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; transform: translateY(1px); }
+.standings .recipe-foot b { color: var(--text); font-weight: 650; }
 
 /* ===== Dawg's Calls (private journal tab) ===== */
 .dawg-unlock { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: center; margin-top: var(--s-3); }
@@ -816,6 +821,33 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .dawg-list { margin: 0; padding-left: 1.2em; } .dawg-list li { margin: 4px 0; } .dawg-list .when { color: var(--text-3); font-size: var(--fs-micro); margin-left: 6px; }
 .dawg-chart { width: 100%; height: auto; display: block; }
 .dawg-note { color: var(--text-3); font-size: var(--fs-micro); margin-top: var(--s-2); }
+/* Recipe experiment card (2026-09-23): is recipe v2 helping? Layout only — colour comes from the
+   existing .chip--*, .dawg-pill, .rq-prog and --tint-* tokens, so both themes follow for free. */
+.dexp-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.dexp-sub { color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; text-wrap: pretty; }
+.dexp-bars { display: grid; gap: var(--s-3) var(--s-4); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: var(--s-4); }
+.dexp-bar .lbl { display: flex; justify-content: space-between; gap: var(--s-2); font-size: var(--fs-micro); color: var(--text-3); margin-bottom: 5px; }
+.dexp-bar .lbl b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 650; }
+.dexp-bar .rq-prog > div { background: var(--p-dawg); }
+.dexp-bar.full .rq-prog > div { background: var(--hl-ok); }
+.dexp-callout { margin-top: var(--s-4); padding: var(--s-3); border-radius: var(--r-md); font-size: var(--fs-sm); line-height: 1.5; color: var(--text); text-wrap: pretty; background: var(--tint-warn); border: 1px solid color-mix(in oklch, var(--hl-warn) 45%, transparent); }
+.dexp-callout.fail { background: var(--tint-fail); border-color: color-mix(in oklch, var(--hl-fail) 35%, transparent); }
+.dexp-h3 { font-size: var(--fs-sm); font-weight: 650; color: var(--text); margin: var(--s-5) 0 var(--s-2); }
+.dexp-recipes { display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
+.dexp-recipe { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-3); font-size: var(--fs-sm); min-width: 0; }
+.dexp-recipe.live { border-color: color-mix(in oklch, var(--p-dawg) 55%, transparent); }
+.dexp-recipe .rh { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.dexp-recipe .rv { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+.dexp-recipe .rd { color: var(--text-3); font-size: var(--fs-micro); margin-top: 2px; overflow-wrap: anywhere; }
+.dexp-recipe .rd code { font-family: var(--font-mono); }
+.dexp-recipe ol { margin: var(--s-2) 0 0; padding-left: 1.3em; color: var(--text-2); }
+.dexp-recipe ol li { margin: 3px 0; }
+.dexp-table tr.hl td { font-weight: 650; background: var(--tint-muted); }
+.dexp-table td.m { white-space: normal; min-width: 16ch; max-width: 34ch; }
+.dexp-table .sub { display: block; font-size: var(--fs-micro); color: var(--text-3); font-weight: 400; font-family: var(--font-sans, inherit); white-space: nowrap; }
+.dexp-table td.m .sub { white-space: normal; }
+.dexp-rule { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; margin-top: var(--s-4); text-wrap: pretty; }
+.dexp-rule b { color: var(--text); }
 </style>
 </head>
 <body>
@@ -941,6 +973,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <p class="tab-lede">Dawg — the family's text-message weatherman — now <em>commits to a call</em> every morning and every time he's asked, and the station grades him. This is his report card: what he said, what happened, and whether he is getting sharper. <em>Private:</em> the journal is encrypted on the Mac and unlocks here with a passphrase.</p>
     <section class="card" id="dawgLock" hidden></section>
     <section class="card verdict" id="dawgVerdict" hidden></section>
+    <section class="card" id="dawgExperiment" aria-labelledby="dawgExperiment-h" hidden></section>
     <section class="card" id="dawgStats" aria-labelledby="dawgStats-h" hidden></section>
     <section class="card" id="dawgReliability" aria-labelledby="dawgReliability-h" hidden></section>
     <section class="card" id="dawgSameday" aria-labelledby="dawgSameday-h" hidden></section>
@@ -1091,6 +1124,10 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     "NWS":     { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 },
     "GFS":     { "public": true,  "house": false, "first_date": "2026-06-04", "n_days": 74 }
   },
+  "house_recipes": [
+    { "version": "v1", "first_date": "2026-08-10", "last_date": "2026-08-13", "n_days": 4, "n_scored_days": 4 },
+    { "version": "v2", "first_date": "2026-08-14", "last_date": "2026-08-16", "n_days": 3, "n_scored_days": 2 }
+  ],
   "data_health": {
     "capture_days": 75, "capture_misses": 1, "station_online_streak": 75,
     "hub_online": true, "cocorahs_ok": true, "last_snapshot_hours_ago": 5,
@@ -1312,6 +1349,8 @@ const f3 = (n) => Number(n).toFixed(3);
 const parseDate = (s) => new Date(s + (s.length === 10 ? "T00:00:00Z" : ""));
 const fmtDate = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const fmtMD = (s) => { const d = parseDate(s); return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"}); };
+// "Sep 14–23" inside one month, "Sep 28–Oct 3" across two; one day prints once (ISO dates in, UTC-safe).
+const fmtSpan = (a, b) => { if (!a) return ""; if (!b || a === b) return fmtMD(a); const A = fmtMD(a), B = fmtMD(b); return A.split(" ")[0] === B.split(" ")[0] ? `${A}–${B.split(" ")[1]}` : `${A}–${B}`; };
 // All clock times display in the station's local Eastern zone (auto EDT/EST via the
 // runtime tz database), never UTC. timeZoneName:"short" prints the correct abbreviation.
 const fmtETTime = (s) => s ? new Date(s).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York", timeZoneName: "short" }) : "";
@@ -1629,6 +1668,28 @@ function renderClock(d) {
 
 /* --------------------------------------------------------- 3 · STANDINGS */
 let currentLead = "lead1";
+/* <house-recipes> Dawg recipe footnote (2026-09-23). scores.house_recipes (extract.house_recipes) says
+   which recipe made which Dawg days. The Dawg row stays ONE row across every recipe — truth-only: nothing
+   is re-scored, split or adjusted on this public page; the paired v1-vs-v2 split lives on the private
+   Dawg's Calls tab. Shown only once there are two recipes and a Dawg row is on the board. Lifted out
+   between these markers and exercised by tests/dawg_experiment.test.mjs. */
+function houseRecipeFootHTML(d, rows) {
+  const hr = (d && Array.isArray(d.house_recipes))
+    ? d.house_recipes.filter(h => h && h.version && h.first_date && h.last_date) : [];
+  if (hr.length < 2 || (rows && !rows.some(r => r.source === "Dawg"))) return "";
+  const cur = hr.reduce((a, h) => (h.last_date > a.last_date ? h : a));        // making calls now
+  const newest = hr.reduce((a, h) => (h.first_date > a.first_date ? h : a));   // started last
+  const prior = hr.filter(h => h !== cur).map(h => `${esc(h.version)} ${esc(fmtSpan(h.first_date, h.last_date))}`).join(", ");
+  const lead = cur === newest
+    ? `Dawg's recipe changed <b>${esc(fmtMD(cur.first_date))}</b> (${prior} → ${esc(cur.version)}).`
+    : `Dawg is back on recipe <b>${esc(cur.version)}</b> (${prior} in between).`;   // a rollback
+  const tail = (Number(cur.n_days) || 0) < 90
+    ? `Numbers above mix ${hr.length === 2 ? "both" : "them"} until ${esc(cur.version)} has its own 90 days — the private tab tracks the split.`
+    : `These all-time rows still include the earlier recipe's days — the private tab tracks the split.`;
+  return `<div class="recipe-foot"><span class="swatch" style="background:var(--p-dawg)"></span><span>${lead} ${tail}</span></div>`;
+}
+/* </house-recipes> */
+
 function renderStandings(d) {
   const leads = Object.keys(LEAD_LABELS).filter(k => (d.standings[k] || []).length);
   if (leads.length === 0) {
@@ -1697,6 +1758,7 @@ function renderStandings(d) {
         <tbody>${body}</tbody>
       </table>
     </div>
+    ${houseRecipeFootHTML(d, rows)}
     <p class="foot">At <b>${LEAD_LABELS[currentLead]}</b> lead, Tempest ranks <b>${ordinal}</b> of ${rows.length} by mean absolute error. Lower MAE &amp; Brier are better; higher ≤3°F &amp; CSI are better.</p>
     ${flagFootHTML()}
     ${explain(`
@@ -3264,7 +3326,7 @@ function applyThemeIcon() {
 /* ===================== Dawg's Calls — the private, encrypted forecast journal (2026-09-11) ===================== */
 const DAWG_URL = GIST_RAW + "dawg_journal.enc.json";
 const DAWG_LS = "dawg_journal_pass";
-const DAWG_CARDS = ["dawgVerdict", "dawgStats", "dawgReliability", "dawgSameday", "dawgCalls", "dawgLog", "dawgLessons", "dawgHow"];
+const DAWG_CARDS = ["dawgVerdict", "dawgExperiment", "dawgStats", "dawgReliability", "dawgSameday", "dawgCalls", "dawgLog", "dawgLessons", "dawgHow"];
 let DAWG_BLOB = null, DAWG_DATA = null, DAWG_LOADING = false, DAWG_FILTER = "all";
 const dEl = (id) => document.getElementById(id);
 const dPct = (p) => p == null ? "—" : Math.round(Number(p) * 100) + "%";
@@ -3320,7 +3382,7 @@ async function dawgUnlock(ev) {
 function dawgLock() { try { localStorage.removeItem(DAWG_LS); } catch (e) {} DAWG_DATA = null; dawgHideAll(); dawgLockCard("Locked. Enter the passphrase to open the journal again."); }
 
 function renderDawg(d) {
-  renderDawgVerdict(d); renderDawgStats(d); renderDawgReliability(d); renderDawgSameday(d);
+  renderDawgVerdict(d); renderDawgExperiment(d); renderDawgStats(d); renderDawgReliability(d); renderDawgSameday(d);
   renderDawgCalls(d); renderDawgLog(d); renderDawgLessons(d); renderDawgHow(d);
 }
 function renderDawgVerdict(d) {
@@ -3340,6 +3402,153 @@ function renderDawgVerdict(d) {
   el.hidden = false;
   dEl("dawgLockBtn").addEventListener("click", dawgLock);
 }
+/* <dawg-experiment> Recipe experiment card (2026-09-23) — are Dawg's recipe-v2 tweaks helping?
+   Renders payload.experiment exactly as the Mac's alerts/experiment.py summary() ships it (keys are a
+   stable contract). The page decides NOTHING: every edge is Dawg's error vs the FROZEN Blend on the
+   same mornings, and the verdict, per-metric statuses and thresholds all arrive pre-registered from the
+   Mac and are only displayed. A payload without `experiment` (every journal before v2) hides the card.
+   Pure helpers first — tests/dawg_experiment.test.mjs lifts this block out between the markers and
+   renders it in node against the encrypted fixture. */
+const DEXP_VERDICT = {
+  HELPED:  { chip: "ok",       sub: (c, b) => `${c} beat ${b} on at least one headline edge and lost ground on neither — keep it.` },
+  HURT:    { chip: "fail",     sub: (c, b) => `${c} lost ground to ${b} on a headline edge and gained on neither — the rollback is below.` },
+  MIXED:   { chip: "warn",     sub: (c, b) => `One headline edge improved under ${c} and the other got worse — a judgment call; the rollback is below.` },
+  NEUTRAL: { chip: "learning", sub: (c, b) => `Neither headline edge moved past its threshold — ${c} didn't measurably change Dawg against the Blend.` },
+};
+const DEXP_STATUS = {
+  improved:     { cls: "ok",   label: "improved" },
+  worse:        { cls: "miss", label: "worse" },
+  same:         { cls: "pend", label: "same" },
+  insufficient: { cls: "pend", label: "too few" },
+};
+const DEXP_BETTER = { higher: "higher is better", lower: "lower is better", zero: "closer to 0 is better" };
+const DEXP_SUFFIX = { "°F": "°F", in: '"', "%": "%", pts: " pts", Brier: "", count: "" };
+const dexpNum = (v) => (v == null || v === "" || typeof v === "boolean" || !Number.isFinite(Number(v))) ? null : Number(v);
+// "%" and "pts" metrics arrive as FRACTIONS (0.52 = 52%; the Mac's 0.05/0.10 thresholds are on that
+// scale). Guard: a metric whose numbers include anything beyond ±1.5 is read as already-percent
+// instead of being printed ×100.
+function dexpScale(m) {
+  if (!m || (m.unit !== "%" && m.unit !== "pts")) return 1;
+  const vals = [dexpNum(m.delta)];
+  ["v1", "v2"].forEach(k => { const s = m[k] || {}; vals.push(dexpNum(s.value), dexpNum(s.dawg), dexpNum(s.blend)); });
+  return vals.every(v => v == null || Math.abs(v) <= 1.5) ? 100 : 1;
+}
+// One number in the metric's unit. signed → a leading "+"; delta → a change (a "%" change reads in
+// points, and %/pts changes keep one decimal so a 4.6-pt move can't round onto a 5-pt threshold);
+// bare → no unit suffix (the Dawg/Blend sub-lines), percentages keep their "%".
+function dexpFmt(v, unit, opts) {
+  const o = opts || {}, n = dexpNum(v);
+  if (n == null) return "—";
+  const x = n * (o.scale || 1);
+  let dp = { "°F": 2, Brier: 3, in: 3, count: 0, "%": 0, pts: 0 }[unit];
+  if (o.delta && (unit === "%" || unit === "pts")) dp = 1;
+  let s = x.toFixed(dp == null ? 2 : dp);
+  if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);                        // never print "-0.00"
+  if (o.signed && Number(s) > 0) s = "+" + s;
+  if (o.bare && unit !== "%") return s;
+  const suf = (o.delta && unit === "%") ? " pts" : (unit in DEXP_SUFFIX ? DEXP_SUFFIX[unit] : (unit ? " " + unit : ""));
+  return s + suf;
+}
+// Edges and biases/gaps carry a sign; rates, counts and MAEs don't.
+const dexpSigned = (m) => m.better === "zero" || /edge/.test(String(m.key || ""));
+const dexpSide = (m, ver, dflt) => (m && (m[ver] || m[dflt])) || {};
+function dexpCell(m, s, scale) {
+  const n = dexpNum(s.n);
+  let sub = `<span class="sub">n=${n == null ? 0 : Math.round(n)}</span>`;
+  if (dexpNum(s.dawg) != null || dexpNum(s.blend) != null) {       // one per line keeps phone columns narrow
+    const o = { scale, signed: m.better === "zero", bare: true };
+    sub += `<span class="sub">Dawg ${esc(dexpFmt(s.dawg, m.unit, o))}</span><span class="sub">Blend ${esc(dexpFmt(s.blend, m.unit, o))}</span>`;
+  }
+  return esc(dexpFmt(s.value, m.unit, { scale, signed: dexpSigned(m) })) + sub;
+}
+function dexpPill(st) {
+  const s = DEXP_STATUS[st] || { cls: "pend", label: String(st || "—") };
+  return `<span class="dawg-pill ${s.cls}">${esc(s.label)}</span>`;
+}
+function dexpTweak(m, changes) {
+  const t = dexpNum(m.tweak);
+  if (!t) return "Headline";
+  const c = changes && changes[t - 1];
+  return c ? `<span title="${esc(c)}">T${t}</span>` : `T${t}`;
+}
+function dexpBars(p, cand) {
+  const q = p || {};
+  return [[`Days on ${cand}`, q.days, q.need_days], ["Paired rows", q.paired, q.need_paired],
+          ["Lead 0–1 rows", q.paired_short, q.need_paired_short]].map(([l, h, n]) => {
+    const have = Math.max(0, Math.round(dexpNum(h) || 0)), need = Math.round(dexpNum(n) || 0);
+    const pct = need > 0 ? Math.min(100, Math.round((have / need) * 100)) : 0;
+    return `<div class="dexp-bar${need > 0 && have >= need ? " full" : ""}"><div class="lbl"><span>${esc(l)}</span><b>${have} / ${need || "—"}</b></div>
+      <div class="rq-prog" role="img" aria-label="${esc(`${l}: ${have} of ${need || "?"}`)}"><div style="width:${pct}%"></div></div></div>`;
+  }).join("");
+}
+function dexpStatusHTML(x, base, cand) {
+  const v = x.status === "decided" && x.verdict ? (DEXP_VERDICT[x.verdict] || { chip: "learning", sub: () => "" }) : null;
+  if (v) return `<div class="dexp-status"><span class="chip chip--${v.chip}"><span class="dot"></span>${esc(x.verdict)}</span>${x.decided_date ? `<span class="muted">decided ${esc(fmtMD(x.decided_date))}</span>` : ""}</div>
+    <p class="dexp-sub" style="margin-top:var(--s-2)">${esc(v.sub(cand, base))} The verdict is latched; the numbers below keep updating as a monitor.</p>`;
+  return `<div class="dexp-status"><span class="chip chip--learning"><span class="dot"></span>Collecting</span><span class="dexp-sub">${esc(cand)} vs ${esc(base)} — no verdict until all three bars fill; then it latches once and never flips.</span></div>
+    <div class="dexp-bars">${dexpBars(x.progress, cand)}</div>`;
+}
+function dexpRecipesHTML(x, base, cand) {
+  const rs = Array.isArray(x.recipes) ? x.recipes.filter(r => r && r.version) : [];
+  if (!rs.length) return "";
+  return `<h3 class="dexp-h3">The recipes</h3><div class="dexp-recipes">${rs.map(r => {
+    const live = r.version === x.current, days = dexpNum(r.days);
+    const role = r.version === base ? "baseline" : r.version === cand ? "candidate" : "";
+    const span = r.last_call ? fmtSpan(r.first_call, r.last_call) : (r.first_call ? `from ${fmtMD(r.first_call)}` : "");
+    const bits = [role, span, days == null ? "" : (days ? `${days} day${days === 1 ? "" : "s"}` : "no calls yet")].filter(Boolean).map(esc);
+    if (r.tag) bits.push(`<code>${esc(r.tag)}</code>`);
+    const ch = Array.isArray(r.changes) ? r.changes.filter(Boolean) : [];
+    return `<div class="dexp-recipe${live ? " live" : ""}"><div class="rh"><span class="rv">${esc(r.version)}</span>${r.label ? `<span>${esc(r.label)}</span>` : ""}${live ? `<span class="dawg-pill ok">live</span>` : ""}</div>
+      <div class="rd">${bits.join(" · ")}</div>${ch.length ? `<ol>${ch.map(c => `<li>${esc(c)}</li>`).join("")}</ol>` : ""}</div>`;
+  }).join("")}</div>`;
+}
+function dexpTableHTML(x, base, cand) {
+  const ms = (Array.isArray(x.metrics) ? x.metrics : []).filter(m => m && m.key)
+    .map((m, i) => [m, i])
+    .sort((a, b) => (b[0].headline ? 1 : 0) - (a[0].headline ? 1 : 0) || (dexpNum(a[0].tweak) || 0) - (dexpNum(b[0].tweak) || 0) || a[1] - b[1])
+    .map(p => p[0]);
+  const head = `<h3 class="dexp-h3">${esc(base)} vs ${esc(cand)}, metric by metric</h3>`;
+  if (!ms.length) return head + `<p class="muted">No metrics yet — they appear once the first ${esc(cand)} calls are scored.</p>`;
+  const th = (x.rule && x.rule.thresholds) || {};
+  const cr = (Array.isArray(x.recipes) ? x.recipes : []).find(r => r && r.version === cand);
+  const changes = cr && Array.isArray(cr.changes) ? cr.changes : [];
+  const rows = ms.map(m => {
+    const scale = dexpScale(m), t = dexpNum(th[m.key]);
+    const hint = [DEXP_BETTER[m.better] || "", t != null ? `counts past ±${dexpFmt(t, m.unit, { scale, delta: true })}` : ""].filter(Boolean).join(" · ");
+    return `<tr${m.headline ? ' class="hl"' : ""}><td>${dexpTweak(m, changes)}</td>
+      <td class="m">${esc(m.label || m.key)}${hint ? `<span class="sub">${esc(hint)}</span>` : ""}</td>
+      <td class="num">${dexpCell(m, dexpSide(m, base, "v1"), scale)}</td>
+      <td class="num">${dexpCell(m, dexpSide(m, cand, "v2"), scale)}</td>
+      <td class="num${m.status === "insufficient" ? " muted" : ""}">${esc(dexpFmt(m.delta, m.unit, { scale, signed: true, delta: true }))}</td>
+      <td>${dexpPill(m.status)}</td></tr>`;
+  }).join("");
+  return head + `<div class="dawg-wrap"><table class="dawg-table dexp-table"><thead><tr><th>Tweak</th><th>Metric</th><th class="num">${esc(base)}</th><th class="num">${esc(cand)}</th><th class="num">Change</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function dexpHTML(x) {
+  const base = x.baseline || "v1", cand = x.candidate || "v2";
+  const ew = x.early_warning && (x.early_warning.text || x.early_warning.date) ? x.early_warning : null;
+  const bad = x.status === "decided" && (x.verdict === "HURT" || x.verdict === "MIXED");
+  const rule = x.rule && x.rule.text ? `<p class="dexp-rule"><b>The rule.</b> ${esc(x.rule.text)}</p>` : "";
+  const rb = x.rollback ? (bad ? `<div class="dexp-callout" role="note"><b>Rollback.</b> ${esc(x.rollback)}</div>`
+                              : `<p class="dawg-note"><b>Rollback:</b> ${esc(x.rollback)}</p>`) : "";
+  return `<div class="card-head" style="flex-wrap:wrap"><h2 id="dawgExperiment-h">Recipe experiment · are the tweaks helping?</h2>${x.title ? `<span class="meta">${esc(x.title)}</span>` : ""}</div>
+    ${dexpStatusHTML(x, base, cand)}
+    ${ew ? `<div class="dexp-callout fail" role="note"><b>⚠ Early warning${ew.date ? ` · ${esc(fmtMD(ew.date))}` : ""}</b> — ${esc(ew.text || "")}</div>` : ""}
+    ${dexpRecipesHTML(x, base, cand)}
+    ${dexpTableHTML(x, base, cand)}
+    ${rule}${rb}
+    ${x.note ? `<p class="dawg-note">${esc(x.note)}</p>` : ""}`;
+}
+function renderDawgExperiment(d) {
+  const el = dEl("dawgExperiment");
+  if (!el) return;
+  const x = d && d.experiment;
+  if (!x || typeof x !== "object") { el.hidden = true; el.innerHTML = ""; return; }
+  // A bad field must never take the rest of the tab down with it — the card just stays hidden.
+  try { el.innerHTML = dexpHTML(x); el.hidden = false; }
+  catch (e) { console.error("dawg experiment card", e); el.hidden = true; el.innerHTML = ""; }
+}
+/* </dawg-experiment> */
 function renderDawgStats(d) {
   const el = dEl("dawgStats"), s30 = d.stats_30 || {}, s90 = d.stats_90 || {}, sc = d.scorecard_90 || {};
   const r30 = s30.rain || {}, r90 = s90.rain || {};

@@ -212,5 +212,288 @@
   "cap": 30
  },
  "truth": "rain yes/no = station gauge >= 0.01\"",
- "note": "fixture"
+ "note": "fixture",
+ "experiment": {
+  "name": "dawg-recipe",
+  "title": "Dawg recipe v2 — five tweaks",
+  "current": "v2",
+  "baseline": "v1",
+  "candidate": "v2",
+  "recipes": [
+   {
+    "version": "v1",
+    "label": "Start from the Blend",
+    "first_call": "2026-09-13",
+    "last_call": "2026-09-23",
+    "days": 11,
+    "tag": "deploy/2026-09-13-house-forecast",
+    "changes": []
+   },
+   {
+    "version": "v2",
+    "label": "Five tweaks",
+    "first_call": "2026-09-24",
+    "last_call": "2026-09-27",
+    "days": 4,
+    "tag": "deploy/2026-09-23-dawg-v2",
+    "changes": [
+     "Highs start from a bias-adjusted Blend high (measured cold bias, capped ±3°F)",
+     "Bolder on clearly-wet days: his ≥60% calls verified ~85%, so use 0.8–0.95 when everything agrees",
+     "Storm windows only for today and tomorrow — code drops the rest",
+     "Amounts scaled by coverage: small on scattered days, no shading down organized rain",
+     "Explicit permission to move off the Blend, with the reason in WHY"
+    ]
+   }
+  ],
+  "status": "collecting",
+  "verdict": null,
+  "decided_date": null,
+  "early_warning": null,
+  "progress": {
+   "days": 4,
+   "need_days": 21,
+   "paired": 6,
+   "need_paired": 60,
+   "paired_short": 5,
+   "need_paired_short": 15
+  },
+  "rule": {
+   "text": "Pre-registered 2026-09-23. Unit = one morning call paired with the frozen Blend's row for the same made date and target date, both final-scored (chat calls excluded). The verdict waits for 21 days since v2's first call, 60 paired rows and 15 paired rows at lead 0–1, then compares v2's edge over the Blend with v1's on the two headline metrics: HELPED = at least one improves past its threshold and neither gets worse; HURT = at least one gets worse and neither improves; MIXED = one each way; NEUTRAL = neither moves past its threshold. It latches once and never flips; the numbers keep updating as a monitor.",
+   "thresholds": {
+    "high_mae_edge": 0.25,
+    "brier_edge": 0.01,
+    "high_bias": 0.25,
+    "wet_calib_gap": 0.05,
+    "window_hit_short": 0.1,
+    "amt_mae_edge": 0.03,
+    "amt_light_bias": 0.03,
+    "move_rate": 0.1,
+    "move_help_rate": 0.1
+   }
+  },
+  "metrics": [
+   {
+    "key": "high_mae_edge",
+    "tweak": 0,
+    "headline": true,
+    "label": "High-temp MAE edge over the Blend",
+    "unit": "°F",
+    "better": "higher",
+    "v1": {
+     "n": 44,
+     "value": 0.02,
+     "dawg": 2.14,
+     "blend": 2.16
+    },
+    "v2": {
+     "n": 6,
+     "value": 0.45,
+     "dawg": 1.62,
+     "blend": 2.07
+    },
+    "delta": 0.43,
+    "status": "improved"
+   },
+   {
+    "key": "brier_edge",
+    "tweak": 0,
+    "headline": true,
+    "label": "Rain Brier edge over the Blend",
+    "unit": "Brier",
+    "better": "higher",
+    "v1": {
+     "n": 44,
+     "value": 0.006,
+     "dawg": 0.171,
+     "blend": 0.177
+    },
+    "v2": {
+     "n": 6,
+     "value": 0.004,
+     "dawg": 0.141,
+     "blend": 0.145
+    },
+    "delta": -0.002,
+    "status": "same"
+   },
+   {
+    "key": "high_bias",
+    "tweak": 1,
+    "headline": false,
+    "label": "High-temp bias",
+    "unit": "°F",
+    "better": "zero",
+    "v1": {
+     "n": 44,
+     "value": -1.46,
+     "dawg": -1.46,
+     "blend": -1.55
+    },
+    "v2": {
+     "n": 6,
+     "value": -0.35,
+     "dawg": -0.35,
+     "blend": -1.52
+    },
+    "delta": 1.11,
+    "status": "improved"
+   },
+   {
+    "key": "wet_calib_gap",
+    "tweak": 2,
+    "headline": false,
+    "label": "Wet-call calibration gap (calls ≥60%)",
+    "unit": "pts",
+    "better": "zero",
+    "v1": {
+     "n": 13,
+     "value": 0.196,
+     "dawg": null,
+     "blend": null
+    },
+    "v2": {
+     "n": 2,
+     "value": 0.05,
+     "dawg": null,
+     "blend": null
+    },
+    "delta": -0.146,
+    "status": "insufficient"
+   },
+   {
+    "key": "window_hit_short",
+    "tweak": 3,
+    "headline": false,
+    "label": "Storm-window hit rate, today + tomorrow",
+    "unit": "%",
+    "better": "higher",
+    "v1": {
+     "n": 18,
+     "value": 0.39,
+     "dawg": 0.39,
+     "blend": 0.33
+    },
+    "v2": {
+     "n": 1,
+     "value": 1.0,
+     "dawg": 1.0,
+     "blend": 0.0
+    },
+    "delta": 0.61,
+    "status": "insufficient"
+   },
+   {
+    "key": "windows_long",
+    "tweak": 3,
+    "headline": false,
+    "label": "Windows issued 2+ days out",
+    "unit": "count",
+    "better": "lower",
+    "v1": {
+     "n": 58,
+     "value": 31,
+     "dawg": null,
+     "blend": null
+    },
+    "v2": {
+     "n": 12,
+     "value": 0,
+     "dawg": null,
+     "blend": null
+    },
+    "delta": -31,
+    "status": "improved"
+   },
+   {
+    "key": "amt_mae_edge",
+    "tweak": 4,
+    "headline": false,
+    "label": "Rain-amount MAE edge over the Blend",
+    "unit": "in",
+    "better": "higher",
+    "v1": {
+     "n": 44,
+     "value": -0.004,
+     "dawg": 0.118,
+     "blend": 0.114
+    },
+    "v2": {
+     "n": 6,
+     "value": 0.021,
+     "dawg": 0.062,
+     "blend": 0.083
+    },
+    "delta": 0.025,
+    "status": "same"
+   },
+   {
+    "key": "amt_light_bias",
+    "tweak": 4,
+    "headline": false,
+    "label": "Amount bias on light days (<0.25\")",
+    "unit": "in",
+    "better": "zero",
+    "v1": {
+     "n": 36,
+     "value": 0.12,
+     "dawg": 0.12,
+     "blend": 0.115
+    },
+    "v2": {
+     "n": 4,
+     "value": 0.03,
+     "dawg": 0.03,
+     "blend": 0.09
+    },
+    "delta": -0.09,
+    "status": "insufficient"
+   },
+   {
+    "key": "move_rate",
+    "tweak": 5,
+    "headline": false,
+    "label": "Rows where he moved off the Blend",
+    "unit": "%",
+    "better": "higher",
+    "v1": {
+     "n": 44,
+     "value": 0.523,
+     "dawg": null,
+     "blend": null
+    },
+    "v2": {
+     "n": 6,
+     "value": 0.833,
+     "dawg": null,
+     "blend": null
+    },
+    "delta": 0.31,
+    "status": "improved"
+   },
+   {
+    "key": "move_help_rate",
+    "tweak": 5,
+    "headline": false,
+    "label": "Moves that helped",
+    "unit": "%",
+    "better": "higher",
+    "v1": {
+     "n": 31,
+     "value": 0.484,
+     "dawg": null,
+     "blend": null
+    },
+    "v2": {
+     "n": 9,
+     "value": 0.667,
+     "dawg": null,
+     "blend": null
+    },
+    "delta": 0.183,
+    "status": "improved"
+   }
+  ],
+  "note": "Each edge = the frozen Blend's error minus Dawg's on the same mornings (same made date + target date), so a shift in the weather hits both sides and cancels. v2's first days are a small sample — read the status column, not the raw numbers. Chat calls are excluded.",
+  "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full: git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local."
+ }
 }
