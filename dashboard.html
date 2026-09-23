@@ -848,6 +848,22 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .dexp-table td.m .sub { white-space: normal; }
 .dexp-rule { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; margin-top: var(--s-4); text-wrap: pretty; }
 .dexp-rule b { color: var(--text); }
+.dexp-chat-h { margin-top: var(--s-6); }
+.dexp-chat-h + .dexp-sub { margin-bottom: var(--s-3); }
+/* Cell pager card (2026-09-23, phase 2): the proactive "cell inbound" texts' measured record.
+   Colour comes from .dawg-pill / --tint-* / --p-dawg, so both themes follow. */
+.dpg-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); }
+.dpg-big .v { font-family: var(--font-mono); font-size: var(--fs-xl); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; }
+.dpg-big .v.none { font-family: inherit; font-size: var(--fs-lg); font-weight: 600; color: var(--text-2); letter-spacing: -0.01em; }
+.dpg-big .pct { font-family: var(--font-mono); font-size: var(--fs-lg); font-weight: 600; color: var(--p-dawg); font-variant-numeric: tabular-nums; }
+.dpg-big .lbl { flex-basis: 100%; font-size: var(--fs-sm); color: var(--text-3); }
+.dpg-tally { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-3); }
+.dpg-tally .dawg-pill { padding: 2px 10px; }
+.dpg-gates { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: var(--fs-sm); }
+.dpg-gates li { display: grid; grid-template-columns: minmax(5ch, max-content) 1fr; align-items: baseline; gap: 0 var(--s-2); color: var(--text-2); }
+.dpg-gates li b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+.dpg-gates li.pg b { color: var(--p-dawg); }
+.dpg-gates code { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); margin-left: 6px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -974,6 +990,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
     <section class="card" id="dawgLock" hidden></section>
     <section class="card verdict" id="dawgVerdict" hidden></section>
     <section class="card" id="dawgExperiment" aria-labelledby="dawgExperiment-h" hidden></section>
+    <section class="card" id="dawgPager" aria-labelledby="dawgPager-h" hidden></section>
     <section class="card" id="dawgStats" aria-labelledby="dawgStats-h" hidden></section>
     <section class="card" id="dawgReliability" aria-labelledby="dawgReliability-h" hidden></section>
     <section class="card" id="dawgSameday" aria-labelledby="dawgSameday-h" hidden></section>
@@ -3326,7 +3343,7 @@ function applyThemeIcon() {
 /* ===================== Dawg's Calls — the private, encrypted forecast journal (2026-09-11) ===================== */
 const DAWG_URL = GIST_RAW + "dawg_journal.enc.json";
 const DAWG_LS = "dawg_journal_pass";
-const DAWG_CARDS = ["dawgVerdict", "dawgExperiment", "dawgStats", "dawgReliability", "dawgSameday", "dawgCalls", "dawgLog", "dawgLessons", "dawgHow"];
+const DAWG_CARDS = ["dawgVerdict", "dawgExperiment", "dawgPager", "dawgStats", "dawgReliability", "dawgSameday", "dawgCalls", "dawgLog", "dawgLessons", "dawgHow"];
 let DAWG_BLOB = null, DAWG_DATA = null, DAWG_LOADING = false, DAWG_FILTER = "all";
 const dEl = (id) => document.getElementById(id);
 const dPct = (p) => p == null ? "—" : Math.round(Number(p) * 100) + "%";
@@ -3382,7 +3399,7 @@ async function dawgUnlock(ev) {
 function dawgLock() { try { localStorage.removeItem(DAWG_LS); } catch (e) {} DAWG_DATA = null; dawgHideAll(); dawgLockCard("Locked. Enter the passphrase to open the journal again."); }
 
 function renderDawg(d) {
-  renderDawgVerdict(d); renderDawgExperiment(d); renderDawgStats(d); renderDawgReliability(d); renderDawgSameday(d);
+  renderDawgVerdict(d); renderDawgExperiment(d); renderDawgPager(d); renderDawgStats(d); renderDawgReliability(d); renderDawgSameday(d);
   renderDawgCalls(d); renderDawgLog(d); renderDawgLessons(d); renderDawgHow(d);
 }
 function renderDawgVerdict(d) {
@@ -3465,9 +3482,9 @@ function dexpPill(st) {
   const s = DEXP_STATUS[st] || { cls: "pend", label: String(st || "—") };
   return `<span class="dawg-pill ${s.cls}">${esc(s.label)}</span>`;
 }
-function dexpTweak(m, changes) {
+function dexpTweak(m, changes, noTweak) {
   const t = dexpNum(m.tweak);
-  if (!t) return "Headline";
+  if (!t) return noTweak || "Headline";
   const c = changes && changes[t - 1];
   return c ? `<span title="${esc(c)}">T${t}</span>` : `T${t}`;
 }
@@ -3502,27 +3519,54 @@ function dexpRecipesHTML(x, base, cand) {
       <div class="rd">${bits.join(" · ")}</div>${ch.length ? `<ol>${ch.map(c => `<li>${esc(c)}</li>`).join("")}</ol>` : ""}</div>`;
   }).join("")}</div>`;
 }
-function dexpTableHTML(x, base, cand) {
-  const ms = (Array.isArray(x.metrics) ? x.metrics : []).filter(m => m && m.key)
+// Headline rows first, then tweaks in order, then payload order. The chat table (below) has no
+// headline rows by construction — chat never decides anything.
+function dexpSorted(list) {
+  return (Array.isArray(list) ? list : []).filter(m => m && m.key)
     .map((m, i) => [m, i])
     .sort((a, b) => (b[0].headline ? 1 : 0) - (a[0].headline ? 1 : 0) || (dexpNum(a[0].tweak) || 0) - (dexpNum(b[0].tweak) || 0) || a[1] - b[1])
     .map(p => p[0]);
-  const head = `<h3 class="dexp-h3">${esc(base)} vs ${esc(cand)}, metric by metric</h3>`;
-  if (!ms.length) return head + `<p class="muted">No metrics yet — they appear once the first ${esc(cand)} calls are scored.</p>`;
-  const th = (x.rule && x.rule.thresholds) || {};
+}
+function dexpChanges(x, cand) {
   const cr = (Array.isArray(x.recipes) ? x.recipes : []).find(r => r && r.version === cand);
-  const changes = cr && Array.isArray(cr.changes) ? cr.changes : [];
-  const rows = ms.map(m => {
-    const scale = dexpScale(m), t = dexpNum(th[m.key]);
-    const hint = [DEXP_BETTER[m.better] || "", t != null ? `counts past ±${dexpFmt(t, m.unit, { scale, delta: true })}` : ""].filter(Boolean).join(" · ");
-    return `<tr${m.headline ? ' class="hl"' : ""}><td>${dexpTweak(m, changes)}</td>
+  return cr && Array.isArray(cr.changes) ? cr.changes : [];
+}
+// ONE row renderer for both tables (morning + group chat). opts.chat: never emphasized as a
+// headline, a zero/missing tweak reads "—", and a "chat_" key borrows its morning twin's
+// pre-registered threshold (the Mac applies the same thresholds to the chat track).
+function dexpRowHTML(m, th, changes, base, cand, opts) {
+  const o = opts || {}, scale = dexpScale(m);
+  const t = dexpNum(th[m.key] != null ? th[m.key] : (o.chat ? th[String(m.key).replace(/^chat_/, "")] : null));
+  const hint = [DEXP_BETTER[m.better] || "", t != null ? `counts past ±${dexpFmt(t, m.unit, { scale, delta: true })}` : ""].filter(Boolean).join(" · ");
+  return `<tr${m.headline && !o.chat ? ' class="hl"' : ""}><td>${dexpTweak(m, changes, o.chat ? "—" : "")}</td>
       <td class="m">${esc(m.label || m.key)}${hint ? `<span class="sub">${esc(hint)}</span>` : ""}</td>
       <td class="num">${dexpCell(m, dexpSide(m, base, "v1"), scale)}</td>
       <td class="num">${dexpCell(m, dexpSide(m, cand, "v2"), scale)}</td>
       <td class="num${m.status === "insufficient" ? " muted" : ""}">${esc(dexpFmt(m.delta, m.unit, { scale, signed: true, delta: true }))}</td>
       <td>${dexpPill(m.status)}</td></tr>`;
-  }).join("");
-  return head + `<div class="dawg-wrap"><table class="dawg-table dexp-table"><thead><tr><th>Tweak</th><th>Metric</th><th class="num">${esc(base)}</th><th class="num">${esc(cand)}</th><th class="num">Change</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+const dexpTable = (base, cand, rows) => `<div class="dawg-wrap"><table class="dawg-table dexp-table"><thead><tr><th>Tweak</th><th>Metric</th><th class="num">${esc(base)}</th><th class="num">${esc(cand)}</th><th class="num">Change</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+function dexpTableHTML(x, base, cand) {
+  const ms = dexpSorted(x.metrics);
+  const head = `<h3 class="dexp-h3">${esc(base)} vs ${esc(cand)}, metric by metric</h3>`;
+  if (!ms.length) return head + `<p class="muted">No metrics yet — they appear once the first ${esc(cand)} calls are scored.</p>`;
+  const th = (x.rule && x.rule.thresholds) || {}, changes = dexpChanges(x, cand);
+  return head + dexpTable(base, cand, ms.map(m => dexpRowHTML(m, th, changes, base, cand)).join(""));
+}
+// Phase 2 (2026-09-23): the group-chat track — Dawg's chat calls paired with the Blend made the same
+// morning. Chat is over half his forecasting, so it is TRACKED here, but it is never part of the verdict
+// or the early warning (chat calls come later in the day with radar in hand, so only the v1→v2 change
+// means anything). Absent/null `chat` (every payload before phase 2) renders nothing.
+function dexpChatHTML(x, base, cand) {
+  const c = x.chat;
+  if (!c || typeof c !== "object") return "";
+  const ms = (Array.isArray(c.metrics) ? c.metrics : []).filter(m => m && m.key);   // the Mac's order — no headlines to lift
+  const th = Object.assign({}, (x.rule && x.rule.thresholds) || {}, (c.thresholds && typeof c.thresholds === "object") ? c.thresholds : {});
+  const changes = dexpChanges(x, cand);
+  return `<h3 class="dexp-h3 dexp-chat-h">Group-chat calls · tracked, not in the verdict</h3>
+    ${typeof c.note === "string" && c.note ? `<p class="dexp-sub">${esc(c.note)}</p>` : ""}
+    ${ms.length ? dexpTable(base, cand, ms.map(m => dexpRowHTML(m, th, changes, base, cand, { chat: true })).join(""))
+                : `<p class="muted">No paired chat calls yet — they appear once chat calls and that morning's Blend are both scored.</p>`}`;
 }
 function dexpHTML(x) {
   const base = x.baseline || "v1", cand = x.candidate || "v2";
@@ -3536,6 +3580,7 @@ function dexpHTML(x) {
     ${ew ? `<div class="dexp-callout fail" role="note"><b>⚠ Early warning${ew.date ? ` · ${esc(fmtMD(ew.date))}` : ""}</b> — ${esc(ew.text || "")}</div>` : ""}
     ${dexpRecipesHTML(x, base, cand)}
     ${dexpTableHTML(x, base, cand)}
+    ${dexpChatHTML(x, base, cand)}
     ${rule}${rb}
     ${x.note ? `<p class="dawg-note">${esc(x.note)}</p>` : ""}`;
 }
@@ -3549,6 +3594,95 @@ function renderDawgExperiment(d) {
   catch (e) { console.error("dawg experiment card", e); el.hidden = true; el.innerHTML = ""; }
 }
 /* </dawg-experiment> */
+/* <dawg-pager> Cell pager card (2026-09-23, phase 2) — do the proactive "cell inbound" texts pay off?
+   Renders payload.radar_pager exactly as the Mac's alerts/radarwatch.py pager_summary() ships it: the
+   measured outcome of every page (hit = rain or close strikes at the station after the page), the recent
+   pages, and the 30-day gate tally — the threat-grade cells the gates looked at and held back. The pager
+   itself is deterministic and makes zero LLM calls (Taylor's D8 condition); this card only displays its
+   record and decides nothing. Absent/null radar_pager hides the card; a bad field hides only this card.
+   Shares dexpNum with the experiment block; tests/dawg_pager.test.mjs lifts both out by their markers. */
+const DPG_OUT = { hit: "ok", miss: "miss", faded: "pend", open: "pend" };
+// calib_log verdict tokens -> plain English, in the watcher's own words (radarwatch.storm_reconciliation).
+// Keyed by the token's prefix: ghost-gated carries its grid reading, e.g. "ghost-gated(grid=38.5)".
+const DPG_GATES = {
+  "paged":           "got through — became a page",
+  "await-2nd-look":  "qualified on one look, then faded before the second",
+  "candidate":       "track never tightened onto the house",
+  "tracked-wide":    "projected track kept missing the house",
+  "ghost-gated":     "radar grid never confirmed a core under it",
+  "cooldown-held":   "held by the cooldown after a recent page",
+  "threat-no-track": "no motion track long enough to call",
+};
+const dpgInt = (v) => { const n = dexpNum(v); return n == null ? null : Math.round(n); };
+const dpgDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? fmtMD(s) : null;   // never "Invalid Date"
+function dpgTime(s) {
+  const m = typeof s === "string" && /^(\d{1,2}):(\d{2})/.exec(s);
+  return m && +m[1] < 24 ? dAmPm(`${m[1]}:${m[2]}`) : "—";
+}
+function dpgLead(v) {
+  const n = dpgInt(v);
+  if (n == null) return "—";
+  return n < 0 ? `${-n} min late` : `${n} min`;
+}
+function dpgOutcome(o) {
+  const k = String(o || "open");
+  return `<span class="dawg-pill ${DPG_OUT[k] || "pend"}">${esc(k)}</span>`;
+}
+// Groups the ghost-gated(grid=N) variants under one line, biggest first. Display only — every count
+// is the Mac's, untouched.
+function dpgGateRows(v30) {
+  const g = {};
+  if (v30 && typeof v30 === "object") for (const [k, v] of Object.entries(v30)) {
+    const n = dpgInt(v);
+    if (!n) continue;
+    const key = String(k).replace(/\(.*$/, "") || String(k);
+    g[key] = (g[key] || 0) + n;
+  }
+  return Object.entries(g).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+function dpgHTML(p) {
+  const t = (p.tally && typeof p.tally === "object") ? p.tally : {};
+  const hit = dpgInt(t.hit) || 0, pages = dpgInt(p.pages) || 0;
+  const dec = dpgInt(p.decided) != null ? dpgInt(p.decided) : ["hit", "miss", "faded"].reduce((s, k) => s + (dpgInt(t[k]) || 0), 0);
+  const rate = dexpNum(p.hit_rate);
+  const since = dpgDate(p.since);
+  const big = dec > 0
+    ? `<span class="v">${hit} of ${dec}</span>${rate != null ? `<span class="pct">(${Math.round(rate * 100)}%)</span>` : ""}<span class="lbl">decided pages that paid off</span>`
+    : `<span class="v none">no decided pages yet</span><span class="lbl">${pages ? `${pages} page${pages === 1 ? "" : "s"} sent, still being scored` : "no pages sent yet"}</span>`;
+  const order = ["hit", "miss", "faded", "open"].concat(Object.keys(t).filter(k => !(k in DPG_OUT)));
+  // a zero count reads muted — a red "0 miss" would shout about nothing
+  const pills = order.map(k => { const c = dpgInt(t[k]) || 0; return `<span class="dawg-pill ${c ? (DPG_OUT[k] || "pend") : "pend"}">${c} ${esc(k)}</span>`; }).join("");
+  const rec = (Array.isArray(p.recent) ? p.recent : []).filter(r => r && typeof r === "object").slice(0, 15);
+  const tr = rec.map(r => {
+    const dbz = dexpNum(r.dbz);
+    return `<tr><td>${esc(dpgDate(r.date) || "—")}</td><td>${esc(dpgTime(r.time_local))}</td><td>${r.town ? esc(r.town) : "—"}</td>
+      <td class="num">${dbz == null ? "—" : esc(Number.isInteger(dbz) ? String(dbz) : dbz.toFixed(1))}</td><td>${dpgOutcome(r.outcome)}</td><td class="num">${esc(dpgLead(r.lead_min))}</td></tr>`;
+  }).join("");
+  const gates = dpgGateRows(p.verdicts_30d);
+  const gl = gates.length
+    ? `<ul class="dpg-gates">${gates.map(([k, n]) => `<li${k === "paged" ? ' class="pg"' : ""}><b>${n}</b><span>${esc(DPG_GATES[k] || k)}${DPG_GATES[k] ? `<code>${esc(k)}</code>` : ""}</span></li>`).join("")}</ul>`
+    : `<p class="muted">No threat-grade cells in the last 30 days.</p>`;
+  return `<div class="card-head" style="flex-wrap:wrap"><h2 id="dawgPager-h">Cell pager · do 'cell inbound' texts pay off?</h2>${since ? `<span class="meta">since ${esc(since)}</span>` : ""}</div>
+    <div class="dpg-big">${big}</div>
+    <div class="dpg-tally" aria-label="Page outcomes">${pills}</div>
+    <h3 class="dexp-h3">Recent pages</h3>
+    ${tr ? `<div class="dawg-wrap"><table class="dawg-table dpg-table"><thead><tr><th>Date</th><th>Time</th><th>Near</th><th class="num">dBZ</th><th>Outcome</th><th class="num">Lead</th></tr></thead><tbody>${tr}</tbody></table></div>`
+         : `<p class="muted">No pages yet — the pager only texts when a cell is likely to reach the house.</p>`}
+    <h3 class="dexp-h3">What the gates held back · last 30 days</h3>
+    ${gl}
+    ${typeof p.rule === "string" && p.rule ? `<p class="dexp-rule"><b>What earns a page.</b> ${esc(p.rule)}</p>` : ""}
+    ${typeof p.note === "string" && p.note ? `<p class="dawg-note">${esc(p.note)}</p>` : ""}`;
+}
+function renderDawgPager(d) {
+  const el = dEl("dawgPager");
+  if (!el) return;
+  const p = d && d.radar_pager;
+  if (!p || typeof p !== "object") { el.hidden = true; el.innerHTML = ""; return; }
+  // Same containment as the experiment card: a bad field hides this card, never the tab.
+  try { el.innerHTML = dpgHTML(p); el.hidden = false; }
+  catch (e) { console.error("dawg pager card", e); el.hidden = true; el.innerHTML = ""; }
+}
+/* </dawg-pager> */
 function renderDawgStats(d) {
   const el = dEl("dawgStats"), s30 = d.stats_30 || {}, s90 = d.stats_90 || {}, sc = d.scorecard_90 || {};
   const r30 = s30.rain || {}, r90 = s90.rain || {};
