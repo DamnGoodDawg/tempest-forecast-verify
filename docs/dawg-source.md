@@ -49,6 +49,10 @@ https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1
   code rules) made the call: `"v1"` through 2026-09-23, `"v2"` from the 2026-09-24 call. **Absent
   means `"v1"`** — every file frozen before v2 predates the key. A `kind: "blend"` fallback file
   carries `"blend-v1"`, but fallback days are never scored as Dawg, so it is never counted. See §7.
+- `high_correction` *(added 2026-09-23, recipe v2 files only)* — the Mac's record of the high-temp
+  bias correction that morning's call started its highs from (`{adj_f, bias_f, n, n_days, days,
+  since}`), or `null` when none was in force (and on a v2-morning fallback file). Metadata for the
+  Mac's own chat brain; **this repo ignores it** — nothing here is scored, adjusted or labeled by it.
 
 ### How capture.py handles it
 

@@ -864,6 +864,7 @@ table.brier-tbl { width: 100%; border-collapse: collapse; }
 .dpg-gates li b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
 .dpg-gates li.pg b { color: var(--p-dawg); }
 .dpg-gates code { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); margin-left: 6px; white-space: nowrap; }
+.dpg-gates + .dexp-sub { margin-top: var(--s-2); }
 </style>
 </head>
 <body>
@@ -3597,21 +3598,25 @@ function renderDawgExperiment(d) {
 /* <dawg-pager> Cell pager card (2026-09-23, phase 2) — do the proactive "cell inbound" texts pay off?
    Renders payload.radar_pager exactly as the Mac's alerts/radarwatch.py pager_summary() ships it: the
    measured outcome of every page (hit = rain or close strikes at the station after the page), the recent
-   pages, and the 30-day gate tally — the threat-grade cells the gates looked at and held back. The pager
+   pages, and the 30-day gate tally — one gate verdict per radar LOOK at a threat-grade cell (a paged cell
+   logs its earlier looks there too, so these are looks, not storms the gates held back). The pager
    itself is deterministic and makes zero LLM calls (Taylor's D8 condition); this card only displays its
    record and decides nothing. Absent/null radar_pager hides the card; a bad field hides only this card.
    Shares dexpNum with the experiment block; tests/dawg_pager.test.mjs lifts both out by their markers. */
 const DPG_OUT = { hit: "ok", miss: "miss", faded: "pend", open: "pend" };
-// calib_log verdict tokens -> plain English, in the watcher's own words (radarwatch.storm_reconciliation).
-// Keyed by the token's prefix: ghost-gated carries its grid reading, e.g. "ghost-gated(grid=38.5)".
+// calib_log verdict tokens -> plain English. Each token is ONE LOOK's verdict, not a cell's fate: the
+// watcher logs every poll, and a cell that went on to page shows up here under its earlier looks too (the
+// live 09-20 Bogart page logged tracked-wide ×3 and await-2nd-look before "paged"). So the labels describe
+// the look — never "faded" or "kept missing", which are storm_reconciliation's words for a cell that was
+// NEVER paged (2026-09-23 review). Keyed by the token's prefix: ghost-gated carries its grid reading.
 const DPG_GATES = {
-  "paged":           "got through — became a page",
-  "await-2nd-look":  "qualified on one look, then faded before the second",
-  "candidate":       "track never tightened onto the house",
-  "tracked-wide":    "projected track kept missing the house",
-  "ghost-gated":     "radar grid never confirmed a core under it",
-  "cooldown-held":   "held by the cooldown after a recent page",
-  "threat-no-track": "no motion track long enough to call",
+  "paged":           "the look that sent a page",
+  "await-2nd-look":  "first qualifying look — a page needs a second in a row",
+  "candidate":       "close to the house, but not yet on a page track that look",
+  "tracked-wide":    "track projected wide of the house on that look",
+  "ghost-gated":     "radar grid didn't confirm a core under it on that look",
+  "cooldown-held":   "held by the cooldown after a recent radar text",
+  "threat-no-track": "strong core, but no motion track yet on that look",
 };
 const dpgInt = (v) => { const n = dexpNum(v); return n == null ? null : Math.round(n); };
 const dpgDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? fmtMD(s) : null;   // never "Invalid Date"
@@ -3662,14 +3667,17 @@ function dpgHTML(p) {
   const gl = gates.length
     ? `<ul class="dpg-gates">${gates.map(([k, n]) => `<li${k === "paged" ? ' class="pg"' : ""}><b>${n}</b><span>${esc(DPG_GATES[k] || k)}${DPG_GATES[k] ? `<code>${esc(k)}</code>` : ""}</span></li>`).join("")}</ul>`
     : `<p class="muted">No threat-grade cells in the last 30 days.</p>`;
+  const glNote = gates.length
+    ? `<p class="dexp-sub">Each count is one radar look at a threat-grade cell (one per poll), not a storm — a cell that went on to page is counted here under its earlier looks too.</p>`
+    : "";
   return `<div class="card-head" style="flex-wrap:wrap"><h2 id="dawgPager-h">Cell pager · do 'cell inbound' texts pay off?</h2>${since ? `<span class="meta">since ${esc(since)}</span>` : ""}</div>
     <div class="dpg-big">${big}</div>
     <div class="dpg-tally" aria-label="Page outcomes">${pills}</div>
     <h3 class="dexp-h3">Recent pages</h3>
     ${tr ? `<div class="dawg-wrap"><table class="dawg-table dpg-table"><thead><tr><th>Date</th><th>Time</th><th>Near</th><th class="num">dBZ</th><th>Outcome</th><th class="num">Lead</th></tr></thead><tbody>${tr}</tbody></table></div>`
          : `<p class="muted">No pages yet — the pager only texts when a cell is likely to reach the house.</p>`}
-    <h3 class="dexp-h3">What the gates held back · last 30 days</h3>
-    ${gl}
+    <h3 class="dexp-h3">Gate verdicts per radar look · last 30 days</h3>
+    ${gl}${glNote}
     ${typeof p.rule === "string" && p.rule ? `<p class="dexp-rule"><b>What earns a page.</b> ${esc(p.rule)}</p>` : ""}
     ${typeof p.note === "string" && p.note ? `<p class="dawg-note">${esc(p.note)}</p>` : ""}`;
 }

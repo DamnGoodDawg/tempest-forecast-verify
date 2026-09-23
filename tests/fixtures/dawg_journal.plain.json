@@ -499,20 +499,20 @@
   "note": "Each edge = the frozen Blend's error minus Dawg's on the same mornings (same made date + target date), so a change in the weather hits both sides and cancels — positive means Dawg beat the Blend. Early numbers rest on small samples: read the status column, not the raw values. Chat calls are excluded from the verdict (they come later in the day, radar in hand — their own table is tracked, not judged). '%' and 'pts' values are fractions (0.52 = 52%).",
   "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full (last resort): git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local — that code writes its calls unlabeled, so once back on v2 run `python -m alerts.cli dawg-journal stamp-recipe --since <first day> --until <last day> --live` to count them as v1.",
   "chat": {
-   "note": "Group-chat calls, each paired with the Blend made that same morning for the same date (both final-scored). Chat calls are made later in the day with radar in hand — and some evening calls come after the rain already fell — so their edge over the 05:35 Blend is naturally positive: only the v1 → v2 CHANGE is meaningful. Tracked here, never part of the verdict or the early warning. Same thresholds as the morning table; the call count is never judged.",
+   "note": "Group-chat calls, each paired with the Blend made that same morning, before the call, for the same date (both final-scored). Chat calls are made later in the day with radar in hand — and some evening calls come after the rain already fell — so their edge over the 05:35 Blend is naturally positive: only the v1 → v2 CHANGE is meaningful. One storm evening can mean ten calls about one day, so each made-date + target-date is ONE unit (its calls averaged) and n counts units; the call count is raw rows and never judged. v2 chat is the tweaks AND the one-brain tool (it reads its own 05:35 house forecast), shipped together — no single tweak owns a chat change; v1 chat runs without the tool. Tracked here, never part of the verdict or the early warning. Same thresholds as the morning table.",
    "metrics": [
     {
      "key": "chat_high_mae_edge",
-     "tweak": 1,
+     "tweak": 0,
      "headline": false,
      "label": "High-temp MAE edge over the Blend",
      "unit": "°F",
      "better": "higher",
      "v1": {
-      "n": 9,
-      "value": -0.11,
-      "dawg": 1.14,
-      "blend": 1.03
+      "n": 5,
+      "value": -0.14,
+      "dawg": 1.36,
+      "blend": 1.22
      },
      "v2": {
       "n": 7,
@@ -520,21 +520,21 @@
       "dawg": 1.19,
       "blend": 2.5
      },
-     "delta": 1.42,
+     "delta": 1.45,
      "status": "improved"
     },
     {
      "key": "chat_brier_edge",
-     "tweak": 2,
+     "tweak": 0,
      "headline": false,
      "label": "Rain Brier edge over the Blend",
      "unit": "Brier",
      "better": "higher",
      "v1": {
-      "n": 30,
-      "value": 0.08,
-      "dawg": 0.121,
-      "blend": 0.201
+      "n": 9,
+      "value": 0.047,
+      "dawg": 0.127,
+      "blend": 0.174
      },
      "v2": {
       "n": 8,
@@ -542,21 +542,21 @@
       "dawg": 0.101,
       "blend": 0.173
      },
-     "delta": -0.008,
-     "status": "same"
+     "delta": 0.025,
+     "status": "improved"
     },
     {
      "key": "chat_window_hit_short",
-     "tweak": 3,
+     "tweak": 0,
      "headline": false,
      "label": "Storm-window hit rate, today + tomorrow",
      "unit": "%",
      "better": "higher",
      "v1": {
-      "n": 27,
-      "value": 0.667,
-      "dawg": 0.667,
-      "blend": 0.2
+      "n": 9,
+      "value": 0.444,
+      "dawg": 0.444,
+      "blend": 0.333
      },
      "v2": {
       "n": 6,
@@ -564,21 +564,21 @@
       "dawg": 0.833,
       "blend": 0.5
      },
-     "delta": 0.166,
+     "delta": 0.389,
      "status": "improved"
     },
     {
      "key": "chat_amt_light_bias",
-     "tweak": 4,
+     "tweak": 0,
      "headline": false,
      "label": "Amount bias on light days (<0.25\" fell)",
      "unit": "in",
      "better": "zero",
      "v1": {
-      "n": 8,
-      "value": 0.083,
-      "dawg": 0.083,
-      "blend": 0.111
+      "n": 4,
+      "value": 0.061,
+      "dawg": 0.061,
+      "blend": 0.08
      },
      "v2": {
       "n": 5,
@@ -586,8 +586,8 @@
       "dawg": 0.03,
       "blend": 0.1
      },
-     "delta": -0.053,
-     "status": "improved"
+     "delta": -0.031,
+     "status": "insufficient"
     },
     {
      "key": "chat_calls",
@@ -630,19 +630,19 @@
     "date": "2026-09-20",
     "time_local": "18:19",
     "town": "Bogart",
-    "dbz": 45,
+    "dbz": 61,
     "outcome": "hit",
     "lead_min": null
    }
   ],
   "verdicts_30d": {
-   "threat-no-track": 3528,
-   "tracked-wide": 1941,
-   "candidate": 146,
+   "threat-no-track": 3547,
+   "tracked-wide": 1974,
+   "candidate": 147,
    "await-2nd-look": 2,
    "paged": 1
   },
   "rule": "A page needs a storm core of 45+ dBZ (or ProbSevere ≥40%) with a motion track (≥5 kt) projected to pass within 4 mi of the house inside 35 min — on two looks in a row (the earlier one already within 6 mi) — and a real ≥40 dBZ echo under it on the MRMS grid within 7 mi (grid down = no page). Only 7 AM–11 PM; silent within 45 min of a lightning alert or 60 min of an NWS warning text (they own the storm by then); at least 10 min between radar texts; one page per storm, updated only when the ETA moves 15+ min. No AI anywhere in the path: feeds, math and fixed wording.",
-  "note": "Scored against the station, not the radar: hit = at least 0.01\" in the gauge or a real strike within 10 mi after the page; miss = it veered off (a 'never mind' text went out); faded = it fell apart before it got here (a 'false alarm' text); open = still being watched. Lead = minutes from the page to the first rain or close strike, stamped on hits closed since the 2026-09-23 build (older pages have none). Small n early — a storm season is a handful of pages, so read the tally before the percentage. The gate tally counts radar LOOKS at threat-grade cells (one cell shows up once per poll), not distinct storms."
+  "note": "Scored against the station, not the radar: hit = at least 0.01\" in the gauge or a real strike within 10 mi after the page; miss = it veered off (a 'never mind' text went out); faded = it fell apart before it got here (a 'false alarm' text); open = still being watched. Lead = minutes from the page to the first rain or close strike, stamped on hits closed since the 2026-09-23 build (older pages have none), and only when it arrived no later than 30 min past the page's ETA with the station dry for the 15 min before the page. dBZ and Near are what the page said. Small n early — a storm season is a handful of pages, so read the tally before the percentage. The gate tally counts per-look verdicts on threat-grade cells (one cell shows up once per poll, and a cell that went on to page logs its earlier looks there too), not distinct storms."
  }
 }

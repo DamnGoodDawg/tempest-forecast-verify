@@ -88,6 +88,10 @@ test("chat table renders after the morning table, before the rule, from the fixt
   assert.ok(!/class="hl"/.test(chat), "no chat row is emphasized as a headline");
   assert.ok(!/>Headline</.test(chat), "no chat row is labelled Headline");
   assert.equal((chat.match(/<tr><td>/g) || []).length, C.metrics.length);
+  // no T-tags on chat rows (the Mac ships tweak 0: v2 chat = the tweaks AND the one-brain tool together)
+  for (const m of C.metrics) assert.equal(m.tweak, 0, `${m.key}.tweak`);
+  assert.equal((chat.match(/<tr><td>—<\/td>/g) || []).length, C.metrics.length, "every chat row's tweak cell is a dash");
+  assert.ok(!/>T\d</.test(chat), "no T-tag in the chat table");
   // thresholds: a chat_ key borrows its morning twin's pre-registered line
   assert.match(chat, /counts past ±0\.25°F/);
   assert.match(chat, /counts past ±0\.010/);
@@ -141,21 +145,24 @@ test("pager card renders every contract section from the fixture", () => {
   for (const r of P.recent) {
     assert.ok(h.includes(`<td>${T.fmtMD(r.date)}</td><td>${T.dpgTime(r.time_local)}</td><td>${r.town ? T.esc(r.town) : "—"}</td>`), `row ${r.date} ${r.time_local}`);
   }
-  assert.match(h, /What the gates held back · last 30 days/);
+  assert.match(h, /Gate verdicts per radar look · last 30 days/);
+  assert.ok(!/held back/.test(h), "the tally is per-look verdicts, not storms the gates held back");
   assert.ok(h.includes(T.esc(P.rule)), "rule");
   assert.ok(h.includes(T.esc(P.note)), "note");
-  assert.ok(h.indexOf("dpg-table") < h.indexOf("What the gates held back"), "recent before gates");
+  assert.ok(h.indexOf("dpg-table") < h.indexOf("Gate verdicts per radar look"), "recent before gates");
   assert.match(h, /<div class="dawg-wrap"><table class="dawg-table dpg-table">/);   // phone scroll wrapper
   noLeak(h, "pager card");
 });
 
-test("pager: the Mac's real latch (09-20 Bogart hit) rides the fixture", () => {
+test("pager: the Mac's real latch (09-20 Bogart hit) rides the fixture — at the dBZ the PAGE said", () => {
   const h = els.dawgPager.innerHTML;
   const real = P.recent.find(r => r.date === "2026-09-20");
   assert.ok(real, "the one live page");
   assert.equal(real.outcome, "hit");
   assert.equal(real.town, "Bogart");
-  assert.match(h, /Sep 20<\/td><td>[^<]+<\/td><td>Bogart<\/td>\s*<td class="num">45<\/td><td><span class="dawg-pill ok">hit<\/span>/);
+  // the text said "61 dBZ storm near Bogart"; the latch drifted to 45 with later looks (2026-09-23 review)
+  assert.equal(real.dbz, 61);
+  assert.match(h, /Sep 20<\/td><td>[^<]+<\/td><td>Bogart<\/td>\s*<td class="num">61<\/td><td><span class="dawg-pill ok">hit<\/span>/);
 });
 
 test("gate tally: grouped, plain English, biggest first", () => {
@@ -168,6 +175,22 @@ test("gate tally: grouped, plain English, biggest first", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(T.dpgGateRows({ "ghost-gated(grid=None)": 2, "ghost-gated(grid=38.5)": 3, paged: 1, "tracked-wide": 4, weird: 0 }))),
                    [["ghost-gated", 5], ["tracked-wide", 4], ["paged", 1]]);
   assert.deepEqual(JSON.parse(JSON.stringify(T.dpgGateRows(null))), []);
+});
+
+test("gate labels describe ONE LOOK, never a cell's fate (the paged cell logs its earlier looks too)", () => {
+  // the live 09-20 page logged tracked-wide ×3 and await-2nd-look before "paged": a fate-style label
+  // ("faded before the second", "kept missing the house") would claim the gates stopped the storm that paged
+  for (const [k, label] of Object.entries(T.DPG_GATES)) {
+    assert.ok(!/\b(faded|kept missing|never tightened|never confirmed|held back)\b/.test(label), `${k}: "${label}"`);
+  }
+  assert.match(T.DPG_GATES["await-2nd-look"], /first qualifying look/);
+  assert.match(T.DPG_GATES["tracked-wide"], /on that look/);
+  const h = els.dawgPager.innerHTML;
+  assert.match(h, /<\/ul><p class="dexp-sub">Each count is one radar look at a threat-grade cell \(one per poll\), not a storm/);
+  const d = clone(data); d.radar_pager.verdicts_30d = {};
+  T.renderDawgPager(d);
+  assert.ok(!/Each count is one radar look/.test(els.dawgPager.innerHTML), "no caveat without a list");
+  T.renderDawgPager(data);
 });
 
 test("pager: no decided pages, empty lists, open-only", () => {
