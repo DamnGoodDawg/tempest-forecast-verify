@@ -258,7 +258,7 @@
    "need_paired_short": 15
   },
   "rule": {
-   "text": "Pre-registered 2026-09-23. Unit = one morning call paired with the frozen Blend's row for the same made date and target date, both final-scored (chat calls excluded). The verdict waits for 21 days since v2's first call, 60 paired rows and 15 paired rows at lead 0–1, then compares v2's edge over the Blend with v1's on the two headline metrics: HELPED = at least one improves past its threshold and neither gets worse; HURT = at least one gets worse and neither improves; MIXED = one each way; NEUTRAL = neither moves past its threshold. It latches once and never flips; the numbers keep updating as a monitor.",
+   "text": "Pre-registered 2026-09-23. Unit = one morning call paired with the frozen Blend's row made in the same run (within 30 min) for the same date, both final-scored (chat calls excluded). The verdict waits for 21 days since v2's first call, 60 paired rows and 15 paired rows at lead 0–1, then compares v2's edge over the Blend with v1's on the two headline metrics: HELPED = at least one improves past its threshold and neither gets worse; HURT = at least one gets worse and neither improves; MIXED = one each way; NEUTRAL = neither moves past its threshold. It latches once and never flips; the numbers keep updating as a monitor.",
    "thresholds": {
     "high_mae_edge": 0.25,
     "brier_edge": 0.01,
@@ -494,6 +494,6 @@
    }
   ],
   "note": "Each edge = the frozen Blend's error minus Dawg's on the same mornings (same made date + target date), so a shift in the weather hits both sides and cancels. v2's first days are a small sample — read the status column, not the raw numbers. Chat calls are excluded.",
-  "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full: git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local."
+  "rollback": "Instant: set \"journal\": {\"recipe\": \"v1\"} in ~/.config/tempest/alerts.json, then kickstart the responder; the next 05:35 call runs v1. Full (last resort): git checkout deploy/2026-09-23-pre-dawg-v2 in ~/Projects/tempest-local — that code writes its calls unlabeled, so once back on v2 run `python -m alerts.cli dawg-journal stamp-recipe --since <first day> --until <last day> --live` to count them as v1."
  }
 }
