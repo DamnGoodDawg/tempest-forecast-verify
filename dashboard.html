@@ -1898,7 +1898,9 @@ function renderDetails(d) {
       <td class="num ${r.brier != null && r.brier === bestBrier ? "best" : ""}">${r.brier == null ? '<span class="muted">—</span>' : f3(r.brier)}</td>
     </tr>`).join("");
 
-  // Rain totals: Tempest haptic (raw) vs RainCheck-corrected vs CoCoRaHS gauge truth
+  // Rain totals: Tempest cloud day field vs NC Rain (NearCast) vs CoCoRaHS gauge truth. Since 2026-10-10 we know the cloud
+  // overwrites the raw day field with NC Rain too, so both Tempest columns are the corrected estimate; the raw haptic
+  // total lives only in the Mac's UDP archive (tempest-local).
   const rain = d.rain_compare || [];
   const inOrDash = v => v == null ? '<span class="muted">—</span>' : `${f2(v)}"`;
   // A7: a "disagree" flag means Tempest and CoCoRaHS split on wet vs dry for the day —
@@ -1914,7 +1916,7 @@ function renderDetails(d) {
       <div class="sub-block">
         <h3>Rain totals — station vs gauge <span class="muted" style="font-weight:500">· inches/day, CoCoRaHS is truth</span></h3>
         <table class="brier-tbl">
-          <thead><tr><th scope="col">Date</th><th scope="col">Tempest raw</th><th scope="col">RainCheck</th><th scope="col">CoCoRaHS</th></tr></thead>
+          <thead><tr><th scope="col">Date</th><th scope="col">Tempest cloud</th><th scope="col">NC Rain</th><th scope="col">CoCoRaHS</th></tr></thead>
           <tbody>${rainRows}</tbody>
         </table>
       </div>` : "";
@@ -1941,7 +1943,7 @@ function renderDetails(d) {
       ${explain(`
         <p><b>Busts</b> are the biggest recent misses — who blew a high or low, and by how many degrees.</p>
         <p><span class="term">Brier score</span> grades rain <i>probabilities</i>: if a forecaster says "70% chance," it should actually rain on ~70% of those days. <b>Lower Brier = better-calibrated.</b></p>
-        <p>The <b>rain table</b> checks your station's haptic rain gauge — which tends to under-read heavy rain — against the nearby CoCoRaHS manual gauge (raw vs RainCheck-corrected vs the gauge, which is treated as truth).</p>`)}
+        <p>The <b>rain table</b> checks your station's haptic rain gauge — which tends to under-read heavy rain — against the nearby CoCoRaHS manual gauge. Both Tempest columns come from the cloud API, which carries WeatherFlow's NC Rain (NearCast) estimate in the raw day field as well, so they match; the uncorrected haptic total is only in the station's local UDP archive. The gauge is treated as truth.</p>`)}
     </div>`;
 }
 
