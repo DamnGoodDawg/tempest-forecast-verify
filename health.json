@@ -1,36 +1,36 @@
 {
-  "generated_at": "2026-11-01T17:10:16Z",
-  "last_check": "2026-11-01T17:10:16Z",
-  "next_check": "2026-11-02T17:10:16Z",
+  "generated_at": "2026-11-02T20:49:00Z",
+  "last_check": "2026-11-02T20:49:00Z",
+  "next_check": "2026-11-03T20:49:00Z",
   "overall": "OK",
   "summary": "All variables within their normal range vs the verified anchors.",
-  "days_monitored": 154,
+  "days_monitored": 155,
   "active_watches": 0,
   "confirmed_faults": 0,
   "last_email": null,
   "location": "Statham, GA",
   "current_obs": {
-    "as_of": "2026-11-01T17:09:43Z",
+    "as_of": "2026-11-02T20:48:17Z",
     "stations": {
       "Tempest": {
-        "temp": 62.8,
-        "rh": 60,
+        "temp": 70.9,
+        "rh": 56,
         "wind": 1.8,
-        "pressure": 1029.8,
-        "as_of": "2026-11-01T17:09:43Z"
+        "pressure": 1024.0,
+        "as_of": "2026-11-02T20:48:17Z"
       },
       "KWDR": {
-        "as_of": "2026-11-01T16:55:00Z",
-        "temp": 60.8,
-        "rh": 59,
-        "pressure": 1030.9
+        "as_of": "2026-11-02T20:35:00Z",
+        "temp": 68.0,
+        "rh": 56,
+        "pressure": 1024.8
       },
       "KAHN": {
-        "as_of": "2026-11-01T16:51:00Z",
-        "temp": 64.0,
-        "rh": 48,
-        "wind": 15.0,
-        "pressure": 1030.2
+        "as_of": "2026-11-02T19:51:00Z",
+        "temp": 70.0,
+        "rh": 51,
+        "wind": 12.7,
+        "pressure": 1024.5
       }
     }
   },
@@ -89,22 +89,22 @@
       "unit": "\u00b0F",
       "state": "OK",
       "days_in_state": 0,
-      "current": 60.1,
+      "current": 60.0,
       "offsets_7d": {
-        "KWDR": 1.43,
-        "KAHN": -0.78,
-        "WATUGA": -0.1
+        "KWDR": 1.51,
+        "KAHN": -0.93,
+        "WATUGA": -0.64
       },
       "band": [
-        -6.28,
-        5.87
+        -6.33,
+        5.83
       ],
       "trend": [
         {
           "week": "2026-08-03",
-          "KWDR": -4.49,
-          "KAHN": -1.92,
-          "WATUGA": 0.19
+          "KWDR": -5.26,
+          "KAHN": -2.71,
+          "WATUGA": 0.55
         },
         {
           "week": "2026-08-10",
@@ -174,9 +174,9 @@
         },
         {
           "week": "2026-10-26",
-          "KWDR": 1.49,
-          "KAHN": -0.87,
-          "WATUGA": 0.6
+          "KWDR": 1.51,
+          "KAHN": -0.93,
+          "WATUGA": -0.64
         }
       ],
       "trend_only": false
@@ -187,15 +187,15 @@
       "unit": "pts",
       "state": "OK",
       "days_in_state": 0,
-      "current": 72.6,
+      "current": 72.9,
       "offsets_7d": {
-        "KWDR": 2.01,
-        "KAHN": 7.6,
-        "WATUGA": 8.15
+        "KWDR": 1.28,
+        "KAHN": 8.14,
+        "WATUGA": 5.88
       },
       "band": [
-        -10.81,
-        23.04
+        -10.57,
+        22.8
       ],
       "trend": [],
       "trend_only": false
@@ -208,8 +208,8 @@
       "days_in_state": 0,
       "current": 1.4,
       "offsets_7d": {
-        "KAHN": -4.58,
-        "WATUGA": -3.66
+        "KAHN": -4.75,
+        "WATUGA": -3.82
       },
       "band": [
         -6.29,
@@ -224,14 +224,14 @@
       "unit": "mb",
       "state": "OK",
       "days_in_state": 0,
-      "current": 1023.7,
+      "current": 1023.5,
       "offsets_7d": {
-        "KWDR": -3.25,
-        "KAHN": -2.39
+        "KWDR": -3.26,
+        "KAHN": -2.41
       },
       "band": [
-        -4.12,
-        -2.33
+        -4.18,
+        -2.19
       ],
       "trend": [],
       "trend_only": false
@@ -250,11 +250,11 @@
     }
   ],
   "high_check": {
-    "n_days": 138,
+    "n_days": 139,
     "anchors": {
       "KAHN": {
-        "n": 138,
-        "all": 0.76,
+        "n": 139,
+        "all": 0.75,
         "n_calm_sunny": 42,
         "n_windy": 48,
         "calm_sunny": 1.33,
@@ -262,7 +262,7 @@
         "split_delta": 1.28
       },
       "KWDR": {
-        "n": 130,
+        "n": 131,
         "all": 3.22,
         "n_calm_sunny": 41,
         "n_windy": 44,
