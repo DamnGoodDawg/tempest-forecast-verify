@@ -851,6 +851,87 @@ def data_health(day_dirs, latest_device, cocorahs_ok, hub_online, latest_ds):
     }
 
 
+GRADES_OUT = os.path.join(BASE, "grades.json")
+
+
+def rain_call(pop, wet):
+    """One PoP vs one day's wet/dry truth, graded the way CSI counts it (PoP >= 50% = 'rain')."""
+    if pop is None or wet is None:
+        return None
+    said = pop >= 50
+    if said and wet:
+        return "hit"
+    if said:
+        return "false alarm"
+    return "miss" if wet else "correct dry"
+
+
+def grades_payload(records, actuals, wet, tempest_precip, cocorahs_cal, generated_at):
+    """grades.json (2026-11-16): the per-day rows UNDER the standings, so a reader (DD, via the
+    Mac's get_forecast_grades tool) can see every graded forecast, not just the averages.
+
+    Built from exactly the inputs build() scores — same records (Blend included), same actuals,
+    same wet map, same PoP >= 50% rule — so a mean of these rows reproduces the standings.
+    Only target dates with a temp actual or a wet/dry verdict appear; leads 1-3."""
+    by_date = defaultdict(lambda: defaultdict(dict))
+    for r in records:
+        by_date[r["date"]][r["source"]].setdefault(str(r["lead"]), {})[r["var"]] = r["value"]
+    days = []
+    for date in sorted(by_date):
+        hi_a, lo_a = actuals.get((date, "high")), actuals.get((date, "low"))
+        w = wet.get(date)
+        if hi_a is None and lo_a is None and w is None:
+            continue                                  # not graded yet (today / the future)
+        tp, cc = tempest_precip.get(date), cocorahs_cal.get(date)
+        wet_from = None if w is None else [
+            n for n, v in (("tempest_cloud", tp), ("cocorahs", cc)) if v is not None and v >= WET]
+        fc = {}
+        for src in SOURCES:
+            leads = by_date[date].get(src)
+            if not leads:
+                continue
+            out = {}
+            for L, v in sorted(leads.items()):
+                row = {k: (round(v[k], 1) if v.get(k) is not None else None) for k in ("high", "low", "pop")}
+                row["err_high"] = (round(v["high"] - hi_a, 1)
+                                   if v.get("high") is not None and hi_a is not None else None)
+                row["err_low"] = (round(v["low"] - lo_a, 1)
+                                  if v.get("low") is not None and lo_a is not None else None)
+                row["rain"] = rain_call(v.get("pop"), w)
+                out[L] = row
+            fc[src] = out
+        days.append({"date": date,
+                     "actual": {"high": hi_a, "low": lo_a, "wet": w, "wet_from": wet_from,
+                                "rain_in_tempest_cloud": tp, "rain_in_cocorahs": cc,
+                                "rain_in_scored": actuals.get((date, "precip_amt"))},
+                     "forecasts": fc})
+    return {
+        "generated_at": generated_at,
+        "how": {
+            "lead": "1 = issued the day before the target day (capture date + 1); 2 and 3 likewise. "
+                    "Same-day (lead 0) forecasts are never graded.",
+            "temps": "err_high / err_low = forecast minus the station's measured high/low for the "
+                     "target day (°F; the cloud's per-minute copy of the backyard Tempest). "
+                     "Standings MAE = mean of |err| over high AND low.",
+            "rain": "rain = 'hit' | 'miss' | 'false alarm' | 'correct dry': PoP >= 50% counts as calling "
+                    "rain; the day is wet when the Tempest cloud day total (the app's NC Rain) OR the "
+                    "CoCoRaHS GA-OC-20 gauge (~2.6 mi away, report shifted back a day) reached 0.01\". "
+                    "CSI = hits / (hits + misses + false alarms).",
+            "sources": "PUBLIC: NBM, NWS, ECMWF, GFS. HOUSE: Dawg (the 05:35 AI call; fallback-blend days "
+                       "are not scored as Dawg) and Blend (the deterministic rule, back-filled). "
+                       "Tempest = the subject.",
+        },
+        "days": days,
+    }
+
+
+def write_grades(payload):
+    """String-first like scores.json, so a bad value can never truncate a good file."""
+    text = json.dumps(payload, separators=(",", ":"), allow_nan=False)
+    with open(GRADES_OUT, "w") as f:
+        f.write(text)
+
+
 def empty_scores(note=""):
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -980,6 +1061,12 @@ def main():
     payload = json.dumps(scores, indent=2, allow_nan=False)
     with open(OUT, "w") as f:
         f.write(payload)
+    # The per-day rows under the standings. Its own try: grades.json must never cost us scores.json.
+    try:
+        write_grades(grades_payload(records, actuals, wet, tempest_precip, cocorahs_cal,
+                                    scores["generated_at"]))
+    except Exception as e:                                   # noqa: BLE001
+        print(f"extract.py: grades.json not written: {e}", file=sys.stderr)
     print(f"[ok] scores.json  status={verdict['status']}  n_days={n_days}  "
           f"records={len(records)}  actuals={len(actuals)}  days={len(day_dirs)}")
 

@@ -532,5 +532,45 @@ class TestDieboldMariano(unittest.TestCase):
         self.assertEqual(verify.diebold_mariano([1, 2, 3], [1, 1, 1], h=1)["n"], 3)
 
 
+
+class TestGradesFile(unittest.TestCase):
+    """grades.json (2026-11-16): the per-day rows under the standings must add back up to them."""
+
+    def _fixture(self):
+        recs = []
+        for date, src, hi, lo, pop in [
+                ("2026-11-01", "NWS", 70, 50, 60), ("2026-11-01", "Tempest", 68, 52, 20),
+                ("2026-11-02", "NWS", 72, 49, 10), ("2026-11-02", "Tempest", 75, 47, 70),
+                ("2026-11-03", "NWS", 60, 40, 80)]:          # 11-03 has no actuals yet
+            for var, v in (("high", hi), ("low", lo), ("pop", pop)):
+                recs.append({"date": date, "lead": 1, "source": src, "var": var, "value": float(v)})
+        acts = {("2026-11-01", "high"): 71.0, ("2026-11-01", "low"): 49.0,
+                ("2026-11-02", "high"): 73.5, ("2026-11-02", "low"): 48.0}
+        wet = {"2026-11-01": True, "2026-11-02": False}
+        return recs, acts, wet
+
+    def test_rows_reproduce_the_standings(self):
+        recs, acts, wet = self._fixture()
+        g = extract.grades_payload(recs, acts, wet, {"2026-11-01": 0.2}, {}, "t")
+        self.assertEqual([d["date"] for d in g["days"]], ["2026-11-01", "2026-11-02"])
+        rows = extract.standings_for(recs, acts, wet, 1)
+        for row in rows:
+            errs = [abs(d["forecasts"][row["source"]]["1"][k]) for d in g["days"]
+                    for k in ("err_high", "err_low")]
+            self.assertAlmostEqual(sum(errs) / len(errs), row["mae"], places=2)
+
+    def test_rain_calls_and_signs(self):
+        recs, acts, wet = self._fixture()
+        g = extract.grades_payload(recs, acts, wet, {"2026-11-01": 0.2}, {}, "t")
+        d1, d2 = g["days"]
+        self.assertEqual(d1["forecasts"]["NWS"]["1"]["rain"], "hit")
+        self.assertEqual(d1["forecasts"]["Tempest"]["1"]["rain"], "miss")
+        self.assertEqual(d2["forecasts"]["Tempest"]["1"]["rain"], "false alarm")
+        self.assertEqual(d2["forecasts"]["NWS"]["1"]["rain"], "correct dry")
+        self.assertEqual(d1["forecasts"]["NWS"]["1"]["err_high"], -1.0)   # forecast minus actual
+        self.assertEqual(d1["actual"]["wet_from"], ["tempest_cloud"])
+        json.dumps(g, allow_nan=False)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
