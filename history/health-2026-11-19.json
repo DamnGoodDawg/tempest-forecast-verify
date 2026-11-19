@@ -1,0 +1,289 @@
+{
+  "generated_at": "2026-11-19T19:31:03Z",
+  "last_check": "2026-11-19T19:31:03Z",
+  "next_check": "2026-11-20T19:31:03Z",
+  "overall": "OK",
+  "summary": "All variables within their normal range vs the verified anchors.",
+  "days_monitored": 172,
+  "active_watches": 0,
+  "confirmed_faults": 0,
+  "last_email": null,
+  "location": "Statham, GA",
+  "current_obs": {
+    "as_of": "2026-11-19T19:30:21Z",
+    "stations": {
+      "Tempest": {
+        "temp": 69.8,
+        "rh": 46,
+        "wind": 2.9,
+        "pressure": 1028.1,
+        "as_of": "2026-11-19T19:30:21Z"
+      },
+      "KWDR": {
+        "as_of": "2026-11-19T19:15:00Z",
+        "temp": 68.0,
+        "rh": 43,
+        "pressure": 1029.2
+      },
+      "KAHN": {
+        "as_of": "2026-11-19T18:51:00Z",
+        "temp": 69.1,
+        "rh": 45,
+        "wind": 11.5,
+        "pressure": 1028.9
+      }
+    }
+  },
+  "anchors": [
+    {
+      "id": "KWDR",
+      "name": "Barrow Co. Airport",
+      "type": "AWOS-3",
+      "place": "Winder",
+      "dir": "W",
+      "miles": 6,
+      "elev_ft": 919,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "pressure"
+      ]
+    },
+    {
+      "id": "KAHN",
+      "name": "Athens-Ben Epps",
+      "type": "ASOS",
+      "place": "Athens",
+      "dir": "E",
+      "miles": 12,
+      "elev_ft": 791,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "wind",
+        "pressure"
+      ]
+    },
+    {
+      "id": "WATUGA",
+      "name": "UGA Watkinsville",
+      "type": "UGA AEMN",
+      "place": "Watkinsville",
+      "dir": "SE",
+      "miles": 12,
+      "elev_ft": 760,
+      "reporting": true,
+      "variables": [
+        "temp",
+        "rh",
+        "wind"
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "var": "temp",
+      "label": "Temperature",
+      "unit": "\u00b0F",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": 47.0,
+      "offsets_7d": {
+        "KWDR": 1.32,
+        "KAHN": -0.81,
+        "WATUGA": -4.96
+      },
+      "band": [
+        -7.48,
+        6.99
+      ],
+      "trend": [
+        {
+          "week": "2026-08-24",
+          "KWDR": 1.17,
+          "KAHN": 0.38,
+          "WATUGA": -1.95
+        },
+        {
+          "week": "2026-08-31",
+          "KWDR": 0.68,
+          "KAHN": -0.95,
+          "WATUGA": -0.7
+        },
+        {
+          "week": "2026-09-07",
+          "KWDR": 0.48,
+          "KAHN": -0.43,
+          "WATUGA": -4.04
+        },
+        {
+          "week": "2026-09-14",
+          "KWDR": 0.37,
+          "KAHN": -0.77,
+          "WATUGA": -2.19
+        },
+        {
+          "week": "2026-09-21",
+          "KWDR": 0.63,
+          "KAHN": -0.6,
+          "WATUGA": -7.14
+        },
+        {
+          "week": "2026-09-28",
+          "KWDR": 1.19,
+          "KAHN": -0.65,
+          "WATUGA": 0.94
+        },
+        {
+          "week": "2026-10-05",
+          "KWDR": 1.34,
+          "KAHN": -0.4,
+          "WATUGA": -5.49
+        },
+        {
+          "week": "2026-10-12",
+          "KWDR": -0.14,
+          "KAHN": -0.45,
+          "WATUGA": -3.0
+        },
+        {
+          "week": "2026-10-19",
+          "KWDR": 1.81,
+          "KAHN": 0.47,
+          "WATUGA": -3.66
+        },
+        {
+          "week": "2026-10-26",
+          "KWDR": 1.51,
+          "KAHN": -0.93,
+          "WATUGA": -0.64
+        },
+        {
+          "week": "2026-11-02",
+          "KWDR": 1.24,
+          "KAHN": -0.07,
+          "WATUGA": -1.56
+        },
+        {
+          "week": "2026-11-09",
+          "KWDR": -0.04,
+          "KAHN": -1.15,
+          "WATUGA": -8.52
+        },
+        {
+          "week": "2026-11-16",
+          "KWDR": 2.04,
+          "KAHN": -0.79,
+          "WATUGA": 2.96
+        }
+      ],
+      "trend_only": false
+    },
+    {
+      "var": "rh",
+      "label": "Humidity",
+      "unit": "pts",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": 67.4,
+      "offsets_7d": {
+        "KWDR": 0.72,
+        "KAHN": 8.12,
+        "WATUGA": 5.77
+      },
+      "band": [
+        -7.95,
+        20.51
+      ],
+      "trend": [],
+      "trend_only": false
+    },
+    {
+      "var": "wind",
+      "label": "Wind",
+      "unit": "mph",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": 2.0,
+      "offsets_7d": {
+        "KAHN": -4.37,
+        "WATUGA": -3.55
+      },
+      "band": [
+        -7.01,
+        0.98
+      ],
+      "trend": [],
+      "trend_only": true
+    },
+    {
+      "var": "pressure",
+      "label": "Pressure",
+      "unit": "mb",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": 1021.0,
+      "offsets_7d": {
+        "KWDR": -2.4,
+        "KAHN": -1.55
+      },
+      "band": [
+        -3.88,
+        -1.95
+      ],
+      "trend": [],
+      "trend_only": false
+    },
+    {
+      "var": "rain",
+      "label": "Rain",
+      "unit": "in",
+      "state": "OK",
+      "days_in_state": 0,
+      "current": null,
+      "offsets_7d": {},
+      "band": null,
+      "cross_check": "CoCoRaHS GA-OC-20",
+      "trend": []
+    }
+  ],
+  "high_check": {
+    "n_days": 156,
+    "anchors": {
+      "KAHN": {
+        "n": 156,
+        "all": 0.85,
+        "n_calm_sunny": 46,
+        "n_windy": 54,
+        "calm_sunny": 1.36,
+        "windy": 0.13,
+        "split_delta": 1.23
+      },
+      "KWDR": {
+        "n": 148,
+        "all": 3.25,
+        "n_calm_sunny": 45,
+        "n_windy": 50,
+        "calm_sunny": 3.83,
+        "windy": 2.48,
+        "split_delta": 1.35
+      }
+    },
+    "split_delta": 1.29,
+    "suspect": true,
+    "note": "Calm-sunny highs read +1.3\u00b0F further above the aspirated airport highs than windy days do \u2014 a pattern consistent with radiation-shield over-read on hot, still afternoons. Annotate-only: no days are excluded, no scores are changed.",
+    "thresholds": {
+      "calm_at_or_below_mph": 1.41,
+      "windy_at_or_above_mph": 1.71,
+      "calm_pct": 33,
+      "windy_pct": 67,
+      "sunny_wm2": 700.0,
+      "min_days": 5,
+      "note_split_f": 1.0
+    }
+  },
+  "flags": [],
+  "scoreboard_annotations": []
+}

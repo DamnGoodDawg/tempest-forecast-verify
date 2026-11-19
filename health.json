@@ -1,36 +1,36 @@
 {
-  "generated_at": "2026-11-18T19:26:33Z",
-  "last_check": "2026-11-18T19:26:33Z",
-  "next_check": "2026-11-19T19:26:33Z",
+  "generated_at": "2026-11-19T19:31:03Z",
+  "last_check": "2026-11-19T19:31:03Z",
+  "next_check": "2026-11-20T19:31:03Z",
   "overall": "OK",
   "summary": "All variables within their normal range vs the verified anchors.",
-  "days_monitored": 171,
+  "days_monitored": 172,
   "active_watches": 0,
   "confirmed_faults": 0,
   "last_email": null,
   "location": "Statham, GA",
   "current_obs": {
-    "as_of": "2026-11-18T19:25:42Z",
+    "as_of": "2026-11-19T19:30:21Z",
     "stations": {
       "Tempest": {
-        "temp": 68.7,
-        "rh": 37,
-        "wind": 2.5,
-        "pressure": 1030.1,
-        "as_of": "2026-11-18T19:25:42Z"
+        "temp": 69.8,
+        "rh": 46,
+        "wind": 2.9,
+        "pressure": 1028.1,
+        "as_of": "2026-11-19T19:30:21Z"
       },
       "KWDR": {
-        "as_of": "2026-11-18T19:15:00Z",
-        "temp": 64.4,
-        "rh": 37,
-        "pressure": 1030.9
+        "as_of": "2026-11-19T19:15:00Z",
+        "temp": 68.0,
+        "rh": 43,
+        "pressure": 1029.2
       },
       "KAHN": {
-        "as_of": "2026-11-18T18:51:00Z",
-        "temp": 66.0,
-        "rh": 30,
-        "wind": 10.4,
-        "pressure": 1030.2
+        "as_of": "2026-11-19T18:51:00Z",
+        "temp": 69.1,
+        "rh": 45,
+        "wind": 11.5,
+        "pressure": 1028.9
       }
     }
   },
@@ -89,22 +89,22 @@
       "unit": "\u00b0F",
       "state": "OK",
       "days_in_state": 0,
-      "current": 47.8,
+      "current": 47.0,
       "offsets_7d": {
-        "KWDR": 0.82,
-        "KAHN": -0.9,
-        "WATUGA": -6.5
+        "KWDR": 1.32,
+        "KAHN": -0.81,
+        "WATUGA": -4.96
       },
       "band": [
-        -8.35,
-        8.19
+        -7.48,
+        6.99
       ],
       "trend": [
         {
           "week": "2026-08-24",
           "KWDR": 1.17,
-          "KAHN": -0.07,
-          "WATUGA": -2.52
+          "KAHN": 0.38,
+          "WATUGA": -1.95
         },
         {
           "week": "2026-08-31",
@@ -174,9 +174,9 @@
         },
         {
           "week": "2026-11-16",
-          "KWDR": 2.23,
-          "KAHN": -0.68,
-          "WATUGA": 0.27
+          "KWDR": 2.04,
+          "KAHN": -0.79,
+          "WATUGA": 2.96
         }
       ],
       "trend_only": false
@@ -187,15 +187,15 @@
       "unit": "pts",
       "state": "OK",
       "days_in_state": 0,
-      "current": 68.6,
+      "current": 67.4,
       "offsets_7d": {
-        "KWDR": 1.92,
-        "KAHN": 8.13,
-        "WATUGA": 6.06
+        "KWDR": 0.72,
+        "KAHN": 8.12,
+        "WATUGA": 5.77
       },
       "band": [
-        -8.41,
-        20.08
+        -7.95,
+        20.51
       ],
       "trend": [],
       "trend_only": false
@@ -208,12 +208,12 @@
       "days_in_state": 0,
       "current": 2.0,
       "offsets_7d": {
-        "KAHN": -3.55,
-        "WATUGA": -3.63
+        "KAHN": -4.37,
+        "WATUGA": -3.55
       },
       "band": [
-        -7.4,
-        0.73
+        -7.01,
+        0.98
       ],
       "trend": [],
       "trend_only": true
@@ -224,14 +224,14 @@
       "unit": "mb",
       "state": "OK",
       "days_in_state": 0,
-      "current": 1018.6,
+      "current": 1021.0,
       "offsets_7d": {
-        "KWDR": -2.43,
+        "KWDR": -2.4,
         "KAHN": -1.55
       },
       "band": [
-        -3.92,
-        -1.96
+        -3.88,
+        -1.95
       ],
       "trend": [],
       "trend_only": false
@@ -250,28 +250,28 @@
     }
   ],
   "high_check": {
-    "n_days": 155,
+    "n_days": 156,
     "anchors": {
       "KAHN": {
-        "n": 155,
-        "all": 0.84,
-        "n_calm_sunny": 45,
-        "n_windy": 53,
-        "calm_sunny": 1.33,
+        "n": 156,
+        "all": 0.85,
+        "n_calm_sunny": 46,
+        "n_windy": 54,
+        "calm_sunny": 1.36,
         "windy": 0.13,
-        "split_delta": 1.2
+        "split_delta": 1.23
       },
       "KWDR": {
-        "n": 147,
-        "all": 3.24,
-        "n_calm_sunny": 44,
-        "n_windy": 49,
-        "calm_sunny": 3.8,
-        "windy": 2.46,
-        "split_delta": 1.34
+        "n": 148,
+        "all": 3.25,
+        "n_calm_sunny": 45,
+        "n_windy": 50,
+        "calm_sunny": 3.83,
+        "windy": 2.48,
+        "split_delta": 1.35
       }
     },
-    "split_delta": 1.27,
+    "split_delta": 1.29,
     "suspect": true,
     "note": "Calm-sunny highs read +1.3\u00b0F further above the aspirated airport highs than windy days do \u2014 a pattern consistent with radiation-shield over-read on hot, still afternoons. Annotate-only: no days are excluded, no scores are changed.",
     "thresholds": {

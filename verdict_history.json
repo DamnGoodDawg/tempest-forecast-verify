@@ -925,5 +925,14 @@
     "best_mae": 2.09,
     "dm_p": 0.0,
     "status": "TEMPEST BEHIND"
+  },
+  {
+    "date": "2026-11-19",
+    "window_n": 90,
+    "tempest_mae": 2.53,
+    "best_public": "NWS",
+    "best_mae": 2.1,
+    "dm_p": 0.0,
+    "status": "TEMPEST BEHIND"
   }
 ]
