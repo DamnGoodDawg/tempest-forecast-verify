@@ -46,6 +46,18 @@ https://gist.githubusercontent.com/DamnGoodDawg/2a878ade5ebb53b82ebc7e6aecba97c1
 - `blend` is the Mac's own live blend, carried for the record. **This repo does not score it** —
   the `Blend` row here is recomputed from the captured files (§3).
 
+### Refreshes through the day (2026-11-20)
+
+The Mac no longer leaves the file frozen at 05:35. `days` is the forecast as it stands now: Dawg
+re-issues it around noon and 5 PM, and between calls a day whose sources have moved well past
+his call shows the live blend, marked `changed`. The 05:35 call is carried, exactly as issued,
+in a `morning` block (`issued_at`, `issued_date`, `kind`, `model`, `summary`, `days`, `blend`);
+top-level `issued_at` / `issued_date` stay the morning call's.
+
+**`extract.parse_dawg` grades `morning` and nothing else** (kind gate and date gate applied to
+that block), so the Dawg row is the 05:35 call no matter what time the capture ran. A file
+without `morning` (anything before 2026-11-20) is graded on its top-level `days`, as before.
+
 ### How capture.py handles it
 
 `capture.py` step 8 is a **soft** step — it can never fail the daily run:

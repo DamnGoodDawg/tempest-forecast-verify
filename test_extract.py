@@ -103,6 +103,24 @@ class TestDawgSource(unittest.TestCase):
         self.assertEqual(extract.parse_dawg(self._file(kind="blend"), CAP), [])
         self.assertEqual(extract.parse_dawg(self._file(kind=None), CAP), [])
 
+    def test_only_the_morning_call_is_graded_once_the_file_refreshes(self):
+        # 2026-11-20: by the time a late capture runs, `days` may hold a 5 PM update or the live
+        # blend. The 05:35 call lives on under `morning`; that block, and only it, is scored.
+        f = self._file()
+        f["data"]["morning"] = {"kind": "dawg", "issued_date": CAP, "issued_at": f["data"]["issued_at"],
+                                "days": [dict(d) for d in f["data"]["days"]]}
+        f["data"]["days"][1].update(pop=95, high=70, changed={"pop": [75, 95]})    # refreshed later
+        f["data"]["call_origin"] = "update"
+        got = {(r["date"], r["var"]): r["value"] for r in extract.parse_dawg(f, CAP)}
+        self.assertEqual(got[("2026-06-05", "pop")], 75.0)
+        self.assertEqual(got[("2026-06-05", "high")], 85.0)
+        # the morning call failed (fallback blend) and a later update succeeded: still not scored
+        f["data"]["morning"]["kind"] = "blend"
+        self.assertEqual(extract.parse_dawg(f, CAP), [])
+        # a morning block from another day is refused like any stale file
+        f["data"]["morning"].update(kind="dawg", issued_date="2026-06-03")
+        self.assertEqual(extract.parse_dawg(f, CAP), [])
+
     def test_null_and_malformed_fields_tolerated(self):
         j = self._file(days=[
             {"date": "2026-06-05", "lead": 1, "pop": None, "high": 85, "low": None},

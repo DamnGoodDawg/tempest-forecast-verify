@@ -220,11 +220,17 @@ def parse_dawg(j, capture):
     (rec() drops the rest, so the file's leads 0 and 4-7 are captured but never scored)."""
     out = []
     data = (j or {}).get("data") or {}
-    if data.get("kind") != "dawg":
+    # 2026-11-20: the Mac now refreshes `days` through the day (a noon and a 5 PM re-issue, and
+    # the live blend in between) and keeps the 05:35 call exactly as issued under `morning`.
+    # ONLY the morning call is graded, whatever time this capture ran: a late capture must never
+    # score a forecast that had hours of extra information. Older files have no `morning` block
+    # and their top-level `days` IS the morning call.
+    graded = data.get("morning") if isinstance(data.get("morning"), dict) else data
+    if graded.get("kind") != "dawg":
         return out
-    if data.get("issued_date") != capture:
+    if data.get("issued_date") != capture or graded.get("issued_date", capture) != capture:
         return out
-    for e in data.get("days") or []:
+    for e in graded.get("days") or []:
         if not isinstance(e, dict):
             continue
         target = e.get("date")
